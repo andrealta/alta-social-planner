@@ -148,10 +148,32 @@ if (valores['NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY'] !== undefined) {
 }
 
 if (valores['SUPABASE_SERVICE_ROLE_KEY'] !== undefined) {
+  const v = valores['SUPABASE_SERVICE_ROLE_KEY']
+  const ehLegado = v.startsWith('eyJ')
+  const ehNova = v.startsWith('sb_secret_')
+  const ehPublica = v.startsWith('sb_publishable_')
+
   conferir('SUPABASE_SERVICE_ROLE_KEY', [
-    { ok: (v) => v.length > 30, diga: 'parece curta demais para ser a chave' },
-    { ok: (v) => !v.includes(' '), diga: 'tem espaco no meio, o que nao deveria' },
+    { ok: (x) => x.length > 30, diga: 'parece curta demais para ser a chave' },
+    { ok: (x) => !x.includes(' '), diga: 'tem espaco no meio, o que nao deveria' },
+    {
+      ok: () => !ehPublica,
+      diga: 'isto e a chave PUBLICA (sb_publishable_), nao a de servico. Pegue a service_role.',
+    },
+    {
+      ok: () => ehLegado || ehNova,
+      diga: 'nao parece nem a service_role antiga (comeca com eyJ) nem a nova (sb_secret_)',
+    },
   ])
+
+  if (ehLegado) {
+    console.log('         formato: service_role classica. E a que funciona melhor hoje.')
+  } else if (ehNova) {
+    console.log('         formato: chave secreta nova (sb_secret_).')
+    console.log('         ATENCAO: ha relatos de que esse formato ainda falha em')
+    console.log('         algumas operacoes. Se a tela de Pessoas der erro de')
+    console.log('         "apikey invalid", troque pela service_role classica.')
+  }
   console.log('         (so o servidor le esta. Nunca ponha NEXT_PUBLIC_ no nome.)')
 } else {
   console.log('')

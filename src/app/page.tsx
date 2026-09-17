@@ -4,9 +4,9 @@ const etapas = [
   { nome: 'Banco de dados', detalhe: '29 tabelas no Supabase, todas com isolamento por marca', feito: true },
   { nome: 'Login', detalhe: 'Contas reais com papéis e acesso por marca', feito: true },
   { nome: 'Base da marca', detalhe: 'As nove seções, lendo e gravando no banco', feito: true },
-  { nome: 'Geração', detalhe: 'Planejamento do mês pela API do Claude', feito: false },
-  { nome: 'Calendário e revisão', detalhe: 'O ciclo interno que o MVP validou', feito: false },
-  { nome: 'Portal do cliente', detalhe: 'Aprovação por pauta, com histórico', feito: false },
+  { nome: 'Geração', detalhe: 'Planejamento do mês pela API do Claude', feito: true },
+  { nome: 'Calendário e revisão', detalhe: 'Calendário, refino pela IA e criação de conteúdo', feito: true },
+  { nome: 'Portal do cliente', detalhe: 'Aprovação por pauta, com histórico', feito: true },
 ]
 
 function Marca() {

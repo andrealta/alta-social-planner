@@ -9,9 +9,23 @@
  * Não lê nem escreve nada. Pode apagar quando o sistema estabilizar.
  */
 
+import { clienteServidor } from '@/lib/supabase/server'
+
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
+  // Exige estar logado. A rota e inofensiva no conteudo, mas segura
+  // uma conexao por cinco segundos, e na Vercel tempo de execucao e
+  // dinheiro. Endereco publico que custa a cada chamada nao fica
+  // aberto sem motivo.
+  const supabase = await clienteServidor()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) {
+    return new Response('Entre no sistema para usar esta conferencia.', { status: 401 })
+  }
+
   const cod = new TextEncoder()
   const t0 = Date.now()
 
