@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import { clienteServidor } from '@/lib/supabase/server'
 import { mesTitulado } from '@/lib/prompt'
 import { Calendario } from './calendario'
-import type { ConteudoPauta, Decisao, Pauta, Recado, Versao } from './comum'
+import type { ConteudoPauta, Decisao, JuizoDaPauta, Pauta, Recado, Versao } from './comum'
 
 export default async function CalendarioDoMes({
   params,
@@ -41,7 +41,7 @@ export default async function CalendarioDoMes({
 
   const { data: plano } = await supabase
     .from('plans')
-    .select('id, status')
+    .select('id, status, analysis')
     .eq('brand_id', marca.id)
     .eq('year', ano)
     .eq('month', mes)
@@ -96,6 +96,52 @@ export default async function CalendarioDoMes({
       .eq('brand_id', marca.id)
       .order('created_at', { ascending: false }),
   ])
+
+  // ---------- a crítica, se o mês já foi avaliado ----------
+  // Cada item guarda a versão da pauta no momento da avaliação. Pauta
+  // editada depois disso tem a crítica marcada como vencida: crítica
+  // velha apresentada como atual é pior que nenhuma, porque a equipe
+  // passa a revisar o que já foi consertado.
+  const analisePlano = (plano.analysis ?? {}) as {
+    critica?: {
+      veredito_do_mes?: string
+      gerada_em?: string
+      itens?: {
+        id: string
+        nota: number
+        veredito: 'boa' | 'revisar' | 'fraca'
+        porque: string
+        arrume: string
+        versao?: number
+      }[]
+    }
+  }
+
+  const versaoAtualDe = new Map<string, number>(
+    (pautasBrutas ?? []).map((p): [string, number] => [
+      p.id as string,
+      Number(p.current_version ?? 1),
+    ]),
+  )
+
+  const itensCritica: Record<string, JuizoDaPauta> = {}
+  for (const i of analisePlano.critica?.itens ?? []) {
+    itensCritica[i.id] = {
+      nota: Number(i.nota),
+      veredito: i.veredito,
+      porque: i.porque ?? '',
+      arrume: i.arrume ?? '',
+      vencida: Number(i.versao ?? 1) !== (versaoAtualDe.get(i.id) ?? 1),
+    }
+  }
+
+  const critica = analisePlano.critica
+    ? {
+        veredito: analisePlano.critica.veredito_do_mes ?? '',
+        quando: analisePlano.critica.gerada_em ?? null,
+        itens: itensCritica,
+      }
+    : null
 
   const nomeDaLinha = new Map<string, string>(
     (linhas ?? []).map((l): [string, string] => [l.id as string, l.label as string]),
@@ -282,6 +328,7 @@ export default async function CalendarioDoMes({
         mes={mes}
         pautas={pautas}
         nivel={nivel}
+        critica={critica}
       />
     </main>
   )

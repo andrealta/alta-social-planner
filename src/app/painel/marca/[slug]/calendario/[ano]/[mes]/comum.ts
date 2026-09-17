@@ -56,6 +56,27 @@ export type Pauta = {
   decisoes: Decisao[]
 }
 
+/**
+ * O juízo do crítico sobre uma pauta.
+ *
+ * `vencida` quer dizer que a pauta mudou depois da avaliação. A tela
+ * mostra o juízo de qualquer forma, mas avisando — é informação de
+ * ontem, e quem lê precisa saber disso.
+ */
+export type JuizoDaPauta = {
+  nota: number
+  veredito: 'boa' | 'revisar' | 'fraca'
+  porque: string
+  arrume: string
+  vencida: boolean
+}
+
+export type Critica = {
+  veredito: string
+  quando: string | null
+  itens: Record<string, JuizoDaPauta>
+}
+
 export type Decisao = {
   id: string
   decisao: string

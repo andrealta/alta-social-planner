@@ -21,6 +21,7 @@ import {
   tipoDaPeca,
   type ConteudoPauta,
   type Editaveis,
+  type JuizoDaPauta,
   type Pauta,
 } from './comum'
 
@@ -32,6 +33,7 @@ export function Painel({
   mes,
   pauta,
   podeEditar,
+  juizo,
   aoFechar,
   aoTrocarEstado,
   aoSalvar,
@@ -43,6 +45,8 @@ export function Painel({
   pauta: Pauta
   /** Falso para quem só lê: os campos ficam travados e a IA some. */
   podeEditar: boolean
+  /** O que o crítico achou desta pauta, se o mês já foi avaliado. */
+  juizo: JuizoDaPauta | null
   aoFechar: () => void
   aoTrocarEstado: (para: string) => void
   aoSalvar: (campos: Editaveis, versao: number) => void
@@ -265,6 +269,63 @@ export function Painel({
 
         {aba === 'ideia' && (
           <>
+            {juizo && juizo.veredito !== 'boa' && (
+              <section
+                style={{
+                  marginBottom: 14,
+                  padding: '13px 16px',
+                  borderRadius: 'var(--r)',
+                  background:
+                    juizo.veredito === 'fraca' ? 'var(--laranja-wash)' : 'var(--amarelo-wash)',
+                  fontSize: 13.3,
+                  lineHeight: 1.6,
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    flexWrap: 'wrap',
+                    marginBottom: 5,
+                  }}
+                >
+                  <b>
+                    A IA avaliou esta pauta: {juizo.veredito === 'fraca' ? 'fraca' : 'dá para melhorar'}{' '}
+                    ({juizo.nota}/10)
+                  </b>
+                  {juizo.vencida && (
+                    <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+                      — avaliação feita numa versão anterior desta pauta
+                    </span>
+                  )}
+                </div>
+                {juizo.porque && <div>{juizo.porque}</div>}
+                {juizo.arrume && (
+                  <div style={{ marginTop: 6 }}>
+                    <b>O que fazer:</b> {juizo.arrume}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {juizo && juizo.veredito === 'boa' && (
+              <section
+                style={{
+                  marginBottom: 14,
+                  padding: '11px 15px',
+                  borderRadius: 'var(--r)',
+                  background: 'var(--surface-2)',
+                  fontSize: 12.8,
+                  color: 'var(--muted)',
+                  lineHeight: 1.6,
+                }}
+              >
+                A IA avaliou esta pauta como <b style={{ color: 'var(--text)' }}>boa</b> ({juizo.nota}/10)
+                {juizo.porque ? `: ${juizo.porque}` : '.'}
+              </section>
+            )}
+
             {pauta.decisoes.length > 0 && (
               <section
                 style={{

@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { moverPauta, mudarStatus, aprovarTodas, enviarAoCliente } from './acoes'
 import { Painel } from './painel'
 import {
@@ -16,9 +17,17 @@ import {
   semanasDoMes,
   tipoDaPeca,
   type ConteudoPauta,
+  type Critica,
   type Editaveis,
   type Pauta,
 } from './comum'
+
+/** A cor de cada veredito do crítico. Nunca sozinha: vem com a nota. */
+const JUIZO: Record<string, { rotulo: string; cor: string; wash: string }> = {
+  fraca: { rotulo: 'fraca', cor: 'var(--laranja)', wash: 'var(--laranja-wash)' },
+  revisar: { rotulo: 'revisar', cor: 'var(--st-avaliacao)', wash: 'var(--amarelo-wash)' },
+  boa: { rotulo: 'boa', cor: 'var(--st-aprovado)', wash: 'var(--st-aprovado-wash)' },
+}
 
 export function Calendario({
   slug,
@@ -27,6 +36,7 @@ export function Calendario({
   mes,
   pautas: iniciais,
   nivel,
+  critica,
 }: {
   slug: string
   planoId: string
@@ -35,6 +45,8 @@ export function Calendario({
   pautas: Pauta[]
   /** 'owner' responde pela marca · 'editor' escreve · 'viewer' só lê. */
   nivel: string
+  /** O juízo da IA sobre o mês, quando alguém já pediu a avaliação. */
+  critica: Critica | null
 }) {
   // Esconder botão não é segurança: quem tem a sessão aberta consegue
   // montar a requisição na mão. A trava de verdade está no banco. Isto
@@ -48,6 +60,9 @@ export function Calendario({
   const [alvo, setAlvo] = useState<string | null>(null)
   const [aviso, setAviso] = useState<{ tipo: 'ok' | 'erro'; texto: string } | null>(null)
   const [pendente, comecar] = useTransition()
+  const [avaliando, setAvaliando] = useState(false)
+  const [segundosIA, setSegundosIA] = useState(0)
+  const router = useRouter()
 
   const porDia = useMemo(() => {
     const m = new Map<string, Pauta[]>()
@@ -163,6 +178,35 @@ export function Calendario({
     })
   }
 
+  async function avaliar() {
+    if (avaliando) return
+    setAvaliando(true)
+    setAviso(null)
+    setSegundosIA(0)
+    const t = setInterval(() => setSegundosIA((x) => x + 1), 1000)
+    try {
+      const r = await fetch('/api/critica', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ planoId }),
+      })
+      const corpo = await r.json()
+      if (!r.ok || corpo.erro) {
+        setAviso({ tipo: 'erro', texto: corpo.erro ?? 'Não consegui avaliar o mês.' })
+        return
+      }
+      // A crítica é gravada no servidor; recarregar é o que a traz para
+      // a tela sem eu ter que recriar o estado inteiro aqui.
+      router.refresh()
+      setAviso({ tipo: 'ok', texto: 'Mês avaliado. As pautas fracas estão marcadas no calendário.' })
+    } catch {
+      setAviso({ tipo: 'erro', texto: 'A conexão caiu durante a avaliação. Tente de novo.' })
+    } finally {
+      clearInterval(t)
+      setAvaliando(false)
+    }
+  }
+
   const emAvaliacao = (contagem['ai_generated'] ?? 0) + (contagem['internal_review'] ?? 0)
   const aprovadas =
     (contagem['internally_approved'] ?? 0) +
@@ -230,6 +274,20 @@ export function Calendario({
         {/* Uma ação forte por área. Aprovar em massa é frequente mas
             reversível; enviar ao cliente é a que sai da agência — essa
             leva o azul. */}
+        {podeEditar && (
+          <button
+            onClick={avaliar}
+            disabled={avaliando || pendente}
+            title="Um segundo passe de IA lê o mês contra a base da marca e aponta o que está genérico."
+            style={botao(false, avaliando || pendente)}
+          >
+            {avaliando
+              ? `Avaliando… ${segundosIA}s`
+              : critica
+                ? 'Avaliar de novo'
+                : 'Avaliar o mês (IA)'}
+          </button>
+        )}
         {emAvaliacao > 0 && podeEditar && (
           <button onClick={aprovarPendentes} disabled={pendente} style={botao(false, pendente)}>
             Aprovar as {emAvaliacao} pendentes
@@ -273,6 +331,63 @@ export function Calendario({
         >
           <b>{prontasParaEnviar} pauta(s) prontas para o cliente.</b> Quem envia é a pessoa
           responsável pela marca — avise que este mês está pronto.
+        </div>
+      )}
+
+      {critica && critica.veredito && (
+        <div
+          style={{
+            marginBottom: 14,
+            padding: '15px 18px',
+            borderRadius: 'var(--r)',
+            background: 'var(--surface-2)',
+            fontSize: 13.5,
+            lineHeight: 1.65,
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              flexWrap: 'wrap',
+              marginBottom: 6,
+            }}
+          >
+            <b>O que a IA achou deste mês</b>
+            {(() => {
+              const fracas = Object.values(critica.itens).filter((i) => i.veredito === 'fraca').length
+              const revisar = Object.values(critica.itens).filter((i) => i.veredito === 'revisar').length
+              return (
+                <>
+                  {fracas > 0 && (
+                    <span style={pilula(JUIZO.fraca.wash, true)}>
+                      <i aria-hidden style={ponto(JUIZO.fraca.cor)} />
+                      {fracas} fraca(s)
+                    </span>
+                  )}
+                  {revisar > 0 && (
+                    <span style={pilula(JUIZO.revisar.wash, true)}>
+                      <i aria-hidden style={ponto(JUIZO.revisar.cor)} />
+                      {revisar} para revisar
+                    </span>
+                  )}
+                </>
+              )
+            })()}
+            {critica.quando && (
+              <span style={{ fontSize: 11.5, color: 'var(--faint)', marginLeft: 'auto' }}>
+                avaliado em{' '}
+                {new Date(critica.quando).toLocaleString('pt-BR', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </span>
+            )}
+          </div>
+          <div style={{ color: 'var(--muted)' }}>{critica.veredito}</div>
         </div>
       )}
 
@@ -513,9 +628,25 @@ export function Calendario({
                       </div>
                     )}
 
-                    <div style={{ ...pilula(e.wash, true), marginTop: 6 }}>
-                      <i aria-hidden style={ponto(e.cor)} />
-                      {e.curto}
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
+                      <div style={pilula(e.wash, true)}>
+                        <i aria-hidden style={ponto(e.cor)} />
+                        {e.curto}
+                      </div>
+                      {(() => {
+                        const j = critica?.itens[p.id]
+                        if (!j || j.veredito === 'boa') return null
+                        const cor = JUIZO[j.veredito]
+                        return (
+                          <div
+                            style={{ ...pilula(cor.wash, true), opacity: j.vencida ? 0.5 : 1 }}
+                            title={`${j.porque}${j.arrume ? ' → ' + j.arrume : ''}`}
+                          >
+                            <i aria-hidden style={ponto(cor.cor)} />
+                            {cor.rotulo} {j.nota}
+                          </div>
+                        )
+                      })()}
                     </div>
                   </div>
                 )
@@ -603,6 +734,7 @@ export function Calendario({
           mes={mes}
           pauta={pautaAberta}
           podeEditar={podeEditar}
+          juizo={critica?.itens[pautaAberta.id] ?? null}
           aoFechar={() => setAberta(null)}
           aoTrocarEstado={(para) => trocarEstado(pautaAberta, para)}
           aoSalvar={(campos: Editaveis, versao: number) =>

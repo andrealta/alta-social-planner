@@ -673,3 +673,188 @@ export function conferirConteudo(c: Conteudo, base: Entrada['base'], video: bool
 
   return achados
 }
+
+// =============================================================
+// O CRÍTICO
+//
+// A conferência que já existe (`conferir`) é de regra: cota por linha,
+// dia dentro do mês, tema repetido, expressão proibida. Ela pega o que
+// é conferível em código — e não pega o problema mais comum de todos,
+// que é a pauta correta e genérica. "Mostre o produto no café da
+// manhã" passa em todas as regras e podia ser de qualquer marca de
+// alimentos do Brasil.
+//
+// Isso não se confere com regex. Precisa de leitura. Então é um segundo
+// passe de IA, que lê o mês inteiro contra a base da marca e responde
+// uma pergunta por pauta: esta peça só funciona para ESTA marca, ou
+// funcionaria para qualquer concorrente dela?
+//
+// O crítico não reescreve nada. Diz o que está fraco e o que fazer —
+// reescrever é trabalho do refino, a pedido de gente.
+// =============================================================
+
+export const SISTEMA_CRITICA =
+  'Você é o revisor crítico da Alta Comunicazione, agência de publicidade de Ribeirão ' +
+  'Preto/SP. Você avalia o planejamento de conteúdo que outro agente escreveu, contra a ' +
+  'base de conhecimento da marca. Você é específico e direto: cita o texto ao criticar e ' +
+  'nunca elogia por educação. Escreve em português do Brasil. Responde somente com o ' +
+  'JSON pedido, sem comentário antes ou depois.'
+
+export type ItemCritica = {
+  id: string
+  nota: number
+  veredito: 'boa' | 'revisar' | 'fraca'
+  porque: string
+  arrume: string
+}
+
+export type Critica = {
+  veredito_do_mes: string
+  pautas: ItemCritica[]
+}
+
+export type PautaParaCritica = {
+  id: string
+  dia: number | null
+  linha: string | null
+  formato: string | null
+  pilar: string | null
+  tema: string | null
+  titulo: string
+  conceito: string | null
+  descricao: string | null
+  cta: string | null
+}
+
+export function montarPromptCritica(e: {
+  marca: Entrada['marca']
+  base: Entrada['base']
+  estilo?: string
+  mes: number
+  ano: number
+  leitura?: string | null
+  territorios?: { nome: string; peso: number }[]
+  escopo: Linha[]
+  pautas: PautaParaCritica[]
+}): string {
+  const lista = e.pautas
+    .map(
+      (p) =>
+        `--- id: ${p.id}\n` +
+        `Dia ${p.dia ?? '—'} · ${p.linha ?? 'sem linha'} · ${p.formato ?? 'sem formato'}\n` +
+        `Pilar: ${p.pilar ?? '—'} · Tema: ${p.tema ?? '—'}\n` +
+        `Título: ${p.titulo}\n` +
+        `Conceito: ${p.conceito ?? '—'}\n` +
+        `Descrição: ${p.descricao ?? '—'}\n` +
+        `CTA: ${p.cta ?? '—'}`,
+    )
+    .join('\n\n')
+
+  return `Avalie o planejamento de ${MESES[e.mes - 1]} de ${e.ano} da marca abaixo, pauta por pauta.
+
+${contextoDaMarca(e.marca, e.base)}${e.estilo ? '\n\n' + e.estilo : ''}
+
+# ESCOPO CONTRATADO
+${e.escopo.map((l) => `${l.label}: ${l.quota} peça(s)/mês`).join('\n')}
+
+# LEITURA DO MÊS, FEITA POR QUEM PLANEJOU
+${e.leitura ?? '—'}
+Territórios: ${(e.territorios ?? []).map((t) => `${t.nome} (${t.peso}%)`).join(', ') || '—'}
+
+# AS PAUTAS
+${lista}
+
+# COMO AVALIAR
+
+A pergunta central, em cada pauta: isto só funciona para ESTA marca, ou funcionaria
+igual para qualquer concorrente dela? Pauta que serve para qualquer um é pauta fraca,
+mesmo escrita sem erro.
+
+Dê nota FRACA (0 a 4) quando:
+— a pauta poderia ser de qualquer marca do mesmo segmento, sem trocar uma palavra;
+— o conceito é uma categoria, não uma ideia ("falar sobre qualidade", "mostrar o produto");
+— promete recurso que a base declara indisponível, ou contraria uma obrigatoriedade;
+— repete, com outras palavras, uma pauta do mesmo mês.
+
+Dê REVISAR (5 a 7) quando a ideia existe mas está morna: o título não segura, o conceito
+depende de uma execução que a descrição não explica, ou o CTA é genérico.
+
+Dê BOA (8 a 10) quando a pauta se apoia em algo que só esta marca tem — um produto, uma
+história, um jeito de falar — e a descrição explica o que aparece na peça.
+
+Ao criticar, CITE o trecho. "O título é genérico" não ajuda ninguém; "o título 'Sabor que
+conquista' serve para qualquer geleia do mercado" ajuda.
+
+Não reescreva a pauta. Diga o que está errado e o que fazer.
+"porque": no máximo duas frases. "arrume": uma frase, no imperativo.
+
+Use os ids exatamente como vieram, sem inventar nem omitir nenhum.
+
+Responda SOMENTE com JSON válido, nesta forma:
+
+{
+  "veredito_do_mes": "O que este mês tem de bom e o que tem de frouxo, em até 80 palavras.",
+  "pautas": [
+    {"id": "", "nota": 0, "veredito": "boa|revisar|fraca", "porque": "", "arrume": ""}
+  ]
+}`
+}
+
+/**
+ * Confere a crítica antes de gravar.
+ *
+ * O crítico é IA avaliando IA; se ele inventar id, trocar nota por
+ * texto ou esquecer metade das pautas, a tela mostra sinal errado — e
+ * sinal errado é pior que sinal nenhum, porque a equipe passa a
+ * confiar nele.
+ */
+export function conferirCritica(
+  c: Critica,
+  idsEsperados: string[],
+): { achados: Achado[]; itens: ItemCritica[] } {
+  const achados: Achado[] = []
+  const validos = new Set(idsEsperados)
+  const vistos = new Set<string>()
+  const itens: ItemCritica[] = []
+
+  for (const p of c.pautas ?? []) {
+    const id = String(p.id ?? '')
+    if (!validos.has(id)) {
+      achados.push({ gravidade: 'aviso', texto: `A crítica citou um id que não existe: ${id}.` })
+      continue
+    }
+    if (vistos.has(id)) continue
+    vistos.add(id)
+
+    const nota = Number(p.nota)
+    const notaOk = Number.isFinite(nota) && nota >= 0 && nota <= 10
+    const veredito =
+      p.veredito === 'boa' || p.veredito === 'revisar' || p.veredito === 'fraca'
+        ? p.veredito
+        : notaOk
+          ? nota >= 8
+            ? 'boa'
+            : nota >= 5
+              ? 'revisar'
+              : 'fraca'
+          : 'revisar'
+
+    itens.push({
+      id,
+      nota: notaOk ? Math.round(nota) : 5,
+      veredito,
+      porque: String(p.porque ?? '').trim(),
+      arrume: String(p.arrume ?? '').trim(),
+    })
+  }
+
+  const faltando = idsEsperados.filter((id) => !vistos.has(id))
+  if (faltando.length > 0) {
+    achados.push({
+      gravidade: 'aviso',
+      texto: `${faltando.length} pauta(s) ficaram sem avaliação.`,
+    })
+  }
+
+  return { achados, itens }
+}

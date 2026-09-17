@@ -88,6 +88,22 @@ export default async function Painel() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: 9, alignItems: 'center' }}>
+          <Link
+            href="/painel/qualidade"
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              padding: '8px 14px',
+              border: '1px solid var(--line-2)',
+              borderRadius: 8,
+              background: 'var(--surface)',
+              color: 'var(--text)',
+              textDecoration: 'none',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Qualidade
+          </Link>
           {papel === 'admin' && (
             <Link
               href="/painel/pessoas"
