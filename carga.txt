@@ -1,0 +1,30 @@
+============================================
+ Carga das marcas
+ 16/09/2026, 20:42:47
+============================================
+
+  Queensberry
+     9 secoes, 32 campos
+     escopo: Classic 7, Gourmet 4, Diet 2, Institucional 1  =  14/mes
+
+  Habiarte
+     9 secoes, 32 campos
+     escopo: Publicações 12  =  12/mes
+
+  Canto de Minas
+     9 secoes, 32 campos
+     escopo: Publicações 12  =  12/mes
+
+--------------------------------------------
+ Conferencia
+--------------------------------------------
+
+  Canto de Minas: 9 secoes, cota 12/mes, 1 membro(s)
+  Habiarte: 9 secoes, cota 12/mes, 1 membro(s)
+  Queensberry: 9 secoes, cota 14/mes, 1 membro(s)
+
+RESULTADO: as tres marcas estao completas.
+
+============================================
+ fim - tudo certo
+============================================

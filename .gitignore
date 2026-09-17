@@ -1,0 +1,22 @@
+node_modules/
+.next/
+out/
+build/
+*.log
+
+# Segredos: qualquer variante de .env fica fora do Git.
+# O padrao amplo cobre ate os nomes que o Windows cria por engano,
+# como ".env - local" ou ".env - Copia".
+.env*
+!.env.example
+
+.DS_Store
+diagnostico.txt
+instalacao.txt
+migracao.txt
+geracao.log
+ultimo-prompt.json
+repeticao.txt
+sonda-ia.txt
+seguranca.txt
+build.txt

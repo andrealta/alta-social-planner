@@ -1,0 +1,152 @@
+/* =========================================================
+   Alta Social Planner — sistema visual
+   Os mesmos tokens do MVP, para o sistema definitivo nascer
+   com a cara que a equipe já aprovou.
+   ========================================================= */
+
+:root {
+  --paper: #F6F7F8;
+  --surface: #FFFFFF;
+  --surface-2: #F4F5F7;
+  --surface-3: #EAECEF;
+  --line: #E4E6EA;
+  --line-2: #D2D6DD;
+  --text: #17181B;
+  --muted: #6C7280;
+  --faint: #9BA1AA;
+  --accent: #D8372A;
+  --accent-2: #A8271D;
+  --accent-wash: #FCEAE8;
+  --ok: #0E6E55;
+  --ok-wash: #E2F1EC;
+  --warn: #8A5D04;
+  --warn-wash: #FAEFD6;
+
+  --ui: 'Open Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --disp: 'Oswald', 'Open Sans', system-ui, sans-serif;
+  --mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
+
+
+  /* ---------------------------------------------------------
+     Cores das linhas de produto, no calendário.
+     Escolhidas com o validador de paleta, não a olho: os quatro
+     tons se separam para daltonismo e para visão normal, nos dois
+     modos, considerando TODOS os pares (no calendário, duas linhas
+     quaisquer podem cair lado a lado no mesmo dia).
+     Duas delas ficam abaixo de 3:1 no fundo claro — por isso o
+     nome da linha aparece escrito no cartão e na legenda. A cor
+     agrupa; quem identifica é a palavra.
+     --------------------------------------------------------- */
+  --linha-1: #2a78d6;
+  --linha-2: #eda100;
+  --linha-3: #e87ba4;
+  --linha-4: #008300;
+  --linha-outra: #6C7280;
+
+  /* Situação da pauta. Reservadas: nunca viram cor de linha, e
+     nunca aparecem sozinhas — sempre com símbolo e palavra. */
+  --st-aprovado: #0ca30c;
+  --st-avaliacao: #fab219;
+  --st-cliente: #ec835a;
+  --st-ajuste: #d03b3b;
+
+  --r: 10px;
+  --r-lg: 14px;
+  --shadow: 0 1px 2px rgba(23, 24, 27, .04), 0 1px 3px rgba(23, 24, 27, .04);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0E0F11;
+    --surface: #171A1D;
+    --surface-2: #1E2226;
+    --surface-3: #262B31;
+    --line: #292E34;
+    --line-2: #3B424A;
+    --text: #ECEEF1;
+    --muted: #98A0AA;
+    --faint: #6E767F;
+    --accent: #F2685A;
+    --accent-2: #FF9084;
+    --accent-wash: #331512;
+    --ok: #3FBF97;
+    --ok-wash: #0D2A22;
+    --warn: #DCA53C;
+    --warn-wash: #2B2210;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4);
+
+  /* Os mesmos quatro tons, redegraus para o fundo escuro. */
+  --linha-1: #3987e5;
+  --linha-2: #c98500;
+  --linha-3: #d55181;
+  --linha-4: #008300;
+  --linha-outra: #98A0AA;
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper: #0E0F11;
+  --surface: #171A1D;
+  --surface-2: #1E2226;
+  --surface-3: #262B31;
+  --line: #292E34;
+  --line-2: #3B424A;
+  --text: #ECEEF1;
+  --muted: #98A0AA;
+  --faint: #6E767F;
+  --accent: #F2685A;
+  --accent-2: #FF9084;
+  --accent-wash: #331512;
+  --ok: #3FBF97;
+  --ok-wash: #0D2A22;
+  --warn: #DCA53C;
+  --warn-wash: #2B2210;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4);
+
+  /* Os mesmos quatro tons, redegraus para o fundo escuro. */
+  --linha-1: #3987e5;
+  --linha-2: #c98500;
+  --linha-3: #d55181;
+  --linha-4: #008300;
+  --linha-outra: #98A0AA;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--paper);
+  color: var(--text);
+  font-family: var(--ui);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  letter-spacing: -.01em;
+  text-wrap: balance;
+}
+
+p {
+  margin: 0;
+}
+
+code {
+  font-family: var(--mono);
+  font-size: .88em;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1px 5px;
+}

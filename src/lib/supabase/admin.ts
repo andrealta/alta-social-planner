@@ -1,0 +1,57 @@
+/**
+ * Cliente administrativo do Supabase. Só existe para criar e convidar
+ * pessoas — nada mais.
+ *
+ * ================== LEIA ISTO ANTES DE USAR ==================
+ *
+ * Esta chave passa POR CIMA de todo o isolamento entre marcas. Com
+ * ela, qualquer consulta enxerga qualquer dado de qualquer cliente.
+ * As políticas do banco, que são a espinha de segurança do sistema,
+ * simplesmente não valem aqui.
+ *
+ * Por isso:
+ *
+ *  1. o nome da variável NÃO começa com NEXT_PUBLIC_, e nunca pode
+ *     começar. É esse prefixo que decide o que vai para o navegador;
+ *  2. este arquivo só é importado por código de servidor. A guarda
+ *     abaixo estoura se alguém importar do lado do navegador;
+ *  3. use `clienteServidor()` para TUDO que não seja criar pessoa.
+ *     Aquele carrega a identidade de quem está logado e respeita as
+ *     políticas. Este não respeita nada.
+ *
+ * Se a chave vazar, a saída é gerar outra no painel do Supabase
+ * (Settings → API → service_role → Reset). A antiga morre na hora.
+ * =============================================================
+ */
+
+import { createClient } from '@supabase/supabase-js'
+
+export function clienteAdmin() {
+  if (typeof window !== 'undefined') {
+    throw new Error(
+      'clienteAdmin() foi chamado no navegador. Isto é um erro grave de programação: ' +
+        'a chave de serviço nunca pode sair do servidor.',
+    )
+  }
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const chave = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!url) throw new Error('NEXT_PUBLIC_SUPABASE_URL não está definida.')
+  if (!chave) {
+    throw new Error(
+      'SUPABASE_SERVICE_ROLE_KEY não está definida. Sem ela dá para mudar papel e vincular ' +
+        'marca, mas não dá para criar pessoa nova. Pegue em Settings → API no painel do ' +
+        'Supabase e acrescente ao .env.local — sem NEXT_PUBLIC_ no nome.',
+    )
+  }
+
+  return createClient(url, chave, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+}
+
+export function temChaveAdmin(): boolean {
+  return typeof process.env.SUPABASE_SERVICE_ROLE_KEY === 'string' &&
+    process.env.SUPABASE_SERVICE_ROLE_KEY.length > 20
+}

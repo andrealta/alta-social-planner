@@ -1,0 +1,6 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+
+  "//": "O banco do sistema fica em sa-east-1, em Sao Paulo. Por omissao a Vercel roda o codigo em Washington, e cada consulta atravessaria o continente duas vezes. Uma pagina do painel faz de tres a cinco consultas; a soma aparece na tela. gru1 e a regiao de Sao Paulo, ao lado do banco.",
+  "regions": ["gru1"]
+}
