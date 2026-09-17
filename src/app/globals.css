@@ -1,114 +1,209 @@
 /* =========================================================
    Alta Social Planner — sistema visual
-   Os mesmos tokens do MVP, para o sistema definitivo nascer
-   com a cara que a equipe já aprovou.
+
+   A regra que organiza tudo aqui: COR EM POUCA ÁREA. Fundo
+   cinza-azulado bem claro, cartões brancos sem moldura, sombra
+   macia — e as cores da Alta aparecendo em pontos pequenos, num
+   botão, numa aba ativa, num ponto de seis pixels.
+
+   O desenho anterior fazia o contrário: pílulas chapadas e
+   contornos coloridos por toda parte. Com quatro situações e
+   quatro linhas de produto na mesma tela, virava confete. Cor
+   demais não informa mais — informa menos, porque nada se
+   destaca de nada.
    ========================================================= */
 
 :root {
-  --paper: #F6F7F8;
+  /* ---------------------------------------------------------
+     Superfícies. O fundo não é branco: é um cinza-azulado
+     claro, e é ele que faz o cartão branco parecer flutuar.
+     Cartão branco sobre fundo branco precisa de moldura; sobre
+     este fundo, não precisa.
+     --------------------------------------------------------- */
+  --paper: #EFF3F8;
   --surface: #FFFFFF;
-  --surface-2: #F4F5F7;
-  --surface-3: #EAECEF;
-  --line: #E4E6EA;
-  --line-2: #D2D6DD;
-  --text: #17181B;
-  --muted: #6C7280;
-  --faint: #9BA1AA;
-  --accent: #D8372A;
-  --accent-2: #A8271D;
-  --accent-wash: #FCEAE8;
-  --ok: #0E6E55;
-  --ok-wash: #E2F1EC;
-  --warn: #8A5D04;
-  --warn-wash: #FAEFD6;
+  --surface-2: #F6F8FB;
+  --surface-3: #EDF1F6;
 
-  --ui: 'Open Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --disp: 'Oswald', 'Open Sans', system-ui, sans-serif;
+  /* A linha quase não aparece, de propósito: quem separa é a
+     sombra e o espaço. Ela fica para os casos em que o
+     contorno é a informação (linha de tabela, base de aba). */
+  --line: #E8EDF3;
+  --line-2: #DDE3EB;
+
+  --text: #1D2530;
+  --muted: #6B7480;
+  --faint: #9AA3AF;
+
+  /* ---------------------------------------------------------
+     As cores da Alta.
+     O azul é de ação: botão principal, aba ativa, foco, link.
+     O amarelo e o laranja entram só como sinal, sempre em
+     versão pastel com texto escuro em cima — amarelo #FFE600
+     tem 1,27:1 de contraste com o branco, ou seja, é
+     invisível como texto. Como fundo com tinta escura, tem 14:1.
+     --------------------------------------------------------- */
+  --accent: #2502D0;
+  --accent-2: #1B0196;
+  --accent-wash: #EFEDFF;
+
+  --amarelo: #FFE600;
+  --amarelo-wash: #FFF8D1;
+  --amarelo-tinta: #6B5A00;
+
+  --laranja: #EE4A32;
+  --laranja-wash: #FDEDE9;
+  --laranja-tinta: #9E2A16;
+
+  --ok: #0F7B52;
+  --ok-wash: #E7F4EE;
+  --warn: #8A6D00;
+  --warn-wash: #FFF8D1;
+
+  --ui: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --disp: 'Poppins', 'Inter', system-ui, sans-serif;
   --mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
-
 
   /* ---------------------------------------------------------
      Cores das linhas de produto, no calendário.
      Escolhidas com o validador de paleta, não a olho: os quatro
-     tons se separam para daltonismo e para visão normal, nos dois
-     modos, considerando TODOS os pares (no calendário, duas linhas
-     quaisquer podem cair lado a lado no mesmo dia).
-     Duas delas ficam abaixo de 3:1 no fundo claro — por isso o
-     nome da linha aparece escrito no cartão e na legenda. A cor
-     agrupa; quem identifica é a palavra.
+     tons se separam para daltonismo (ΔE 10,1 no pior par) e para
+     visão normal (17,4), considerando TODOS os pares — no
+     calendário, duas linhas quaisquer podem cair no mesmo dia.
+
+     Não têm azul nem amarelo de propósito: esses dois são as
+     cores de ação e de situação. Se a linha de produto usasse
+     os mesmos tons, a cor deixaria de dizer qual é qual.
      --------------------------------------------------------- */
-  --linha-1: #2a78d6;
-  --linha-2: #eda100;
-  --linha-3: #e87ba4;
-  --linha-4: #008300;
-  --linha-outra: #6C7280;
+  --linha-1: #0891B2;
+  --linha-2: #B02A5B;
+  --linha-3: #A1670F;
+  --linha-4: #5B21B6;
+  --linha-outra: #6B7480;
 
-  /* Situação da pauta. Reservadas: nunca viram cor de linha, e
-     nunca aparecem sozinhas — sempre com símbolo e palavra. */
-  --st-aprovado: #0ca30c;
-  --st-avaliacao: #fab219;
-  --st-cliente: #ec835a;
-  --st-ajuste: #d03b3b;
+  /* Situação da pauta. Reservadas: nunca viram cor de linha.
+     Cada uma vem com o fundo pastel em que é aplicada e nunca
+     aparece sozinha — sempre com ponto, símbolo e palavra. */
+  --st-aprovado: #0F7B52;
+  --st-aprovado-wash: #E7F4EE;
+  --st-avaliacao: #E8B500;
+  --st-avaliacao-wash: #FFF8D1;
+  --st-cliente: #2502D0;
+  --st-cliente-wash: #EFEDFF;
+  --st-ajuste: #EE4A32;
+  --st-ajuste-wash: #FDEDE9;
 
-  --r: 10px;
-  --r-lg: 14px;
-  --shadow: 0 1px 2px rgba(23, 24, 27, .04), 0 1px 3px rgba(23, 24, 27, .04);
+  --r-sm: 10px;
+  --r: 12px;
+  --r-lg: 16px;
+
+  --shadow: 0 1px 2px rgba(29, 37, 48, .04), 0 10px 26px -16px rgba(29, 37, 48, .16);
+  --shadow-alta: 0 1px 2px rgba(29, 37, 48, .05), 0 16px 34px -20px rgba(29, 37, 48, .22);
+  --shadow-botao: 0 6px 16px -8px rgba(37, 2, 208, .45);
 }
 
+/* ---------------------------------------------------------
+   Modo escuro. Não é o claro invertido: os tons são
+   escolhidos contra o fundo escuro, um por um. O azul da
+   marca, em particular, some no escuro — sobe para um tom
+   mais claro do mesmo azul.
+   --------------------------------------------------------- */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --paper: #0E0F11;
-    --surface: #171A1D;
-    --surface-2: #1E2226;
-    --surface-3: #262B31;
-    --line: #292E34;
-    --line-2: #3B424A;
-    --text: #ECEEF1;
-    --muted: #98A0AA;
-    --faint: #6E767F;
-    --accent: #F2685A;
-    --accent-2: #FF9084;
-    --accent-wash: #331512;
+    --paper: #0E1013;
+    --surface: #171A1F;
+    --surface-2: #1D2126;
+    --surface-3: #252A31;
+    --line: #262B32;
+    --line-2: #363D46;
+    --text: #ECEFF3;
+    --muted: #98A1AC;
+    --faint: #6E7681;
+
+    --accent: #9B8CFF;
+    --accent-2: #BDB2FF;
+    --accent-wash: #1E1A3D;
+
+    --amarelo: #FFE600;
+    --amarelo-wash: #2C2605;
+    --amarelo-tinta: #F0DC7A;
+
+    --laranja: #FF7A66;
+    --laranja-wash: #33150F;
+    --laranja-tinta: #FFB3A5;
+
     --ok: #3FBF97;
     --ok-wash: #0D2A22;
     --warn: #DCA53C;
     --warn-wash: #2B2210;
-    --shadow: 0 1px 2px rgba(0, 0, 0, .4);
 
-  /* Os mesmos quatro tons, redegraus para o fundo escuro. */
-  --linha-1: #3987e5;
-  --linha-2: #c98500;
-  --linha-3: #d55181;
-  --linha-4: #008300;
-  --linha-outra: #98A0AA;
+    --linha-1: #22A7C4;
+    --linha-2: #DE5185;
+    --linha-3: #C98A2A;
+    --linha-4: #9B7BF5;
+    --linha-outra: #98A1AC;
+
+    --st-aprovado: #3FBF97;
+    --st-aprovado-wash: #0D2A22;
+    --st-avaliacao: #E8C651;
+    --st-avaliacao-wash: #2C2605;
+    --st-cliente: #9B8CFF;
+    --st-cliente-wash: #1E1A3D;
+    --st-ajuste: #FF7A66;
+    --st-ajuste-wash: #33150F;
+
+    --shadow: 0 1px 2px rgba(0, 0, 0, .5);
+    --shadow-alta: 0 1px 2px rgba(0, 0, 0, .5), 0 18px 40px -22px rgba(0, 0, 0, .8);
+    --shadow-botao: 0 6px 16px -8px rgba(155, 140, 255, .4);
   }
 }
 
 :root[data-theme="dark"] {
-  --paper: #0E0F11;
-  --surface: #171A1D;
-  --surface-2: #1E2226;
-  --surface-3: #262B31;
-  --line: #292E34;
-  --line-2: #3B424A;
-  --text: #ECEEF1;
-  --muted: #98A0AA;
-  --faint: #6E767F;
-  --accent: #F2685A;
-  --accent-2: #FF9084;
-  --accent-wash: #331512;
+  --paper: #0E1013;
+  --surface: #171A1F;
+  --surface-2: #1D2126;
+  --surface-3: #252A31;
+  --line: #262B32;
+  --line-2: #363D46;
+  --text: #ECEFF3;
+  --muted: #98A1AC;
+  --faint: #6E7681;
+
+  --accent: #9B8CFF;
+  --accent-2: #BDB2FF;
+  --accent-wash: #1E1A3D;
+
+  --amarelo: #FFE600;
+  --amarelo-wash: #2C2605;
+  --amarelo-tinta: #F0DC7A;
+
+  --laranja: #FF7A66;
+  --laranja-wash: #33150F;
+  --laranja-tinta: #FFB3A5;
+
   --ok: #3FBF97;
   --ok-wash: #0D2A22;
   --warn: #DCA53C;
   --warn-wash: #2B2210;
-  --shadow: 0 1px 2px rgba(0, 0, 0, .4);
 
-  /* Os mesmos quatro tons, redegraus para o fundo escuro. */
-  --linha-1: #3987e5;
-  --linha-2: #c98500;
-  --linha-3: #d55181;
-  --linha-4: #008300;
-  --linha-outra: #98A0AA;
+  --linha-1: #22A7C4;
+  --linha-2: #DE5185;
+  --linha-3: #C98A2A;
+  --linha-4: #9B7BF5;
+  --linha-outra: #98A1AC;
+
+  --st-aprovado: #3FBF97;
+  --st-aprovado-wash: #0D2A22;
+  --st-avaliacao: #E8C651;
+  --st-avaliacao-wash: #2C2605;
+  --st-cliente: #9B8CFF;
+  --st-cliente-wash: #1E1A3D;
+  --st-ajuste: #FF7A66;
+  --st-ajuste-wash: #33150F;
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, .5);
+  --shadow-alta: 0 1px 2px rgba(0, 0, 0, .5), 0 18px 40px -22px rgba(0, 0, 0, .8);
+  --shadow-botao: 0 6px 16px -8px rgba(155, 140, 255, .4);
 }
 
 * {
@@ -134,12 +229,19 @@ h1,
 h2,
 h3 {
   margin: 0;
-  letter-spacing: -.01em;
+  letter-spacing: -.02em;
   text-wrap: balance;
 }
 
 p {
   margin: 0;
+}
+
+/* O foco visível é acessibilidade, não enfeite: quem navega por
+   teclado precisa saber onde está. Fica no azul da marca. */
+:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 code {

@@ -206,7 +206,7 @@ export async function POST(req: Request) {
   // ---------- histórico ----------
   const { data: anteriores } = await supabase
     .from('plans')
-    .select('id, month, year')
+    .select('id, month, year, analysis')
     .eq('brand_id', marcaId)
     .or(`year.lt.${ano},and(year.eq.${ano},month.lt.${mes})`)
     .order('year', { ascending: false })
@@ -228,6 +228,24 @@ export async function POST(req: Request) {
     })
   }
   historico.reverse()
+
+  // Territórios que já apareceram nos meses anteriores.
+  //
+  // A tag "novo" na leitura do mês era um campo que eu pedia à IA sem
+  // nunca explicar o que significava — ela preenchia por conta, e por
+  // isso aparecia em umas pautas e não em outras sem critério visível.
+  // Agora quem decide é a comparação com o histórico: nome que não
+  // estava nos meses anteriores é novo. No primeiro mês da marca nada
+  // é novo, porque não existe "antes" com o que comparar.
+  const territoriosDeAntes = new Set<string>()
+  for (const p of anteriores ?? []) {
+    const a = (p.analysis ?? {}) as { territorios?: { nome?: string }[] }
+    for (const t of a.territorios ?? []) {
+      const n = (t.nome ?? '').trim().toLowerCase()
+      if (n) territoriosDeAntes.add(n)
+    }
+  }
+  const temPassado = (anteriores ?? []).length > 0
 
   const entrada: Entrada = {
     marca: { nome: marca.name as string, segmento: marca.segment as string | null },
@@ -477,7 +495,10 @@ export async function POST(req: Request) {
             briefing,
             analysis: {
               leitura: plano.leitura ?? null,
-              territorios: plano.territorios ?? [],
+              territorios: (plano.territorios ?? []).map((t) => ({
+                ...t,
+                novo: temPassado && !territoriosDeAntes.has((t.nome ?? '').trim().toLowerCase()),
+              })),
               conferencia: plano.conferencia ?? {},
               nao_fazer: plano.nao_fazer ?? [],
               alertas: plano.alertas ?? [],

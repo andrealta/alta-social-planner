@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { clienteServidor } from '@/lib/supabase/server'
-import { MESES } from '@/lib/prompt'
+import { MESES, mesTitulado } from '@/lib/prompt'
 
 type Achado = { gravidade: 'erro' | 'aviso'; texto: string }
 type Territorio = { nome: string; peso: number; cobre?: string; posts?: number; novo?: boolean }
@@ -132,10 +132,9 @@ export default async function Plano({
               fontSize: 34,
               fontWeight: 600,
               lineHeight: 1.08,
-              textTransform: 'capitalize',
             }}
           >
-            {MESES[mes - 1]} de {ano}
+            {mesTitulado(mes)} de {ano}
           </h1>
           <p style={{ color: 'var(--muted)', fontSize: 14, marginTop: 4 }}>
             {ordenadas.length} pautas · {SITUACAO[plano.status as string] ?? plano.status}

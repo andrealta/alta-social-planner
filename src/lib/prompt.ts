@@ -19,6 +19,18 @@ export const MESES = [
   'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
 ]
 
+/**
+ * "Dezembro de 2026" — com o "de" minúsculo.
+ *
+ * Existe porque o CSS não sabe português: `text-transform: capitalize`
+ * sobe a primeira letra de CADA palavra, e devolvia "Dezembro De 2026".
+ * Em português só o nome do mês leva maiúscula aqui.
+ */
+export function mesTitulado(mes: number): string {
+  const m = MESES[mes - 1] ?? ''
+  return m.charAt(0).toUpperCase() + m.slice(1)
+}
+
 export type Linha = { label: string; quota: number }
 export type MesAnterior = { mes: number; ano: number; temas: string[] }
 
@@ -147,7 +159,7 @@ Responda SOMENTE com JSON válido, nesta forma:
 
 {
   "leitura": "A tensão real do mês para esta marca, em até 120 palavras.",
-  "territorios": [{"nome":"", "peso":00, "cobre":"", "posts":0, "novo":true}],
+  "territorios": [{"nome":"", "peso":00, "cobre":"", "posts":0}],
   "pautas": [{
     "dia": 3,
     "linha": "nome exato de uma das linhas do escopo",

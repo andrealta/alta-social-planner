@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { clienteServidor } from '@/lib/supabase/server'
-import { MESES } from '@/lib/prompt'
+import { mesTitulado } from '@/lib/prompt'
 import { Calendario } from './calendario'
 import type { ConteudoPauta, Decisao, Pauta, Recado, Versao } from './comum'
 
@@ -269,10 +269,9 @@ export default async function CalendarioDoMes({
             fontSize: 34,
             fontWeight: 600,
             lineHeight: 1.08,
-            textTransform: 'capitalize',
           }}
         >
-          {MESES[mes - 1]} de {ano}
+          {mesTitulado(mes)} de {ano}
         </h1>
       </header>
 

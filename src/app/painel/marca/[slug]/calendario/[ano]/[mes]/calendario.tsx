@@ -8,7 +8,10 @@ import {
   ICONE_PECA,
   SITUACOES,
   botao,
+  cartao,
   corDaLinha,
+  pilula,
+  ponto,
   tipoDaPeca,
   type ConteudoPauta,
   type Editaveis,
@@ -207,11 +210,8 @@ export function Calendario({
           alignItems: 'center',
           gap: 12,
           flexWrap: 'wrap',
-          padding: '13px 18px',
-          border: '1px solid var(--line)',
-          borderRadius: 'var(--r-lg)',
-          background: 'var(--surface)',
-          boxShadow: 'var(--shadow)',
+          padding: '16px 20px',
+          ...cartao,
           marginBottom: 16,
         }}
       >
@@ -225,7 +225,7 @@ export function Calendario({
           </div>
           <div
             style={{
-              height: 6,
+              height: 5,
               borderRadius: 99,
               background: 'var(--surface-3)',
               overflow: 'hidden',
@@ -235,23 +235,22 @@ export function Calendario({
               style={{
                 width: `${pct}%`,
                 height: '100%',
-                background: 'var(--st-aprovado)',
+                background: 'var(--accent)',
                 transition: 'width .25s ease',
               }}
             />
           </div>
         </div>
+        {/* Uma ação forte por área. Aprovar em massa é frequente mas
+            reversível; enviar ao cliente é a que sai da agência — essa
+            leva o azul. */}
         {emAvaliacao > 0 && podeEditar && (
-          <button onClick={aprovarPendentes} disabled={pendente} style={botao(true)}>
+          <button onClick={aprovarPendentes} disabled={pendente} style={botao(false, pendente)}>
             Aprovar as {emAvaliacao} pendentes
           </button>
         )}
         {prontasParaEnviar > 0 && podeEnviar && (
-          <button
-            onClick={enviar}
-            disabled={pendente}
-            style={{ ...botao(true), background: 'var(--st-cliente)', color: '#fff' }}
-          >
+          <button onClick={enviar} disabled={pendente} style={botao(true, pendente)}>
             Enviar ao cliente ({prontasParaEnviar})
           </button>
         )}
@@ -261,10 +260,8 @@ export function Calendario({
         <div
           style={{
             marginBottom: 14,
-            padding: '12px 16px',
-            border: '1px solid var(--line)',
-            borderLeft: '3px solid var(--line-2)',
-            borderRadius: '0 var(--r) var(--r) 0',
+            padding: '13px 17px',
+            borderRadius: 'var(--r)',
             background: 'var(--surface-2)',
             fontSize: 13.3,
             lineHeight: 1.6,
@@ -281,11 +278,9 @@ export function Calendario({
         <div
           style={{
             marginBottom: 14,
-            padding: '12px 16px',
-            border: '1px solid var(--line)',
-            borderLeft: '3px solid var(--st-cliente)',
-            borderRadius: '0 var(--r) var(--r) 0',
-            background: 'var(--surface-2)',
+            padding: '13px 17px',
+            borderRadius: 'var(--r)',
+            background: 'var(--accent-wash)',
             fontSize: 13.3,
             lineHeight: 1.6,
           }}
@@ -299,11 +294,9 @@ export function Calendario({
         <div
           style={{
             marginBottom: 14,
-            padding: '13px 17px',
-            border: '1px solid var(--line)',
-            borderLeft: '3px solid var(--st-ajuste)',
-            borderRadius: '0 var(--r) var(--r) 0',
-            background: 'var(--accent-wash)',
+            padding: '14px 18px',
+            borderRadius: 'var(--r)',
+            background: 'var(--laranja-wash)',
             fontSize: 13.5,
             lineHeight: 1.6,
           }}
@@ -321,11 +314,9 @@ export function Calendario({
         <div
           style={{
             marginBottom: 14,
-            padding: '12px 16px',
-            border: '1px solid var(--line)',
-            borderLeft: `3px solid var(--${aviso.tipo === 'erro' ? 'accent' : 'ok'})`,
-            borderRadius: '0 var(--r) var(--r) 0',
-            background: `var(--${aviso.tipo === 'erro' ? 'accent' : 'ok'}-wash)`,
+            padding: '13px 17px',
+            borderRadius: 'var(--r)',
+            background: `var(--${aviso.tipo === 'erro' ? 'laranja' : 'ok'}-wash)`,
             fontSize: 13.5,
             display: 'flex',
             gap: 10,
@@ -352,9 +343,9 @@ export function Calendario({
         <div
           style={{
             marginBottom: 14,
-            padding: '12px 16px',
-            border: '1px dashed var(--line-2)',
+            padding: '13px 17px',
             borderRadius: 'var(--r)',
+            background: 'var(--surface-2)',
             fontSize: 13.5,
           }}
         >
@@ -406,13 +397,18 @@ export function Calendario({
                 soltar(data)
               }}
               style={{
-                minHeight: 92,
-                padding: 6,
-                borderRadius: 8,
-                border: `1px solid ${alvo === data ? 'var(--accent)' : 'var(--line)'}`,
-                background:
-                  alvo === data ? 'var(--accent-wash)' : fds ? 'var(--surface-2)' : 'var(--surface)',
-                transition: 'background .12s, border-color .12s',
+                minHeight: 104,
+                padding: 9,
+                borderRadius: 'var(--r)',
+                background: alvo === data ? 'var(--accent-wash)' : 'var(--surface)',
+                boxShadow:
+                  alvo === data
+                    ? 'inset 0 0 0 2px var(--accent)'
+                    : fds
+                      ? 'none'
+                      : 'var(--shadow)',
+                opacity: fds && !alvo ? 0.72 : 1,
+                transition: 'background .12s, box-shadow .12s',
               }}
             >
               <div
@@ -435,14 +431,14 @@ export function Calendario({
                     onClick={() => setAberta(p.id)}
                     title={`${p.title}\n${p.linha ?? ''} · ${tipo} · ${e.rotulo}`}
                     style={{
-                      marginBottom: 4,
-                      padding: '5px 7px',
-                      borderRadius: 6,
-                      // A cor da esquerda é a LINHA de produto. A situação
-                      // tem lugar próprio embaixo, com símbolo e palavra —
-                      // duas informações não cabem numa cor só.
-                      borderLeft: `3px solid ${corDaLinha(p.linhaIndice)}`,
-                      background: 'var(--surface-3)',
+                      marginBottom: 5,
+                      padding: '9px 10px',
+                      borderRadius: 'var(--r-sm)',
+                      // A linha de produto virou um ponto ao lado do nome
+                      // dela, embaixo. Era uma barra de 3px na lateral; num
+                      // mês cheio, quatorze barras coloridas empilhadas
+                      // viravam listra, não informação.
+                      background: 'var(--surface-2)',
                       fontSize: 11.5,
                       lineHeight: 1.35,
                       cursor: podeEditar ? 'grab' : 'pointer',
@@ -459,7 +455,20 @@ export function Calendario({
                         marginBottom: 2,
                       }}
                     >
-                      <span aria-hidden>{ICONE_PECA[tipo]}</span>
+                      <span
+                        aria-hidden
+                        style={{
+                          width: 17,
+                          height: 17,
+                          borderRadius: 5,
+                          background: 'var(--surface-3)',
+                          display: 'inline-grid',
+                          placeItems: 'center',
+                          fontSize: 9,
+                        }}
+                      >
+                        {ICONE_PECA[tipo]}
+                      </span>
                       <span>{tipo}</span>
                       {p.conteudo && (
                         <span
@@ -488,7 +497,17 @@ export function Calendario({
                     </div>
 
                     {p.linha && (
-                      <div style={{ color: 'var(--muted)', fontSize: 10, marginTop: 2 }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 5,
+                          color: 'var(--muted)',
+                          fontSize: 10,
+                          marginTop: 4,
+                        }}
+                      >
+                        <i aria-hidden style={ponto(corDaLinha(p.linhaIndice), 7)} />
                         {p.linha}
                       </div>
                     )}
@@ -508,27 +527,8 @@ export function Calendario({
                       </div>
                     )}
 
-                    <div
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 3,
-                        marginTop: 4,
-                        padding: '1px 6px',
-                        borderRadius: 99,
-                        border: `1px solid ${e.cor}`,
-                        // O tom fraco de "em avaliação" no fundo claro é
-                        // inevitável — é uma cor reservada de situação. O
-                        // fundo tingido faz a forma se ler mesmo quando o
-                        // texto não se impõe.
-                        background: `color-mix(in srgb, ${e.cor} 14%, transparent)`,
-                        color: e.cor,
-                        fontSize: 9.5,
-                        fontWeight: 700,
-                        letterSpacing: '.02em',
-                      }}
-                    >
-                      <span aria-hidden>{e.simbolo}</span>
+                    <div style={{ ...pilula(e.wash, true), marginTop: 6 }}>
+                      <i aria-hidden style={ponto(e.cor)} />
                       {e.curto}
                     </div>
                   </div>
@@ -542,10 +542,7 @@ export function Calendario({
       <div
         style={{
           marginTop: 14,
-          padding: '14px 18px',
-          border: '1px solid var(--line)',
-          borderRadius: 'var(--r-lg)',
-          background: 'var(--surface)',
+          padding: '4px 2px',
           display: 'flex',
           gap: 28,
           flexWrap: 'wrap',
@@ -557,16 +554,7 @@ export function Calendario({
             <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
               {linhasUsadas.map(([nome, indice]) => (
                 <span key={nome} style={itemLegenda}>
-                  <span
-                    aria-hidden
-                    style={{
-                      width: 3,
-                      height: 14,
-                      borderRadius: 2,
-                      background: corDaLinha(indice),
-                      display: 'inline-block',
-                    }}
-                  />
+                  <i aria-hidden style={ponto(corDaLinha(indice), 8)} />
                   {nome}
                 </span>
               ))}
@@ -580,8 +568,8 @@ export function Calendario({
             {situacoesUsadas.map((st) => {
               const e = ESTADO[st]
               return (
-                <span key={st} style={{ ...itemLegenda, color: e.cor, fontWeight: 700 }}>
-                  <span aria-hidden>{e.simbolo}</span>
+                <span key={st} style={pilula(e.wash)}>
+                  <i aria-hidden style={ponto(e.cor)} />
                   {e.rotulo}
                 </span>
               )

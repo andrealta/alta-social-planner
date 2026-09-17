@@ -80,20 +80,60 @@ export type Recado = {
  * quem não distingue verde de vermelho — e não diz nada a ninguém na
  * primeira vez que abre a tela.
  *
+ * `cor` é o tom cheio, que vai no ponto de seis pixels. `wash` é o
+ * fundo pastel da pílula, com a tinta escura de sempre em cima. Essa
+ * separação existe porque cor de situação como TEXTO não funciona: o
+ * amarelo da Alta tem 1,27:1 de contraste com o branco. Como ponto
+ * sobre fundo pastel, funciona.
+ *
  * `curto` é o que cabe no cartão do calendário; `rotulo` é o do
  * painel e da legenda.
  */
 export const ESTADO: Record<
   string,
-  { rotulo: string; curto: string; cor: string; simbolo: string }
+  { rotulo: string; curto: string; cor: string; wash: string; simbolo: string }
 > = {
-  ai_generated: { rotulo: 'Em avaliação', curto: 'avaliação', cor: 'var(--st-avaliacao)', simbolo: '○' },
-  internal_review: { rotulo: 'Em avaliação', curto: 'avaliação', cor: 'var(--st-avaliacao)', simbolo: '○' },
-  internal_changes: { rotulo: 'Precisa ajuste', curto: 'ajuste', cor: 'var(--st-ajuste)', simbolo: '!' },
-  internally_approved: { rotulo: 'Aprovada', curto: 'aprovada', cor: 'var(--st-aprovado)', simbolo: '✓' },
-  sent_to_client: { rotulo: 'Com o cliente', curto: 'cliente', cor: 'var(--st-cliente)', simbolo: '→' },
-  client_changes_requested: { rotulo: 'Cliente pediu ajuste', curto: 'ajuste', cor: 'var(--st-ajuste)', simbolo: '!' },
-  client_approved: { rotulo: 'Aprovada pelo cliente', curto: 'final', cor: 'var(--st-aprovado)', simbolo: '✓✓' },
+  ai_generated: { rotulo: 'Em avaliação', curto: 'em avaliação', cor: 'var(--st-avaliacao)', wash: 'var(--st-avaliacao-wash)', simbolo: '○' },
+  internal_review: { rotulo: 'Em avaliação', curto: 'em avaliação', cor: 'var(--st-avaliacao)', wash: 'var(--st-avaliacao-wash)', simbolo: '○' },
+  internal_changes: { rotulo: 'Precisa ajuste', curto: 'precisa ajuste', cor: 'var(--st-ajuste)', wash: 'var(--st-ajuste-wash)', simbolo: '!' },
+  internally_approved: { rotulo: 'Aprovada', curto: 'aprovada', cor: 'var(--st-aprovado)', wash: 'var(--st-aprovado-wash)', simbolo: '✓' },
+  sent_to_client: { rotulo: 'Com o cliente', curto: 'com o cliente', cor: 'var(--st-cliente)', wash: 'var(--st-cliente-wash)', simbolo: '→' },
+  client_changes_requested: { rotulo: 'Cliente pediu ajuste', curto: 'pediu ajuste', cor: 'var(--st-ajuste)', wash: 'var(--st-ajuste-wash)', simbolo: '!' },
+  client_approved: { rotulo: 'Aprovada pelo cliente', curto: 'aprovada pelo cliente', cor: 'var(--st-aprovado)', wash: 'var(--st-aprovado-wash)', simbolo: '✓✓' },
+}
+
+/**
+ * A pílula de situação. Fundo pastel, tinta escura, ponto colorido.
+ *
+ * O ponto é um elemento separado porque a cor precisa aparecer em
+ * pouca área: seis pixels dizem tanto quanto um bloco chapado, e não
+ * competem com o resto da tela.
+ */
+export function pilula(wash: string, pequena = false): React.CSSProperties {
+  return {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 5,
+    padding: pequena ? '3px 9px' : '4px 11px',
+    borderRadius: 99,
+    background: wash,
+    color: 'var(--text)',
+    fontSize: pequena ? 10 : 11.5,
+    fontWeight: 600,
+    lineHeight: 1.45,
+    whiteSpace: 'nowrap',
+  }
+}
+
+export function ponto(cor: string, tamanho = 6): React.CSSProperties {
+  return {
+    width: tamanho,
+    height: tamanho,
+    borderRadius: 99,
+    background: cor,
+    display: 'inline-block',
+    flex: '0 0 auto',
+  }
 }
 
 /** A ordem em que a legenda apresenta as situações. */
@@ -221,31 +261,51 @@ export const ORIGEM: Record<string, string> = {
   client_request: 'pedido do cliente',
 }
 
+/**
+ * Os dois botões do sistema.
+ *
+ * Uma ação forte por área, no azul da marca — é a regra que segura o
+ * desenho inteiro. O secundário é branco com sombra, sem contorno
+ * cinza: contorno em tudo é o que fazia a tela parecer antiga.
+ */
 export function botao(forte: boolean, desligado = false): React.CSSProperties {
   return {
     fontFamily: 'inherit',
     fontSize: 13.5,
     fontWeight: forte ? 700 : 600,
-    padding: '9px 16px',
-    border: forte ? 'none' : '1px solid var(--line-2)',
-    borderRadius: 8,
-    background: forte ? 'var(--text)' : 'var(--surface)',
-    color: forte ? 'var(--paper)' : 'var(--text)',
+    padding: '10px 18px',
+    border: 'none',
+    borderRadius: 99,
+    background: forte ? 'var(--accent)' : 'var(--surface)',
+    color: forte ? '#fff' : 'var(--text)',
+    boxShadow: desligado
+      ? 'none'
+      : forte
+        ? 'var(--shadow-botao)'
+        : '0 1px 2px rgba(29, 37, 48, .06), 0 6px 14px -10px rgba(29, 37, 48, .2)',
     cursor: desligado ? 'not-allowed' : 'pointer',
     opacity: desligado ? 0.45 : 1,
   }
 }
 
+/** Campo preenchido em vez de contornado: menos linha na tela. */
 export const caixaTexto: React.CSSProperties = {
   width: '100%',
   resize: 'vertical',
-  padding: '9px 11px',
+  padding: '11px 13px',
   fontFamily: 'inherit',
   fontSize: 13.5,
   lineHeight: 1.55,
   color: 'var(--text)',
-  background: 'var(--surface)',
-  border: '1px solid var(--line-2)',
-  borderRadius: 8,
+  background: 'var(--surface-2)',
+  border: '1px solid transparent',
+  borderRadius: 'var(--r-sm)',
   outline: 'none',
+}
+
+/** O cartão padrão: branco, sem moldura, sombra macia. */
+export const cartao: React.CSSProperties = {
+  background: 'var(--surface)',
+  borderRadius: 'var(--r-lg)',
+  boxShadow: 'var(--shadow)',
 }

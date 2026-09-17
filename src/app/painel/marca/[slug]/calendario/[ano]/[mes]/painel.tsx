@@ -16,6 +16,8 @@ import {
   caixaTexto,
   corDaLinha,
   paraEditaveis,
+  pilula,
+  ponto,
   tipoDaPeca,
   type ConteudoPauta,
   type Editaveis,
@@ -149,28 +151,14 @@ export function Painel({
           width: 'min(620px, 100vw)',
           zIndex: 31,
           background: 'var(--surface)',
-          borderLeft: '1px solid var(--line-2)',
           overflowY: 'auto',
-          padding: '22px 24px 40px',
-          boxShadow: '-4px 0 24px rgba(0,0,0,.14)',
+          padding: '24px 26px 44px',
+          boxShadow: '-10px 0 40px -18px rgba(29,37,48,.35)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
-              fontSize: 11.5,
-              fontWeight: 700,
-              padding: '3px 11px',
-              borderRadius: 99,
-              border: `1px solid ${e.cor}`,
-              background: `color-mix(in srgb, ${e.cor} 14%, transparent)`,
-              color: e.cor,
-            }}
-          >
-            <span aria-hidden>{e.simbolo}</span>
+          <span style={pilula(e.wash)}>
+            <i aria-hidden style={ponto(e.cor)} />
             {e.rotulo}
           </span>
           <span style={{ fontSize: 12, color: 'var(--faint)' }}>versão {versaoAtual}</span>
@@ -197,17 +185,8 @@ export function Painel({
 
         <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 16 }}>
           {pauta.linha && (
-            <span style={{ ...etiqueta, borderColor: corDaLinha(pauta.linhaIndice) }}>
-              <span
-                aria-hidden
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: 2,
-                  background: corDaLinha(pauta.linhaIndice),
-                  display: 'inline-block',
-                }}
-              />
+            <span style={etiqueta}>
+              <i aria-hidden style={ponto(corDaLinha(pauta.linhaIndice), 7)} />
               {pauta.linha}
             </span>
           )}
@@ -225,10 +204,12 @@ export function Painel({
 
         <div
           style={{
-            display: 'flex',
-            gap: 2,
-            borderBottom: '1px solid var(--line)',
-            marginBottom: 18,
+            display: 'inline-flex',
+            gap: 4,
+            padding: 4,
+            borderRadius: 99,
+            background: 'var(--surface-2)',
+            marginBottom: 20,
           }}
         >
           {abas.map((a) => (
@@ -239,13 +220,13 @@ export function Painel({
                 fontFamily: 'inherit',
                 fontSize: 13.5,
                 fontWeight: aba === a.id ? 700 : 500,
-                padding: '8px 13px',
+                padding: '6px 14px',
                 border: 'none',
-                borderBottom: `2px solid ${aba === a.id ? 'var(--accent)' : 'transparent'}`,
-                background: 'none',
-                color: aba === a.id ? 'var(--text)' : 'var(--muted)',
+                borderRadius: 99,
+                background: aba === a.id ? 'var(--surface)' : 'transparent',
+                boxShadow: aba === a.id ? '0 1px 2px rgba(29,37,48,.08)' : 'none',
+                color: aba === a.id ? 'var(--accent)' : 'var(--muted)',
                 cursor: 'pointer',
-                marginBottom: -1,
               }}
             >
               {a.rotulo}
@@ -270,11 +251,10 @@ export function Painel({
           <div
             style={{
               margin: '0 0 14px',
-              padding: '11px 14px',
-              border: '1px solid var(--line)',
-              borderLeft: '3px solid var(--accent)',
-              borderRadius: '0 var(--r) var(--r) 0',
-              background: 'var(--accent-wash)',
+              padding: '12px 15px',
+              borderRadius: 'var(--r)',
+              background: 'var(--laranja-wash)',
+              color: 'var(--text)',
               fontSize: 13,
               lineHeight: 1.55,
             }}
@@ -289,8 +269,7 @@ export function Painel({
               <section
                 style={{
                   marginBottom: 14,
-                  padding: '12px 15px',
-                  border: '1px solid var(--line)',
+                  padding: '13px 16px',
                   borderRadius: 'var(--r)',
                   background: 'var(--surface-2)',
                 }}
@@ -349,11 +328,9 @@ export function Painel({
               <section
                 style={{
                   marginBottom: 18,
-                  padding: '13px 16px',
-                  border: '1px solid var(--line)',
-                  borderLeft: '3px solid var(--st-ajuste)',
-                  borderRadius: '0 var(--r) var(--r) 0',
-                  background: 'var(--accent-wash)',
+                  padding: '14px 17px',
+                  borderRadius: 'var(--r)',
+                  background: 'var(--laranja-wash)',
                 }}
               >
                 <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 7 }}>
@@ -386,7 +363,13 @@ export function Painel({
               <div key={c.id} style={{ marginBottom: 14 }}>
                 <label
                   htmlFor={`p-${c.id}`}
-                  style={{ display: 'block', fontWeight: 700, fontSize: 13, marginBottom: 4 }}
+                  style={{
+                    display: 'block',
+                    fontWeight: 600,
+                    fontSize: 12.5,
+                    color: 'var(--muted)',
+                    marginBottom: 5,
+                  }}
                 >
                   {c.rotulo}
                 </label>
@@ -404,8 +387,7 @@ export function Painel({
             {podeEditar && <section
               style={{
                 margin: '20px 0',
-                padding: '14px 16px',
-                border: '1px solid var(--line)',
+                padding: '15px 17px',
                 borderRadius: 'var(--r)',
                 background: 'var(--surface-2)',
               }}
@@ -426,11 +408,12 @@ export function Painel({
                       fontFamily: 'inherit',
                       fontSize: 12,
                       fontWeight: 600,
-                      padding: '5px 10px',
-                      border: '1px solid var(--line-2)',
+                      padding: '6px 12px',
+                      border: 'none',
                       borderRadius: 99,
                       background: refinando === c ? 'var(--accent)' : 'var(--surface)',
                       color: refinando === c ? '#fff' : 'var(--text)',
+                      boxShadow: refinando === c ? 'none' : '0 1px 2px rgba(29,37,48,.07)',
                       cursor: refinando ? 'not-allowed' : 'pointer',
                       opacity: refinando && refinando !== c ? 0.45 : 1,
                     }}
@@ -453,9 +436,8 @@ export function Painel({
                 disabled={pedido.trim().length < 3 || !!refinando}
                 style={{
                   ...botao(false, pedido.trim().length < 3 || !!refinando),
-                  marginTop: 7,
+                  marginTop: 8,
                   width: '100%',
-                  borderColor: 'var(--accent)',
                   color: 'var(--accent)',
                 }}
               >
@@ -468,9 +450,8 @@ export function Painel({
                 <div
                   style={{
                     marginTop: 10,
-                    padding: '10px 13px',
-                    borderLeft: '3px solid var(--ok)',
-                    borderRadius: '0 6px 6px 0',
+                    padding: '11px 14px',
+                    borderRadius: 'var(--r-sm)',
                     background: 'var(--ok-wash)',
                     fontSize: 12.8,
                     lineHeight: 1.55,
@@ -572,15 +553,7 @@ export function Painel({
                   }}
                   disabled={sujo}
                   title={sujo ? 'Salve as alterações antes.' : undefined}
-                  style={
-                    a.forte && !sujo
-                      ? {
-                          ...botao(true),
-                          background: 'var(--st-aprovado)',
-                          color: '#fff',
-                        }
-                      : botao(false, sujo)
-                  }
+                  style={a.forte && !sujo ? botao(true) : botao(false, sujo)}
                 >
                   {a.texto}
                 </button>
@@ -714,10 +687,10 @@ const etiqueta: React.CSSProperties = {
   gap: 5,
   fontSize: 11,
   fontWeight: 600,
-  padding: '3px 10px',
+  padding: '4px 11px',
   borderRadius: 99,
-  border: '1px solid var(--line-2)',
-  background: 'var(--surface)',
+  border: 'none',
+  background: 'var(--surface-2)',
   color: 'var(--muted)',
 }
 

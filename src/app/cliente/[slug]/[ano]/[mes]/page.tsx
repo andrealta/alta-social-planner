@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { clienteServidor } from '@/lib/supabase/server'
-import { MESES } from '@/lib/prompt'
+import { mesTitulado } from '@/lib/prompt'
 import { Sair } from '@/app/painel/sair'
 import { Avaliacao, type PautaCliente } from './avaliacao'
 
@@ -228,10 +228,9 @@ export default async function MesDoCliente({
               fontSize: 34,
               fontWeight: 600,
               lineHeight: 1.08,
-              textTransform: 'capitalize',
             }}
           >
-            {MESES[mes - 1]} de {ano}
+            {mesTitulado(mes)} de {ano}
           </h1>
         </div>
         <Sair />

@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { clienteServidor } from '@/lib/supabase/server'
-import { MESES } from '@/lib/prompt'
+import { mesTitulado } from '@/lib/prompt'
 import { Sair } from '@/app/painel/sair'
 
 export default async function PortalDoCliente() {
@@ -146,8 +146,8 @@ export default async function PortalDoCliente() {
                     }}
                   >
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: 15.5, textTransform: 'capitalize' }}>
-                        {MESES[Number(p.month) - 1]} de {p.year as number}
+                      <div style={{ fontWeight: 700, fontSize: 15.5 }}>
+                        {mesTitulado(Number(p.month))} de {p.year as number}
                       </div>
                       <div style={{ color: 'var(--muted)', fontSize: 13 }}>
                         {marca?.nome ?? '—'} · {c.total} publicações
