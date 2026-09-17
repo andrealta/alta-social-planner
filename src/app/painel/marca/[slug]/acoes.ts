@@ -84,3 +84,49 @@ export async function salvarBase(
   revalidatePath(`/painel/marca/${slug}`)
   return { ok: true, salvas: linhas.length }
 }
+
+/**
+ * Define (ou remove) a cor da marca.
+ *
+ * O formato é conferido aqui e no banco — a restrição `brands_color_hex`
+ * da migração 0014 recusa qualquer coisa que não seja #RRGGBB. Duas
+ * conferências porque esta string vai para dentro de um `style`: campo
+ * de cor que aceita texto livre é campo por onde entra coisa que não é
+ * cor.
+ *
+ * Quem grava é a administração: a tabela `brands` é reservada a ela
+ * desde a 0002, e a política do banco recusa o resto.
+ */
+export async function definirCor(
+  slug: string,
+  cor: string | null,
+): Promise<{ ok: boolean; erro?: string }> {
+  const supabase = await clienteServidor()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, erro: 'Sua sessão expirou. Entre de novo.' }
+
+  if (cor !== null && !/^#[0-9A-Fa-f]{6}$/.test(cor)) {
+    return { ok: false, erro: 'A cor precisa estar no formato #RRGGBB.' }
+  }
+
+  const { error } = await supabase
+    .from('brands')
+    .update({ color: cor })
+    .eq('slug', slug)
+
+  if (error) {
+    return {
+      ok: false,
+      erro:
+        error.code === '42501' || error.message.includes('policy')
+          ? 'Só a administração pode trocar a cor da marca.'
+          : error.message,
+    }
+  }
+
+  revalidatePath(`/painel/marca/${slug}`)
+  return { ok: true }
+}

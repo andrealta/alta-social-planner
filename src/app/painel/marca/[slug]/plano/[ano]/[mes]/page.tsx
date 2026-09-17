@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { clienteServidor } from '@/lib/supabase/server'
 import { MESES, mesTitulado } from '@/lib/prompt'
+import { Apagar } from './apagar'
 
 type Achado = { gravidade: 'erro' | 'aviso'; texto: string }
 type Territorio = { nome: string; peso: number; cobre?: string; posts?: number; novo?: boolean }
@@ -41,12 +42,17 @@ export default async function Plano({
 
   const { data: plano } = await supabase
     .from('plans')
-    .select('id, status, briefing, analysis, created_at')
+    .select('id, status, briefing, analysis, created_at, client_released_at')
     .eq('brand_id', marca.id)
     .eq('year', ano)
     .eq('month', mes)
     .maybeSingle()
   if (!plano) notFound()
+
+  // Apagar é do responsável pela marca e da administração. Quem manda
+  // é o banco; isto aqui só decide se o botão aparece.
+  const { data: nivel } = await supabase.rpc('nivel_na_marca', { b: marca.id })
+  const podeApagar = nivel === 'owner'
 
   const [{ data: pautas }, { data: canais }, { data: linhas }] = await Promise.all([
     supabase
@@ -367,6 +373,17 @@ export default async function Plano({
           </p>
         </section>
       ) : null}
+
+      {podeApagar && (
+        <Apagar
+          slug={slug}
+          planoId={plano.id as string}
+          mes={mesTitulado(mes)}
+          ano={ano}
+          pautas={(pautas ?? []).length}
+          comCliente={plano.client_released_at !== null}
+        />
+      )}
     </main>
   )
 }

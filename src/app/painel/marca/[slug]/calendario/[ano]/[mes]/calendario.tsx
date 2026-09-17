@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { moverPauta, mudarStatus, aprovarTodas, enviarAoCliente } from './acoes'
 import { Painel } from './painel'
 import {
+  DIAS_CURTOS,
   ESTADO,
   ICONE_PECA,
   SITUACOES,
@@ -12,13 +13,12 @@ import {
   corDaLinha,
   pilula,
   ponto,
+  semanasDoMes,
   tipoDaPeca,
   type ConteudoPauta,
   type Editaveis,
   type Pauta,
 } from './comum'
-
-const DIAS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb']
 
 export function Calendario({
   slug,
@@ -48,9 +48,6 @@ export function Calendario({
   const [alvo, setAlvo] = useState<string | null>(null)
   const [aviso, setAviso] = useState<{ tipo: 'ok' | 'erro'; texto: string } | null>(null)
   const [pendente, comecar] = useTransition()
-
-  const diasNoMes = new Date(ano, mes, 0).getDate()
-  const primeiroDia = new Date(ano, mes - 1, 1).getDay()
 
   const porDia = useMemo(() => {
     const m = new Map<string, Pauta[]>()
@@ -186,21 +183,10 @@ export function Calendario({
   ]
   const situacoesUsadas = SITUACOES.filter((st) => pautas.some((p) => p.status === st))
 
-  const semanas: (number | null)[][] = []
-  {
-    let semana: (number | null)[] = Array(primeiroDia).fill(null)
-    for (let d = 1; d <= diasNoMes; d++) {
-      semana.push(d)
-      if (semana.length === 7) {
-        semanas.push(semana)
-        semana = []
-      }
-    }
-    if (semana.length > 0) {
-      while (semana.length < 7) semana.push(null)
-      semanas.push(semana)
-    }
-  }
+  // A grade do mês é a mesma do portal do cliente: uma conta só, em
+  // `lib/visual`, para as duas telas não discordarem sobre em que dia
+  // da semana o mês começa.
+  const semanas = semanasDoMes(ano, mes)
 
   return (
     <div style={{ marginTop: 20 }}>
@@ -362,7 +348,7 @@ export function Calendario({
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 5 }}>
-        {DIAS.map((d) => (
+        {DIAS_CURTOS.map((d) => (
           <div
             key={d}
             style={{

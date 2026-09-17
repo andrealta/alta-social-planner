@@ -102,41 +102,6 @@ export const ESTADO: Record<
   client_approved: { rotulo: 'Aprovada pelo cliente', curto: 'aprovada pelo cliente', cor: 'var(--st-aprovado)', wash: 'var(--st-aprovado-wash)', simbolo: '✓✓' },
 }
 
-/**
- * A pílula de situação. Fundo pastel, tinta escura, ponto colorido.
- *
- * O ponto é um elemento separado porque a cor precisa aparecer em
- * pouca área: seis pixels dizem tanto quanto um bloco chapado, e não
- * competem com o resto da tela.
- */
-export function pilula(wash: string, pequena = false): React.CSSProperties {
-  return {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 5,
-    padding: pequena ? '3px 9px' : '4px 11px',
-    borderRadius: 99,
-    background: wash,
-    color: 'var(--text)',
-    fontSize: pequena ? 10 : 11.5,
-    fontWeight: 600,
-    lineHeight: 1.45,
-    whiteSpace: 'nowrap',
-  }
-}
-
-export function ponto(cor: string, tamanho = 6): React.CSSProperties {
-  return {
-    width: tamanho,
-    height: tamanho,
-    borderRadius: 99,
-    background: cor,
-    display: 'inline-block',
-    flex: '0 0 auto',
-  }
-}
-
-/** A ordem em que a legenda apresenta as situações. */
 export const SITUACOES = [
   'ai_generated',
   'internal_changes',
@@ -144,39 +109,6 @@ export const SITUACOES = [
   'sent_to_client',
   'client_approved',
 ]
-
-/**
- * A cor da linha de produto.
- *
- * Fixa por linha, nunca por ordem de aparição: se a Diet sumir de um
- * mês, a Gourmet não pode herdar a cor dela. O índice vem da posição
- * cadastrada no escopo do contrato, que não muda.
- *
- * Passando de quatro linhas, as demais entram em cinza. Uma quinta
- * cor inventada aqui quebraria a separação que as quatro têm hoje.
- */
-export function corDaLinha(indice: number | null | undefined): string {
-  if (indice === null || indice === undefined || indice < 0 || indice > 3) {
-    return 'var(--linha-outra)'
-  }
-  return `var(--linha-${indice + 1})`
-}
-
-/** Que tipo de peça é, a partir do formato que a equipe escreveu. */
-export function tipoDaPeca(formato: string | null | undefined): string {
-  const f = formato ?? ''
-  if (/v[ií]deo|reel|reels|tiktok|shorts|filme|motion|anima/i.test(f)) return 'Vídeo'
-  if (/carrossel|carousel/i.test(f)) return 'Carrossel'
-  if (/story|stories/i.test(f)) return 'Story'
-  return 'Imagem'
-}
-
-export const ICONE_PECA: Record<string, string> = {
-  'Vídeo': '▶',
-  Carrossel: '❑',
-  Story: '▭',
-  Imagem: '▣',
-}
 
 /**
  * O que a equipe faz com uma pauta.
@@ -262,50 +194,19 @@ export const ORIGEM: Record<string, string> = {
 }
 
 /**
- * Os dois botões do sistema.
- *
- * Uma ação forte por área, no azul da marca — é a regra que segura o
- * desenho inteiro. O secundário é branco com sombra, sem contorno
- * cinza: contorno em tudo é o que fazia a tela parecer antiga.
+ * O vocabulário visual mora em `@/lib/visual`, porque o portal do
+ * cliente usa as mesmas peças. Reexportado aqui para que nada que já
+ * importava daqui precise mudar de endereço.
  */
-export function botao(forte: boolean, desligado = false): React.CSSProperties {
-  return {
-    fontFamily: 'inherit',
-    fontSize: 13.5,
-    fontWeight: forte ? 700 : 600,
-    padding: '10px 18px',
-    border: 'none',
-    borderRadius: 99,
-    background: forte ? 'var(--accent)' : 'var(--surface)',
-    color: forte ? '#fff' : 'var(--text)',
-    boxShadow: desligado
-      ? 'none'
-      : forte
-        ? 'var(--shadow-botao)'
-        : '0 1px 2px rgba(29, 37, 48, .06), 0 6px 14px -10px rgba(29, 37, 48, .2)',
-    cursor: desligado ? 'not-allowed' : 'pointer',
-    opacity: desligado ? 0.45 : 1,
-  }
-}
-
-/** Campo preenchido em vez de contornado: menos linha na tela. */
-export const caixaTexto: React.CSSProperties = {
-  width: '100%',
-  resize: 'vertical',
-  padding: '11px 13px',
-  fontFamily: 'inherit',
-  fontSize: 13.5,
-  lineHeight: 1.55,
-  color: 'var(--text)',
-  background: 'var(--surface-2)',
-  border: '1px solid transparent',
-  borderRadius: 'var(--r-sm)',
-  outline: 'none',
-}
-
-/** O cartão padrão: branco, sem moldura, sombra macia. */
-export const cartao: React.CSSProperties = {
-  background: 'var(--surface)',
-  borderRadius: 'var(--r-lg)',
-  boxShadow: 'var(--shadow)',
-}
+export {
+  corDaLinha,
+  tipoDaPeca,
+  ICONE_PECA,
+  pilula,
+  ponto,
+  botao,
+  caixaTexto,
+  cartao,
+  semanasDoMes,
+  DIAS_CURTOS,
+} from '@/lib/visual'

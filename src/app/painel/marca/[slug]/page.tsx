@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import { clienteServidor } from '@/lib/supabase/server'
 import { SECOES, situacao } from '@/lib/base'
 import { Editor } from './editor'
+import { Cor } from './cor'
 
 export default async function BaseDaMarca({
   params,
@@ -32,7 +33,7 @@ export default async function BaseDaMarca({
   // isolamento acontecendo em produção, a cada carregamento.
   const { data: marca } = await supabase
     .from('brands')
-    .select('id, name, slug, segment')
+    .select('id, name, slug, segment, color')
     .eq('slug', slug)
     .maybeSingle()
 
@@ -109,6 +110,13 @@ export default async function BaseDaMarca({
             {atualizadaEm &&
               ` · última alteração em ${new Date(atualizadaEm).toLocaleDateString('pt-BR')}`}
           </p>
+          <div style={{ marginTop: 10 }}>
+            <Cor
+              slug={slug}
+              inicial={(marca.color as string | null) ?? null}
+              podeTrocar={papel === 'admin'}
+            />
+          </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>

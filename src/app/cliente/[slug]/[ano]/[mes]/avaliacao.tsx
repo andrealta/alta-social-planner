@@ -1,6 +1,18 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import {
+  DIAS_CURTOS,
+  ICONE_PECA,
+  botao,
+  caixaTexto,
+  cartao,
+  corDaLinha,
+  pilula,
+  ponto,
+  semanasDoMes,
+  tipoDaPeca,
+} from '@/lib/visual'
 import { decidir } from './acoes'
 
 export type PautaCliente = {
@@ -12,6 +24,8 @@ export type PautaCliente = {
   cta: string | null
   status: string
   linha: string | null
+  /** A posição da linha no contrato, que decide a cor dela. */
+  linhaIndice: number | null
   formato: string | null
   plataforma: string | null
   data: string | null
@@ -23,10 +37,25 @@ export type PautaCliente = {
   decisoes: { id: string; decisao: string; autor: string | null; created_at: string }[]
 }
 
-const SITUACAO: Record<string, { rotulo: string; cor: string; simbolo: string }> = {
-  sent_to_client: { rotulo: 'Aguardando você', cor: 'var(--st-cliente)', simbolo: '○' },
-  client_changes_requested: { rotulo: 'Você pediu alteração', cor: 'var(--st-ajuste)', simbolo: '!' },
-  client_approved: { rotulo: 'Aprovada por você', cor: 'var(--st-aprovado)', simbolo: '✓' },
+const SITUACAO: Record<string, { rotulo: string; curto: string; cor: string; wash: string }> = {
+  sent_to_client: {
+    rotulo: 'Aguardando você',
+    curto: 'aguardando',
+    cor: 'var(--st-cliente)',
+    wash: 'var(--st-cliente-wash)',
+  },
+  client_changes_requested: {
+    rotulo: 'Você pediu alteração',
+    curto: 'pediu alteração',
+    cor: 'var(--st-ajuste)',
+    wash: 'var(--st-ajuste-wash)',
+  },
+  client_approved: {
+    rotulo: 'Aprovada por você',
+    curto: 'aprovada',
+    cor: 'var(--st-aprovado)',
+    wash: 'var(--st-aprovado-wash)',
+  },
 }
 
 export function Avaliacao({
@@ -34,13 +63,17 @@ export function Avaliacao({
   ano,
   mes,
   pautas: iniciais,
+  cor,
 }: {
   slug: string
   ano: number
   mes: number
   pautas: PautaCliente[]
+  /** A cor da marca do cliente, para o mês ter a cara dele. */
+  cor: string
 }) {
   const [pautas, setPautas] = useState(iniciais)
+  const [vista, setVista] = useState<'lista' | 'calendario'>('lista')
   const [aberta, setAberta] = useState<string | null>(null)
   const [texto, setTexto] = useState('')
   const [erro, setErro] = useState<string | null>(null)
@@ -106,12 +139,9 @@ export function Avaliacao({
           alignItems: 'center',
           gap: 14,
           flexWrap: 'wrap',
-          padding: '14px 18px',
-          border: '1px solid var(--line)',
-          borderRadius: 'var(--r-lg)',
-          background: 'var(--surface)',
-          boxShadow: 'var(--shadow)',
-          marginBottom: 20,
+          padding: '16px 20px',
+          ...cartao,
+          marginBottom: 18,
         }}
       >
         <div style={{ flex: 1, minWidth: 220 }}>
@@ -128,11 +158,46 @@ export function Avaliacao({
               style={{
                 width: `${pautas.length ? (aprovadas / pautas.length) * 100 : 0}%`,
                 height: '100%',
-                background: 'var(--st-aprovado)',
+                background: cor,
                 transition: 'width .25s ease',
               }}
             />
           </div>
+        </div>
+
+        {/* Duas leituras do mesmo mês: a lista para decidir, o
+            calendário para ver a distribuição. Quem avalia catorze
+            peças precisa das duas — a lista responde "o que é esta
+            peça", o calendário responde "como está o mês". */}
+        <div
+          style={{
+            display: 'inline-flex',
+            gap: 4,
+            padding: 4,
+            borderRadius: 99,
+            background: 'var(--surface-2)',
+          }}
+        >
+          {(['lista', 'calendario'] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setVista(v)}
+              style={{
+                fontFamily: 'inherit',
+                fontSize: 13,
+                fontWeight: vista === v ? 700 : 500,
+                padding: '6px 15px',
+                border: 'none',
+                borderRadius: 99,
+                background: vista === v ? 'var(--surface)' : 'transparent',
+                boxShadow: vista === v ? '0 1px 2px rgba(29,37,48,.08)' : 'none',
+                color: vista === v ? 'var(--text)' : 'var(--muted)',
+                cursor: 'pointer',
+              }}
+            >
+              {v === 'lista' ? 'Lista' : 'Calendário'}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -140,11 +205,9 @@ export function Avaliacao({
         <div
           style={{
             marginBottom: 16,
-            padding: '12px 16px',
-            border: '1px solid var(--line)',
-            borderLeft: '3px solid var(--st-ajuste)',
-            borderRadius: '0 var(--r) var(--r) 0',
-            background: 'var(--accent-wash)',
+            padding: '13px 17px',
+            borderRadius: 'var(--r)',
+            background: 'var(--laranja-wash)',
             fontSize: 13.5,
           }}
         >
@@ -152,6 +215,150 @@ export function Avaliacao({
         </div>
       )}
 
+      {vista === 'calendario' && (
+        <div style={{ ...cartao, padding: '18px 20px 20px', marginBottom: 18 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 8 }}>
+            {DIAS_CURTOS.map((d) => (
+              <div
+                key={d}
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: '.1em',
+                  textTransform: 'uppercase',
+                  color: 'var(--faint)',
+                  textAlign: 'center',
+                  paddingBottom: 2,
+                }}
+              >
+                {d}
+              </div>
+            ))}
+
+            {semanasDoMes(ano, mes)
+              .flat()
+              .map((dia, i) => {
+                if (dia === null) return <div key={`v${i}`} />
+                const data = `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`
+                const doDia = pautas.filter((p) => p.data === data)
+                return (
+                  <div
+                    key={data}
+                    style={{
+                      minHeight: 84,
+                      padding: 8,
+                      borderRadius: 'var(--r)',
+                      background: 'var(--surface-2)',
+                    }}
+                  >
+                    <div style={{ fontSize: 11, color: 'var(--faint)', fontWeight: 600 }}>{dia}</div>
+                    {doDia.map((p) => {
+                      const st = SITUACAO[p.status] ?? SITUACAO.sent_to_client
+                      return (
+                        <button
+                          key={p.id}
+                          onClick={() => {
+                            // O calendário mostra; quem decide é a lista.
+                            // Clicar aqui leva a pessoa até a peça, já aberta.
+                            setVista('lista')
+                            setTimeout(() => {
+                              document
+                                .getElementById(`pauta-${p.id}`)
+                                ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                            }, 60)
+                          }}
+                          style={{
+                            display: 'block',
+                            width: '100%',
+                            textAlign: 'left',
+                            marginTop: 6,
+                            padding: '7px 8px',
+                            border: 'none',
+                            borderRadius: 8,
+                            background: 'var(--surface)',
+                            boxShadow: '0 1px 2px rgba(29,37,48,.06)',
+                            cursor: 'pointer',
+                            fontFamily: 'inherit',
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              fontSize: 9.5,
+                              color: 'var(--muted)',
+                              marginBottom: 2,
+                            }}
+                          >
+                            <span aria-hidden>{ICONE_PECA[tipoDaPeca(p.formato)]}</span>
+                            {tipoDaPeca(p.formato)}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: 10.5,
+                              fontWeight: 700,
+                              lineHeight: 1.3,
+                              color: 'var(--text)',
+                              display: '-webkit-box',
+                              WebkitLineClamp: 3,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                            }}
+                          >
+                            {p.title}
+                          </div>
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              marginTop: 4,
+                              fontSize: 9.5,
+                              color: 'var(--muted)',
+                            }}
+                          >
+                            <i aria-hidden style={ponto(st.cor, 6)} />
+                            {st.curto}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )
+              })}
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              gap: 14,
+              flexWrap: 'wrap',
+              marginTop: 16,
+              paddingTop: 14,
+              borderTop: '1px solid var(--line)',
+            }}
+          >
+            {Object.entries(SITUACAO)
+              .filter(([st]) => pautas.some((p) => p.status === st))
+              .map(([st, v]) => (
+                <span key={st} style={pilula(v.wash)}>
+                  <i aria-hidden style={ponto(v.cor)} />
+                  {v.rotulo}
+                </span>
+              ))}
+          </div>
+
+          {pautas.some((p) => !p.data) && (
+            <p style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 12, lineHeight: 1.55 }}>
+              {pautas.filter((p) => !p.data).length} publicação(ões) ainda sem data marcada — elas
+              aparecem só na lista.
+            </p>
+          )}
+        </div>
+      )}
+
+      {vista === 'lista' && (
       <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 14 }}>
         {pautas.map((p) => {
           const s = SITUACAO[p.status] ?? SITUACAO.sent_to_client
@@ -160,13 +367,8 @@ export function Avaliacao({
           return (
             <li
               key={p.id}
-              style={{
-                border: '1px solid var(--line)',
-                borderRadius: 'var(--r-lg)',
-                background: 'var(--surface)',
-                boxShadow: 'var(--shadow)',
-                padding: '18px 20px',
-              }}
+              id={`pauta-${p.id}`}
+              style={{ ...cartao, padding: '20px 22px' }}
             >
               <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap' }}>
                 <div style={{ textAlign: 'center', minWidth: 44 }}>
@@ -177,37 +379,41 @@ export function Avaliacao({
 
                 <div style={{ flex: 1, minWidth: 240 }}>
                   <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 6 }}>
-                    {[p.linha, p.formato, p.plataforma].filter(Boolean).map((t) => (
+                    {p.linha && (
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 5,
+                          fontSize: 11,
+                          fontWeight: 600,
+                          padding: '3px 10px',
+                          borderRadius: 99,
+                          background: 'var(--surface-2)',
+                          color: 'var(--muted)',
+                        }}
+                      >
+                        <i aria-hidden style={ponto(corDaLinha(p.linhaIndice), 7)} />
+                        {p.linha}
+                      </span>
+                    )}
+                    {[p.formato, p.plataforma].filter(Boolean).map((t) => (
                       <span
                         key={String(t)}
                         style={{
                           fontSize: 11,
                           fontWeight: 600,
-                          padding: '2px 9px',
+                          padding: '3px 10px',
                           borderRadius: 99,
-                          background: 'var(--surface-3)',
+                          background: 'var(--surface-2)',
                           color: 'var(--muted)',
                         }}
                       >
                         {String(t)}
                       </span>
                     ))}
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 4,
-                        fontSize: 11,
-                        fontWeight: 700,
-                        padding: '2px 9px',
-                        borderRadius: 99,
-                        border: `1px solid ${s.cor}`,
-                        background: `color-mix(in srgb, ${s.cor} 14%, transparent)`,
-                        color: s.cor,
-                        marginLeft: 'auto',
-                      }}
-                    >
-                      <span aria-hidden>{s.simbolo}</span>
+                    <span style={{ ...pilula(s.wash), marginLeft: 'auto' }}>
+                      <i aria-hidden style={ponto(s.cor)} />
                       {s.rotulo}
                     </span>
                   </div>
@@ -242,10 +448,9 @@ export function Avaliacao({
                           whiteSpace: 'pre-wrap',
                           fontSize: 13.8,
                           lineHeight: 1.65,
-                          padding: '12px 14px',
+                          padding: '13px 15px',
                           background: 'var(--surface-2)',
-                          border: '1px solid var(--line)',
-                          borderRadius: 8,
+                          borderRadius: 'var(--r-sm)',
                         }}
                       >
                         {p.caption}
@@ -304,10 +509,9 @@ export function Avaliacao({
                     <div
                       style={{
                         marginTop: 12,
-                        padding: '11px 14px',
-                        borderLeft: '3px solid var(--line-2)',
+                        padding: '12px 15px',
                         background: 'var(--surface-2)',
-                        borderRadius: '0 8px 8px 0',
+                        borderRadius: 'var(--r-sm)',
                       }}
                     >
                       {p.recados.map((r) => (
@@ -344,19 +548,7 @@ export function Avaliacao({
                             onChange={(e) => setTexto(e.target.value)}
                             autoFocus
                             placeholder="Quanto mais específico, menos idas e vindas."
-                            style={{
-                              width: '100%',
-                              resize: 'vertical',
-                              padding: '10px 12px',
-                              fontFamily: 'inherit',
-                              fontSize: 13.5,
-                              lineHeight: 1.55,
-                              color: 'var(--text)',
-                              background: 'var(--surface)',
-                              border: '1px solid var(--line-2)',
-                              borderRadius: 8,
-                              outline: 'none',
-                            }}
+                            style={caixaTexto}
                           />
                         </div>
                       )}
@@ -366,16 +558,10 @@ export function Avaliacao({
                           onClick={() => responder(p, 'approved')}
                           disabled={enviando === p.id}
                           style={{
-                            fontFamily: 'inherit',
+                            ...botao(true, enviando === p.id),
                             fontSize: 14,
-                            fontWeight: 700,
-                            padding: '10px 20px',
-                            border: 'none',
-                            borderRadius: 8,
-                            background: 'var(--st-aprovado)',
-                            color: '#fff',
+                            padding: '11px 22px',
                             cursor: enviando === p.id ? 'progress' : 'pointer',
-                            opacity: enviando === p.id ? 0.6 : 1,
                           }}
                         >
                           {enviando === p.id ? 'Registrando…' : 'Aprovar'}
@@ -422,18 +608,13 @@ export function Avaliacao({
           )
         })}
       </ol>
+      )}
     </div>
   )
 }
 
 const botaoSecundario: React.CSSProperties = {
-  fontFamily: 'inherit',
+  ...botao(false),
   fontSize: 14,
-  fontWeight: 600,
-  padding: '10px 18px',
-  border: '1px solid var(--line-2)',
-  borderRadius: 8,
-  background: 'var(--surface)',
-  color: 'var(--text)',
-  cursor: 'pointer',
+  padding: '11px 20px',
 }

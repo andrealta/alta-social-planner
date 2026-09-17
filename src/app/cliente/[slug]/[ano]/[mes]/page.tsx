@@ -37,10 +37,15 @@ export default async function MesDoCliente({
   // estiverem erradas, nenhum cuidado aqui salvaria.
   const { data: marca } = await supabase
     .from('brands')
-    .select('id, name')
+    .select('id, name, color')
     .eq('slug', slug)
     .maybeSingle()
   if (!marca) notFound()
+
+  // A cor da marca do cliente. Quando ninguém escolheu uma, o portal
+  // usa a cor do sistema — melhor neutro do que uma cor inventada.
+  const corDaMarca = (marca.color as string | null) ?? 'var(--accent)'
+  const inicial = ((marca.name as string) ?? '?').trim().charAt(0).toUpperCase()
 
   const { data: plano } = await supabase
     .from('plans')
@@ -68,7 +73,11 @@ export default async function MesDoCliente({
         .from('content_channels')
         .select('idea_id, platform, format, scheduled_date')
         .eq('brand_id', marca.id),
-      supabase.from('brand_scope').select('id, label').eq('brand_id', marca.id),
+      supabase
+        .from('brand_scope')
+        .select('id, label, position')
+        .eq('brand_id', marca.id)
+        .order('position'),
       supabase
         .from('idea_content')
         .select('idea_id, caption, hashtags, art_concept, scenes')
@@ -113,6 +122,13 @@ export default async function MesDoCliente({
 
   const nomeDaLinha = new Map<string, string>(
     (linhas ?? []).map((l): [string, string] => [l.id as string, l.label as string]),
+  )
+
+  // A cor de cada linha vem da posição no contrato, não da ordem em
+  // que as pautas aparecem: a Classic é sempre da mesma cor, mesmo
+  // num mês em que a Diet não tenha nenhuma peça.
+  const indiceDaLinha = new Map<string, number>(
+    (linhas ?? []).map((l, i): [string, number] => [l.id as string, i]),
   )
   type Canal = { platform?: string; format?: string; scheduled_date?: string }
   const canalDa = new Map<string, Canal>(
@@ -176,6 +192,7 @@ export default async function MesDoCliente({
         cta: (p.cta as string) ?? null,
         status: (p.status as string) ?? 'sent_to_client',
         linha: p.scope_id ? (nomeDaLinha.get(p.scope_id as string) ?? null) : null,
+        linhaIndice: p.scope_id ? (indiceDaLinha.get(p.scope_id as string) ?? null) : null,
         formato: c?.format ?? null,
         plataforma: c?.platform ? (REDES[c.platform] ?? c.platform) : null,
         data: c?.scheduled_date ?? null,
@@ -197,41 +214,56 @@ export default async function MesDoCliente({
         ← Todos os meses
       </Link>
 
+      {/* A marca do cliente vem primeiro, e grande. Ele não entra aqui
+          para ver a Alta: entra para ver a marca dele. O selo usa a cor
+          cadastrada na base — é a única cor forte da tela. */}
       <header
         style={{
           display: 'flex',
-          alignItems: 'flex-end',
+          alignItems: 'center',
           gap: 16,
           flexWrap: 'wrap',
           marginTop: 12,
-          paddingBottom: 18,
-          borderBottom: '2px solid var(--text)',
+          padding: '20px 22px',
+          background: 'var(--surface)',
+          borderRadius: 'var(--r-lg)',
+          boxShadow: 'var(--shadow)',
+          borderTop: `4px solid ${corDaMarca}`,
         }}
       >
-        <div style={{ flex: 1, minWidth: 220 }}>
+        <div
+          aria-hidden
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: 14,
+            display: 'grid',
+            placeItems: 'center',
+            background: corDaMarca,
+            color: '#fff',
+            fontFamily: 'var(--disp)',
+            fontSize: 19,
+            fontWeight: 700,
+            flex: '0 0 auto',
+          }}
+        >
+          {inicial}
+        </div>
+        <div style={{ flex: 1, minWidth: 200 }}>
           <div
             style={{
               fontFamily: 'var(--disp)',
-              fontSize: 11,
-              fontWeight: 500,
-              letterSpacing: '.2em',
-              textTransform: 'uppercase',
-              color: 'var(--accent)',
-              marginBottom: 6,
+              fontSize: 22,
+              fontWeight: 600,
+              lineHeight: 1.15,
+              letterSpacing: '-.02em',
             }}
           >
             {marca.name as string}
           </div>
-          <h1
-            style={{
-              fontFamily: 'var(--disp)',
-              fontSize: 34,
-              fontWeight: 600,
-              lineHeight: 1.08,
-            }}
-          >
-            {mesTitulado(mes)} de {ano}
-          </h1>
+          <div style={{ color: 'var(--muted)', fontSize: 13.5, marginTop: 2 }}>
+            Planejamento de {mesTitulado(mes).toLowerCase()} de {ano}
+          </div>
         </div>
         <Sair />
       </header>
@@ -239,11 +271,9 @@ export default async function MesDoCliente({
       {fechado ? (
         <div
           style={{
-            marginTop: 20,
+            marginTop: 18,
             padding: '16px 20px',
-            border: '1px solid var(--line)',
-            borderLeft: '3px solid var(--st-aprovado)',
-            borderRadius: '0 var(--r) var(--r) 0',
+            borderRadius: 'var(--r)',
             background: 'var(--ok-wash)',
             fontSize: 14,
             lineHeight: 1.6,
@@ -261,7 +291,7 @@ export default async function MesDoCliente({
       )}
 
       <div style={{ marginTop: 22 }}>
-        <Avaliacao slug={slug} ano={ano} mes={mes} pautas={pautas} />
+        <Avaliacao slug={slug} ano={ano} mes={mes} pautas={pautas} cor={corDaMarca} />
       </div>
     </main>
   )
