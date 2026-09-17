@@ -12,6 +12,7 @@ import {
   somarCusto,
   somarPorPlano,
   usdPorPautaAprovada,
+  type Conta,
   type CorridaMedida,
   type DecisaoMedida,
   type PautaMedida,
