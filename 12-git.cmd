@@ -48,11 +48,13 @@ if errorlevel 1 (
 )
 
 echo.
-git commit -m "Alta Social Planner: sistema completo (base, geracao, calendario, conteudo, portal do cliente, pessoas)" >nul 2>&1
+set "NOVIDADE=nao"
+git commit -m "Alta Social Planner: atualizacao" >nul 2>&1
 if errorlevel 1 (
-  echo  Nada novo para registrar desde a ultima vez. Seguindo.
+  echo  Nenhuma alteracao nova para registrar.
 ) else (
   echo  Alteracoes registradas.
+  set "NOVIDADE=sim"
 )
 echo.
 
@@ -64,10 +66,8 @@ if errorlevel 1 (
   echo.
   echo  1. Abra github.com e crie um repositorio PRIVADO
   echo     chamado  alta-social-planner
-  echo  2. NAO marque nenhuma opcao de "Add README" ou
-  echo     ".gitignore" - o projeto ja tem os dele.
-  echo  3. Copie o endereco que aparece, algo como
-  echo     https://github.com/seu-usuario/alta-social-planner.git
+  echo  2. NAO marque "Add README" nem ".gitignore".
+  echo  3. Copie o endereco que aparece.
   echo.
   set "REPO="
   set /p REPO=  Cole o endereco aqui: 
@@ -82,17 +82,49 @@ if errorlevel 1 (
 
 echo  Enviando... (pode abrir uma janela pedindo login do GitHub)
 echo.
-git push -u origin main
-if errorlevel 1 (
-  echo.
-  echo  O envio falhou. Leia a mensagem acima.
-  echo  Se falou em autenticacao, faca o login que a janela pediu
-  echo  e rode este arquivo de novo.
-) else (
-  echo.
+
+REM Guardamos a saida para saber se ALGO foi de fato enviado.
+REM "Everything up-to-date" significa que o GitHub ja tinha tudo — e,
+REM nesse caso, a Vercel nao recebe aviso nenhum e nao reconstroi.
+git push -u origin main > "%TEMP%\asp-push.txt" 2>&1
+set "FALHOU=%errorlevel%"
+type "%TEMP%\asp-push.txt"
+echo.
+
+if not "%FALHOU%"=="0" (
   echo ============================================
-  echo   Enviado. O codigo esta no GitHub.
+  echo   O ENVIO FALHOU. Leia a mensagem acima.
   echo ============================================
+  echo.
+  echo   Se falou em autenticacao, faca o login que a janela
+  echo   pediu e rode este arquivo de novo.
+  pause
+  exit /b 1
 )
+
+findstr /C:"Everything up-to-date" "%TEMP%\asp-push.txt" >nul
+if errorlevel 1 (
+  echo ============================================
+  echo   ENVIADO. Havia novidade e ela subiu.
+  echo ============================================
+  echo.
+  echo   A Vercel recebeu o aviso e vai publicar sozinha.
+  echo   Leva uns dois minutos.
+) else (
+  echo ============================================
+  echo   NADA FOI ENVIADO - o GitHub ja tinha tudo.
+  echo ============================================
+  echo.
+  echo   Isto NAO e erro: seu codigo esta la, igualzinho.
+  echo.
+  echo   Mas tem uma consequencia: sem envio novo, a Vercel
+  echo   nao recebe aviso e NAO publica nada. Se voce esta
+  echo   esperando o site atualizar, ele nao vai.
+  echo.
+  echo   Para publicar sem mudar codigo, va na Vercel em
+  echo   Deployments e use "Create Deployment" (ou o botao
+  echo   de Redeploy, se ja houver alguma publicacao).
+)
+del "%TEMP%\asp-push.txt" >nul 2>&1
 echo.
 pause

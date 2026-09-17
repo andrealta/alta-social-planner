@@ -1,0 +1,16 @@
+# Os arquivos .cmd sao lidos pelo interpretador do Windows, que exige
+# quebra de linha CRLF. Com LF ele parte as linhas no lugar errado e
+# passa a ler "echo" como "cho" — erro que parece qualquer outra coisa
+# menos o que e. Esta linha garante CRLF sempre, venha o arquivo de
+# onde vier.
+*.cmd text eol=crlf
+
+# O resto segue o padrao do Unix, que e o que o servidor espera.
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.mjs  text eol=lf
+*.js   text eol=lf
+*.json text eol=lf
+*.sql  text eol=lf
+*.md   text eol=lf
+*.css  text eol=lf

@@ -37,6 +37,11 @@ do Next, para separar problema de API de problema de servidor).
 ## Arquitetura
 
 - **Next.js 16** (App Router) na Vercel, região `gru1` — ao lado do banco.
+  O `vercel.json` existe só para isso: por omissão a Vercel roda em
+  Washington, e cada consulta atravessaria o continente. **Cuidado: o
+  esquema do `vercel.json` recusa qualquer propriedade que não esteja na
+  lista da documentação — inclusive uma chave `"//"` usada como
+  comentário. JSON não tem comentário; a explicação fica aqui.**
 - **Supabase** (Postgres + Auth) em `sa-east-1`.
 - **API da Anthropic** (Opus 5) para planejamento, refino e redação.
 
