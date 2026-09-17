@@ -206,6 +206,88 @@
      "m_temas": "Temas com histórico de bom resultado e reincidência no calendário: aniversário da Canto em abril, tratado como campanha de mês inteiro ('31 anos em 30 dias'); gastronomia mineira em julho (05/07) e Dia do Pão de Queijo (17/08); Dia Mundial do Leite (01/06) puxando curiosidades de fabricação e cadeia produtiva; Dia Mundial do Queijo (20/01); Semana das Crianças em outubro com a linha infantil; Semana da Proteína em novembro com Triplo Zero e Whey; receitas de mãe em maio; Carnaval com pergunta sobre o produto do bloquinho; Páscoa explorando chocolate via Chocoballs, Chocodiscos e bebida láctea UHT chocolate; bastidor de fábrica e controle de qualidade em março; voluntariado e Patrulheiros Mirins em agosto. [Fonte: Planejamento_Anual_2026_Canto_de_Minas_v2.pptx / Planejamento_Abril25_Canto_de_Minas.pptx]"
     }
    }
+  },
+  {
+   "slug": "alta",
+   "name": "Alta Comunicazione",
+   "segment": "Agência de publicidade e comunicação · B2B",
+   "color": "#2502D0",
+   "escopo": [
+    {
+     "label": "Cases",
+     "quota": 4,
+     "pos": 0
+    },
+    {
+     "label": "Método",
+     "quota": 3,
+     "pos": 1
+    },
+    {
+     "label": "Bastidores",
+     "quota": 2,
+     "pos": 2
+    },
+    {
+     "label": "Mercado",
+     "quota": 2,
+     "pos": 3
+    }
+   ],
+   "base": {
+    "identity": {
+     "i_nome": "Alta Comunicazione. Assina como \"Alta\" no post e como \"Alta Comunicazione\" em material formal.\n\n[A CONFIRMAR: razão social e CNPJ, para peça que exija assinatura jurídica.]",
+     "i_seg": "Agência de publicidade e comunicação, com seis frentes declaradas no site: Comunicação, Digital, Design, Live Marketing, Full Commerce e Audiovisual.\n\nVende serviço para marcas — é B2B. A decisão de compra passa por diretor de marketing, dono de empresa familiar ou comitê, dependendo do porte, e a venda acontece por relacionamento e indicação, não por anúncio.\n\n[A CONFIRMAR: qual das seis frentes traz mais receita hoje, e qual vocês querem crescer. Isso muda o peso do conteúdo — hoje o sistema trata as quatro linhas como iguais.]",
+     "i_canais": "Site: altacomunicazione.com.br\nContato: contato@altacomunicazione.com.br · +55 16 99616-6332\n\n[A CONFIRMAR: @ do Instagram, página do LinkedIn, YouTube e qualquer outro perfil — inclusive os que estão parados. E, de cada um, se a casa realmente publica lá.]",
+     "i_conc": "[A CONFIRMAR — e este é o campo que a pesquisa usa: nomeie de três a cinco agências com que vocês disputam cliente em Ribeirão e região, e uma ou duas de São Paulo que servem de referência de repertório. Sem nome aqui, a pesquisa não monitora ninguém.]",
+     "i_regiao": "Sede em Ribeirão Preto/SP — Rua Galileu Galilei, 1685, sala 604. Atende marcas de Ribeirão e região.\n\n[A CONFIRMAR: até onde vai o atendimento fora da região, e se existe cliente fora do estado.]"
+    },
+    "positioning": {
+     "p_pos": "O que está publicado no site, na voz da casa: \"Há muito tempo que não somos uma agência. Somos um organismo vivo, inquieto e transformador, movido pela busca constante de ideias que conectam marcas e pessoas.\"\n\nObservação honesta: isso é uma declaração de identidade, não um posicionamento. Posicionamento responde \"o que a Alta é, para quem, e por que ela e não a agência do lado\" — e a frase acima poderia estar no site de muitas agências.\n\n[A CONFIRMAR: termine esta frase com o que só serve para a Alta — \"a Alta é a agência que ____ para ____, porque ____\".]",
+     "p_prop": "Do site: \"Ideias brilhantes surgem na intersecção do extraordinário com o óbvio, mas só fazem diferença quando são viáveis e resolvem problemas reais.\"\n\nE a relação que a casa reivindica: \"parceiros estratégicos, cúmplices dos resultados de nossos clientes\".\n\nO valor que aparece com mais força nas duas frases é o mesmo: ideia que não resolve problema real não interessa. É um valor útil, porque dá para checar peça por peça.",
+     "p_dif": "Concretos, do que é observável hoje:\n\n1. Seis frentes sob o mesmo teto, incluindo audiovisual e full commerce — o cliente não precisa costurar fornecedor.\n\n2. Carteira que a casa exibe no site: Queensberry, Unaerp, Habiarte, Casa Affonso, Hero, Galzerano, Mondial, Penha, Foroni, Session, Abra Cadabra, Porto Brasil e Verocard. Marca conhecida na região é prova social verificável.\n\n3. A agência construiu o próprio sistema de planejamento de conteúdo com IA — este aqui. Não é discurso sobre inovação: é ferramenta em uso, com regra de escopo, histórico de versão e portal de aprovação do cliente. Pouca agência do porte tem isso, e é demonstrável numa tela.\n\n[A CONFIRMAR: prazo médio de entrega, tamanho da equipe, anos de mercado e qualquer número de resultado que um cliente tenha autorizado a divulgar. Número é o que separa diferencial de adjetivo.]",
+     "p_msg": "[A CONFIRMAR: as duas ou três coisas que o mercado de Ribeirão precisa entender sobre a Alta nos próximos doze meses. Sem isso, o conteúdo fica reagindo ao calendário em vez de construir uma tese.]\n\nCandidata evidente, se vocês quiserem: \"a Alta opera com método e ferramenta próprios, não com talento avulso\"."
+    },
+    "voice": {
+     "v_tom": "Primeira pessoa do plural — \"nós\", \"a gente\" não aparece no site. Reflexivo e afirmativo, com frase curta de efeito seguida de explicação. Sem gíria, sem emoji no material institucional, sem humor apoiado em meme.\n\nO risco desse tom, e vale registrar: ele escorrega fácil para o abstrato. \"Organismo vivo\", \"transformador\" e \"conectar marcas e pessoas\" são palavras que soam bem e não dizem o que a agência faz na segunda-feira. Quando a peça for de case ou de método, o tom deve ser concreto: o que o cliente pediu, o que a Alta fez, o que mudou.\n\n[A CONFIRMAR: a casa fala \"você\" ou \"vocês\" com o público? Usa emoji no Instagram? Qual o tamanho típico de legenda?]",
+     "v_sim": "organismo vivo, inquieto, transformador, ideias que conectam, parceiros estratégicos, cúmplices dos resultados, viável, problema real, método, intersecção do extraordinário com o óbvio",
+     "v_nao": "[A CONFIRMAR — e este é o campo mais importante da base inteira, porque o sistema o confere em código antes de salvar qualquer pauta.]\n\nSugestão de partida, para você cortar ou aprovar: \"soluções inovadoras\", \"pensar fora da caixa\", \"DNA da marca\", \"storytelling\" solto, \"engajamento\" como fim em si, \"parceria de sucesso\", \"resultados que impressionam\", \"conteúdo relevante\", \"posicionamento assertivo\", \"levar sua marca para o próximo nível\".\n\nSão as expressões que qualquer agência do país usaria — e, numa marca cujo produto é comunicação, usá-las é a contradição mais cara possível.",
+     "v_temas": "[A CONFIRMAR: assunto em que a Alta não entra. Política partidária e futebol de clube são os candidatos óbvios para uma agência com carteira diversa; confirme se há outros — religião, causa em que um cliente esteja envolvido, comparação direta com concorrente.]",
+     "v_amostras": "[A PREENCHER — é o campo que mais melhora o texto da IA.]\n\nCole aqui de 15 a 30 legendas que a Alta publicou e que ficaram boas, separadas por uma linha com três traços. Pode ser do Instagram ou do LinkedIn. Não precisa escolher as premiadas: precisa das que soam como a casa.",
+     "v_anti": "Três anti-exemplos escritos de propósito, no gênero \"post de agência feito por IA sem base\". Nenhum deles deve sair deste sistema:\n---\n\"Na Alta, acreditamos que cada marca tem uma história única esperando para ser contada. 🚀 Nossa equipe apaixonada trabalha incansavelmente para levar sua marca ao próximo nível. Vamos juntos? #marketing #branding #agencia\"\nPor quê: não diz nada verificável, tem emoji de foguete, \"equipe apaixonada\" e \"próximo nível\" — e serviria para qualquer agência do Brasil.\n---\n\"Você sabia que 87% dos consumidores pesquisam online antes de comprar? Por isso o marketing digital é essencial para o seu negócio. Fale com a gente!\"\nPor quê: estatística sem fonte, obviedade vendida como descoberta, e trata o leitor como quem nunca ouviu falar de internet. Público da Alta é diretor de marketing, não iniciante.\n---\n\"Segunda-feira chegou e com ela a energia para transformar ideias em resultados! 💡 Qual o seu foco esta semana?\"\nPor quê: post de calendário, escrito para preencher grade. A Alta publica quando tem o que dizer."
+    },
+    "audience": {
+     "a_p1": "Decisor de marketing em empresa de médio ou grande porte da região — gerente ou diretor. Conhece o vocabulário, já trabalhou com agência antes e desconfia de promessa. O que pesa para ele: previsibilidade de entrega, gente boa no atendimento e não precisar explicar o negócio duas vezes. A dor real é retrabalho e prazo furado, não falta de criatividade.\n\n[A CONFIRMAR: confirme se é este o perfil que mais fecha contrato hoje.]",
+     "a_p2": "Dono ou sócio de empresa familiar que ainda decide comunicação pessoalmente. Fala de negócio, não de marketing: quer saber quanto custa, o que sai disso e quem ele liga quando dá problema. Sensível a prova concreta — nome de outro cliente da região vale mais que prêmio.\n\n[A CONFIRMAR: quanto do faturamento vem deste perfil?]",
+     "a_p3": "Dois públicos que consomem o conteúdo sem ser cliente:\n\nTalentos — redator, designer e social media da região olham o perfil da agência antes de mandar currículo. Conteúdo de bastidor e de método é o que atrai gente boa, e contratação é gargalo de agência.\n\nParceiros e imprensa local — produtoras, fornecedores e veículos da região.\n\n[A CONFIRMAR: a Alta quer usar o conteúdo para recrutar? Isso muda o peso da linha Bastidores.]"
+    },
+    "products": {
+     "pr_lista": "As seis frentes, como o site as apresenta:\n\nCOMUNICAÇÃO — estratégia, campanha, relação com o mercado. É a porta de entrada da maioria dos contratos. Prioridade alta.\n\nDIGITAL — presença e performance nos canais. Prioridade alta.\n\nDESIGN — identidade e peça. Prova visual fácil de mostrar em conteúdo. Prioridade alta.\n\nLIVE MARKETING — evento e ativação presencial. Rende o melhor material de bastidor da casa. Prioridade média.\n\nFULL COMMERCE — operação de venda online ponta a ponta. É a frente que menos agência da região tem e a que mais se explica com número. Prioridade média.\n\nAUDIOVISUAL — vídeo e motion, produção própria. Prioridade média.\n\n[A CONFIRMAR: o que cada frente entrega na prática, em uma linha cada, e qual delas vocês querem vender mais nos próximos meses.]",
+     "pr_obs": "Regras que valem para o conteúdo da própria agência, e que a IA precisa obedecer:\n\n1. Nome de cliente só aparece com autorização. Case com número exige liberação expressa de quem é dono do número. Na dúvida, o case fala do problema e da solução sem nomear.\n\n2. Não comparar com agência nomeada, nem por insinuação.\n\n3. Não prometer resultado. A casa mostra o que fez, não o que vai conseguir.\n\n4. Conteúdo de agência que só fala de agência cansa. Toda peça de método deveria ser útil para quem nunca vai contratar a Alta.\n\n[A CONFIRMAR: há cliente que proibiu menção pública? Liste — é restrição dura.]",
+     "pr_lanc": "[A CONFIRMAR: o que vem nos próximos meses — novo serviço, prêmio, mudança de sede, contratação relevante, aniversário da agência.]\n\nCandidato que já existe: o lançamento público deste sistema de planejamento. Agência que mostra a própria ferramenta funcionando tem um assunto que concorrente nenhum pode copiar em uma semana."
+    },
+    "objectives": {
+     "o_obj": "Em ordem de peso, na hipótese mais provável para uma agência B2B — [A CONFIRMAR, e esta ordem muda o conteúdo inteiro]:\n\n1. AUTORIDADE na região — ser a agência que o decisor lembra primeiro.\n2. ATRAÇÃO DE TALENTO — profissional bom escolhe onde quer trabalhar.\n3. GERAÇÃO DE CONVERSA com prospect — não venda direta; abrir porta.\n4. ORGULHO DE QUEM JÁ É CLIENTE — o cliente que vê o próprio case bem contado renova e indica.",
+     "o_pilares": "Os quatro pilares editoriais, que são as mesmas quatro linhas do escopo:\n\nCASES — o que a Alta entregou, contado pelo problema do cliente e não pela peça. O pilar mais forte, porque é o único que ninguém pode contestar.\n\nMÉTODO — como a casa pensa e trabalha: processo, ferramenta, critério de decisão. É o pilar que constrói autoridade e o que mais atrai talento.\n\nBASTIDORES — gente, rotina, cultura, evento por dentro. Humaniza e recruta.\n\nMERCADO — leitura de tendência e de negócio, útil para quem não é cliente. É o pilar que faz a agência parecer inteligente sem falar de si.",
+     "o_ano": "[A CONFIRMAR: a meta de negócio por trás do conteúdo. Quantos clientes novos, qual frente crescer, qual praça abrir, quantas contratações. Sem isso, o conteúdo não tem contra o que ser cobrado.]"
+    },
+    "platforms": {
+     "pl_regras": "[A CONFIRMAR com o que a casa pratica hoje. Hipótese de partida:]\n\nINSTAGRAM — vitrine visual. Case e bastidor funcionam; texto longo de método, não.\n\nLINKEDIN — onde o decisor está. Método e leitura de mercado, texto mais longo, sem emoji, primeira linha sustentando o clique.\n\nA mesma pauta pode virar peça nos dois, com texto diferente. O que não pode é o mesmo texto nos dois.",
+     "pl_formatos": "[A CONFIRMAR: como a equipe nomeia os formatos que pratica. Partida: post estático, carrossel, reels, story, vídeo institucional, motion.]",
+     "pl_fora": "[A CONFIRMAR: canal onde a Alta está mas não publica com regularidade — Facebook, YouTube, TikTok, blog. Declarar aqui evita a IA propor peça para canal morto.]"
+    },
+    "resources": {
+     "r_sim": "Pela estrutura declarada no site, a casa produz internamente: design, audiovisual (vídeo e motion), e a operação de digital e full commerce.\n\n[A CONFIRMAR: fotografia própria? Estúdio? Locução? Ilustração? Quem opera câmera? Este campo limita o que a IA pode propor — recurso que não existe vira pauta descartada.]",
+     "r_nao": "[A CONFIRMAR — restrição dura: pauta que depender destes recursos é descartada pelo sistema antes de chegar a você.]\n\nPara uma agência, os candidatos costumam ser: influenciador contratado, produção em outra cidade, banco de imagem pago, talento pago em vídeo, animação 3D. Confirme quais valem.",
+     "r_obs": "[A CONFIRMAR: quem produz o conteúdo da própria casa, e com que prazo. É a pergunta que decide se este planejamento vira post ou vira boa intenção — conteúdo de agência é o primeiro a ser despriorizado quando o cliente aperta.]"
+    },
+    "memory": {
+     "m_aprova": "Ainda não há histórico: a Alta entra no sistema agora.\n\nEste campo se preenche sozinho com o uso — e, a partir da versão de setembro, as correções que a equipe fizer nas pautas voltam para o prompt automaticamente. Quanto mais vocês corrigirem, mais a IA escreve como a casa.",
+     "m_rejeita": "Sem histórico ainda. Mas uma coisa já dá para registrar, e vale mais que observação de padrão: o conteúdo da própria agência tem um juiz mais severo que qualquer cliente, porque errar o tom aqui é errar na vitrine do próprio serviço.\n\n[A CONFIRMAR: o que já foi cortado em revisão de material institucional da Alta nos últimos meses, e por quê.]",
+     "m_temas": "Sem histórico no sistema. [A CONFIRMAR: o que a Alta já publicou demais e precisa descansar.]",
+     "m_quem": "Decide: André Almeida.\n\n[A CONFIRMAR: há sócio ou diretor que opina antes de publicar? Quanto tempo costuma levar entre a entrega do planejamento e o retorno? O sistema mede isso a partir do primeiro mês avaliado no portal.]"
+    }
+   }
   }
  ]
 }

@@ -1,6 +1,6 @@
 ============================================
  Carga das marcas
- 16/09/2026, 20:42:47
+ 17/09/2026, 17:01:41
 ============================================
 
   Queensberry
@@ -15,15 +15,20 @@
      9 secoes, 32 campos
      escopo: Publicações 12  =  12/mes
 
+  Alta Comunicazione
+     9 secoes, 34 campos
+     escopo: Cases 4, Método 3, Bastidores 2, Mercado 2  =  11/mes
+
 --------------------------------------------
  Conferencia
 --------------------------------------------
 
+  Alta Comunicazione: 9 secoes, cota 11/mes, 1 membro(s)
   Canto de Minas: 9 secoes, cota 12/mes, 1 membro(s)
   Habiarte: 9 secoes, cota 12/mes, 1 membro(s)
-  Queensberry: 9 secoes, cota 14/mes, 1 membro(s)
+  Queensberry: 9 secoes, cota 14/mes, 3 membro(s)
 
-RESULTADO: as tres marcas estao completas.
+RESULTADO: as 4 marcas estao com as 9 secoes.
 
 ============================================
  fim - tudo certo

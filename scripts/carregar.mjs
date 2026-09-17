@@ -66,11 +66,16 @@ try {
 
   for (const m of carga.marcas) {
     await sql.begin(async (tx) => {
+      // A cor entra aqui quando o arquivo traz uma. Sem cor no arquivo,
+      // a que já estiver no banco é preservada — quem escolheu pela
+      // tela não perde a escolha ao rodar a carga de novo.
       const [marca] = await tx`
-        insert into brands (name, slug, segment)
-        values (${m.name}, ${m.slug}, ${m.segment})
+        insert into brands (name, slug, segment, color)
+        values (${m.name}, ${m.slug}, ${m.segment}, ${m.color ?? null})
         on conflict (slug) do update
-          set name = excluded.name, segment = excluded.segment
+          set name = excluded.name,
+              segment = excluded.segment,
+              color = coalesce(excluded.color, brands.color)
         returning id, name
       `
 
@@ -135,8 +140,12 @@ try {
     console.log(`  ${r.name}: ${r.secoes} secoes, cota ${r.cota}/mes, ${r.membros} membro(s)`)
   }
   console.log('')
-  const ok = resumo.length === carga.marcas.length && resumo.every((r) => Number(r.secoes) === 9)
-  console.log(ok ? 'RESULTADO: as tres marcas estao completas.' : 'RESULTADO: algo ficou faltando, me avise.')
+  const ok = resumo.length >= carga.marcas.length && resumo.every((r) => Number(r.secoes) === 9)
+  console.log(
+    ok
+      ? `RESULTADO: as ${resumo.length} marcas estao com as 9 secoes.`
+      : 'RESULTADO: algo ficou faltando, me avise.',
+  )
   if (!ok) falhou = true
 } catch (e) {
   falhou = true
