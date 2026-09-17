@@ -29,3 +29,7 @@ aplicado.txt
 cadastro.txt
 carga.txt
 instagram.txt
+
+# O backup tem dado de cliente e nao entra no Git de jeito nenhum.
+backup/
+backup.txt

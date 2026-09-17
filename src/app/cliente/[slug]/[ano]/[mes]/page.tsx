@@ -209,7 +209,7 @@ export default async function MesDoCliente({
   const fechado = plano.approved_at !== null
 
   return (
-    <main style={{ maxWidth: 1280, margin: '0 auto', padding: '36px 28px 70px' }}>
+    <main className="pagina" style={{ maxWidth: 1280 }}>
       <Link href="/cliente" style={{ fontSize: 13, color: 'var(--muted)', textDecoration: 'none' }}>
         ← Todos os meses
       </Link>

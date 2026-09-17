@@ -3,10 +3,16 @@ import { redirect } from 'next/navigation'
 import { clienteServidor } from '@/lib/supabase/server'
 import { mesTitulado } from '@/lib/prompt'
 import {
+  ETAPA,
   contaVazia,
+  custoVazio,
+  dolar,
   horasMedias,
   porcentoIntocadas,
+  somarCusto,
   somarPorPlano,
+  usdPorPautaAprovada,
+  type CorridaMedida,
   type DecisaoMedida,
   type PautaMedida,
   type VersaoMedida,
@@ -54,7 +60,7 @@ export default async function Qualidade() {
 
   const idsPlano = (planos ?? []).map((p) => p.id as string)
 
-  const [{ data: pautas }, { data: versoes }, { data: decisoes }] = idsPlano.length
+  const [{ data: pautas }, { data: versoes }, { data: decisoes }, { data: corridas }] = idsPlano.length
     ? await Promise.all([
         supabase
           .from('content_ideas')
@@ -65,8 +71,11 @@ export default async function Qualidade() {
           .from('approvals')
           .select('idea_id, decision, actor_kind, seconds_to_decide')
           .limit(4000),
+        // O que cada chamada de IA custou. Está gravado desde o
+        // primeiro mês e nunca foi somado.
+        supabase.from('ai_runs').select('brand_id, agent, cost_usd, status').limit(5000),
       ])
-    : [{ data: [] }, { data: [] }, { data: [] }]
+    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }]
 
   const conta = somarPorPlano({
     pautas: (pautas ?? []).map(
@@ -90,6 +99,17 @@ export default async function Qualidade() {
     ),
   })
 
+  const custoPorMarca = somarCusto(
+    (corridas ?? []).map(
+      (c): CorridaMedida => ({
+        brand_id: c.brand_id as string,
+        agent: (c.agent as string) ?? '',
+        cost_usd: Number(c.cost_usd ?? 0),
+        status: (c.status as string) ?? '',
+      }),
+    ),
+  )
+
   const porMarca = new Map<string, { id: string; mes: number; ano: number; conta: Conta }[]>()
   for (const p of planos ?? []) {
     const lista = porMarca.get(p.brand_id as string) ?? []
@@ -105,7 +125,7 @@ export default async function Qualidade() {
   const comDados = (marcas ?? []).filter((m) => (porMarca.get(m.id as string) ?? []).length > 0)
 
   return (
-    <main style={{ maxWidth: 1080, margin: '0 auto', padding: '36px 28px 70px' }}>
+    <main className="pagina" style={{ maxWidth: 1080 }}>
       <Link href="/painel" style={{ fontSize: 13, color: 'var(--muted)', textDecoration: 'none' }}>
         ← Painel
       </Link>
@@ -206,8 +226,18 @@ export default async function Qualidade() {
                 </Link>
               </div>
 
-              <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-lg)', boxShadow: 'var(--shadow)', overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.3 }}>
+              {/* Sete colunas não cabem num telefone. Em vez de
+                  encolher a fonte até ninguém ler, a tabela rola de
+                  lado — e a primeira coluna, o mês, é a que orienta. */}
+              <div
+                className="rolar-lado"
+                style={{
+                  background: 'var(--surface)',
+                  borderRadius: 'var(--r-lg)',
+                  boxShadow: 'var(--shadow)',
+                }}
+              >
+                <table style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse', fontSize: 13.3 }}>
                   <thead>
                     <tr>
                       {['Mês', 'Pautas', 'Sem edição', 'Reescritas pela equipe', 'Refinos de IA', 'Pedidos do cliente', 'Resposta do cliente'].map(
@@ -298,6 +328,61 @@ export default async function Qualidade() {
                   </tbody>
                 </table>
               </div>
+
+              {/* O custo fica ao lado da qualidade de propósito. Custo
+                  sozinho empurra para economizar chamada; qualidade
+                  sozinha empurra para gastar. Juntos, a conta que
+                  importa aparece: quanto custou cada pauta que ficou. */}
+              {(() => {
+                const custo = custoPorMarca.get(m.id as string) ?? custoVazio()
+                if (custo.chamadas === 0) return null
+                const aprovadasTotal = meses.reduce((s, x) => s + x.conta.aprovadas, 0)
+                const porPauta = usdPorPautaAprovada(custo, aprovadasTotal)
+                const etapas = Object.entries(custo.porEtapa).sort((a, b) => b[1].usd - a[1].usd)
+
+                return (
+                  <div
+                    style={{
+                      marginTop: 12,
+                      padding: '14px 18px',
+                      borderRadius: 'var(--r)',
+                      background: 'var(--surface-2)',
+                      fontSize: 13,
+                      lineHeight: 1.7,
+                    }}
+                  >
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'baseline' }}>
+                      <b>Custo de IA nesta marca: {dolar(custo.usd)}</b>
+                      <span style={{ color: 'var(--muted)' }}>
+                        em {custo.chamadas} chamada(s)
+                        {porPauta !== null && ` · ${dolar(porPauta)} por pauta aprovada`}
+                      </span>
+                      {custo.falhas > 0 && (
+                        <span style={{ color: 'var(--laranja-tinta)', fontWeight: 600 }}>
+                          {custo.falhas} falha(s) — token gasto sem resultado
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        gap: 16,
+                        flexWrap: 'wrap',
+                        marginTop: 6,
+                        color: 'var(--muted)',
+                        fontSize: 12.5,
+                      }}
+                    >
+                      {etapas.map(([agente, e]) => (
+                        <span key={agente}>
+                          {ETAPA[agente] ?? agente}: <b style={{ color: 'var(--text)' }}>{dolar(e.usd)}</b>{' '}
+                          ({e.chamadas})
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
             </section>
           )
         })
@@ -320,6 +405,13 @@ export default async function Qualidade() {
         O número só vale comparado com ele mesmo, na mesma marca, entre meses — e vale mais
         quando a coluna de pedidos do cliente anda junto. Se as duas caem, melhorou. Se a
         primeira sobe e a segunda também, alguém está aprovando rápido demais.
+        <br />
+        <br />
+        <b style={{ color: 'var(--text)' }}>Sobre o custo.</b> O valor que importa é o de baixo, por
+        pauta aprovada — o total diz pouco. Marca com trinta refinos e quatro pautas aprovadas
+        custa caro por peça mesmo com total pequeno, e isso não é problema de preço: é sinal de
+        base incompleta. Chamada que falhou entra na conta, porque token gasto em erro é token
+        cobrado. Os valores são em dólar, que é como a API cobra.
       </section>
     </main>
   )

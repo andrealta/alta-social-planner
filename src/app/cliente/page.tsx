@@ -93,7 +93,7 @@ export default async function PortalDoCliente() {
   const primeiroNome = (perfil?.name as string | null)?.trim().split(' ')[0] ?? null
 
   return (
-    <main style={{ maxWidth: 1180, margin: '0 auto', padding: '32px 28px 80px' }}>
+    <main className="pagina" style={{ maxWidth: 1180 }}>
       <div
         style={{
           display: 'flex',

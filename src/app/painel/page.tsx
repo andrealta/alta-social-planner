@@ -55,7 +55,7 @@ export default async function Painel() {
   if (papel === 'client') redirect('/cliente')
 
   return (
-    <main style={{ maxWidth: 720, margin: '0 auto', padding: '56px 24px 96px' }}>
+    <main className="pagina" style={{ maxWidth: 720 }}>
       <header
         style={{
           display: 'flex',

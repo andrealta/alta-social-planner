@@ -276,7 +276,7 @@ export default async function CalendarioDoMes({
   })
 
   return (
-    <main style={{ maxWidth: 1180, margin: '0 auto', padding: '34px 24px 60px' }}>
+    <main className="pagina" style={{ maxWidth: 1180 }}>
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 13 }}>
         <Link href={`/painel/marca/${slug}/plano`} style={{ color: 'var(--muted)', textDecoration: 'none' }}>
           ← Planejamento

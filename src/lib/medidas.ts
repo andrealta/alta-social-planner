@@ -113,3 +113,88 @@ export function horasMedias(c: Conta): number | null {
   const media = c.segundos.reduce((s, v) => s + v, 0) / c.segundos.length
   return Math.round(media / 3600)
 }
+
+// =============================================================
+// O CUSTO
+//
+// `ai_runs` grava cada chamada de IA desde o primeiro dia: marca,
+// etapa, modelo, tokens e custo em dólar. Nunca ninguém somou.
+//
+// A conta que interessa não é o total — é o custo por pauta que
+// sobreviveu. Mês com trinta refinos e quatro pautas aprovadas custa
+// caro por peça mesmo com total baixo, e é isso que indica base ruim.
+// =============================================================
+
+export type CorridaMedida = {
+  brand_id: string
+  agent: string
+  cost_usd: number
+  status: string
+}
+
+export type Custo = {
+  chamadas: number
+  falhas: number
+  usd: number
+  porEtapa: Record<string, { chamadas: number; usd: number }>
+}
+
+export const custoVazio = (): Custo => ({ chamadas: 0, falhas: 0, usd: 0, porEtapa: {} })
+
+/** Como cada etapa se chama na tela. O banco fala em inglês. */
+export const ETAPA: Record<string, string> = {
+  strategy: 'geração do mês',
+  research: 'pesquisa',
+  content: 'conteúdo',
+  refine: 'alterar IA',
+  critique: 'avaliação',
+  document_card: 'leitura de documento',
+  brand_memory: 'memória da marca',
+}
+
+/**
+ * Soma o custo por marca e por etapa.
+ *
+ * Chamada que falhou entra na contagem de falhas E no custo: token
+ * gasto em erro é token cobrado. Esconder isso faria a tela mentir
+ * justamente no caso em que o número importa.
+ */
+export function somarCusto(corridas: CorridaMedida[]): Map<string, Custo> {
+  const porMarca = new Map<string, Custo>()
+
+  for (const c of corridas) {
+    const atual = porMarca.get(c.brand_id) ?? custoVazio()
+    const usd = Number(c.cost_usd ?? 0)
+
+    atual.chamadas++
+    atual.usd += usd
+    if (c.status === 'failed') atual.falhas++
+
+    const etapa = atual.porEtapa[c.agent] ?? { chamadas: 0, usd: 0 }
+    etapa.chamadas++
+    etapa.usd += usd
+    atual.porEtapa[c.agent] = etapa
+
+    porMarca.set(c.brand_id, atual)
+  }
+
+  return porMarca
+}
+
+/**
+ * Quanto custou cada pauta que a equipe aprovou.
+ *
+ * Sem pauta aprovada devolve nulo em vez de zero: zero pareceria
+ * barato, quando na verdade não se sabe ainda.
+ */
+export function usdPorPautaAprovada(custo: Custo, aprovadas: number): number | null {
+  if (aprovadas <= 0) return null
+  return custo.usd / aprovadas
+}
+
+/** Dólar com duas ou três casas, conforme o tamanho — centavo importa aqui. */
+export function dolar(v: number): string {
+  if (v === 0) return 'US$ 0'
+  if (v < 0.01) return 'US$ <0,01'
+  return 'US$ ' + v.toFixed(v < 1 ? 3 : 2).replace('.', ',')
+}

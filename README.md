@@ -27,6 +27,8 @@ Rode com dois cliques, na ordem, na primeira vez:
 | `10-seguranca.cmd` | **Confere as travas de segurança no banco de produção** |
 | `11-build.cmd` | Compilação de produção |
 | `12-git.cmd` | Envia ao GitHub, com trava contra vazar segredo |
+| `16-instagram.cmd` | Traz legendas reais do Instagram para a base da marca |
+| `17-exportar.cmd` | **Tira o backup completo do banco** |
 
 Diagnóstico, quando algo quebra: `08-testar-ia.cmd` (fala com a API da
 Anthropic direto), `09-repetir-pedido.cmd` (repete o último pedido fora
@@ -40,6 +42,29 @@ profundidade, e as telas do calendário estão no oitavo. O `14` copia o
 projeto para `_espelho/`, uma pasta rasa com o caminho embutido no nome
 do arquivo; o `15` devolve cada arquivo ao lugar certo e confere pelo
 resumo criptográfico se chegou idêntico. `_espelho/` fica fora do Git.
+
+### O backup (`17-exportar.cmd`)
+
+Escreve em `backup/AAAA-MM-DD-HHMM/`: um `.json` por tabela — a lista de
+tabelas vem do próprio banco, não de uma lista escrita à mão, para que
+uma tabela nova entre no backup sozinha — e um `.md` legível por
+planejamento, com a leitura do mês, os territórios, o briefing e cada
+pauta com conceito, descrição, CTA, legenda, hashtags e cenas. Cada
+arquivo é lido de volta depois de escrito, para que o backup não minta.
+
+`backup/` está no `.gitignore`: tem dado de cliente e não entra no Git de
+jeito nenhum. **Guarde uma cópia desta pasta fora deste computador** —
+um backup que mora no mesmo disco do original protege contra engano, não
+contra perda. E rode antes de qualquer migração nova.
+
+### As legendas do Instagram (`16-instagram.cmd`)
+
+Lê as publicações da conta profissional, escolhe as 25 com mais
+engajamento (comentário pesa 3×) e grava como amostras de linguagem da
+marca, preservando o que foi escrito à mão acima da linha marcadora. No
+fim renova o token por mais 60 dias e reescreve o `.env.local` com
+cópia `.bak`. O `IG_TOKEN` vive só no `.env.local`: nunca na Vercel,
+nunca no Git.
 
 ---
 
@@ -57,6 +82,16 @@ resumo criptográfico se chegou idêntico. `_espelho/` fica fora do Git.
 Sem ORM. As migrações são SQL puro, numeradas, em `supabase/migrations/`,
 aplicadas em ordem e registradas no schema `migracoes`. **Migração é
 append-only**: nunca edite uma já aplicada; escreva a próxima.
+
+O visual vive em dois lugares e só dois: os tokens de cor, sombra e
+tipografia em `src/app/globals.css`, e o vocabulário compartilhado em
+`src/lib/visual.ts` (pílulas, pontos, botões, cartões, cor de linha de
+produto). Estilo escrito direto no elemento não aceita regra de tela:
+**o que precisa mudar no celular tem de estar em classe de CSS**. É por
+isso que as páginas usam `className="pagina"` em vez de padding inline,
+e os calendários usam `grade-mes`, `dia-cheio`, `dia-vazio` e
+`so-celular` — abaixo de 760px o calendário vira uma lista de um dia por
+linha, com o dia da semana escrito, e os dias vazios desaparecem.
 
 ---
 
@@ -88,6 +123,10 @@ lia. Vale registrar o tipo de erro: um controle que parece existir e não
 existe é pior do que não ter controle nenhum, porque alguém confia
 nele.
 
+Apagar planejamento (migração 0014) é de `owner` e de `admin`, e passa
+por `apagar_plano()`. Um gatilho recusa apagar mês que o cliente já
+avaliou: o que ele aprovou é registro, não rascunho.
+
 Pontos que custaram caro para descobrir, e que uma revisão deve olhar:
 
 1. **Escalada de privilégio** (corrigida na 0011). A política que deixa
@@ -113,12 +152,16 @@ Rode `10-seguranca.cmd` depois de qualquer mudança no banco.
 
 ## Testes
 
-Em `asp/` (fora deste repositório, com quem escreveu) há ~96 casos em SQL
-que rodam contra um PostgreSQL local recriado do zero: isolamento entre
-marcas, versionamento de pauta, ciclo completo com o cliente,
-permissões de pessoas e os níveis de acesso à marca. Eles provam que as regras **funcionam**;
-`10-seguranca.cmd` prova que elas **estão lá** em produção. As duas
-perguntas são diferentes.
+Em `asp/` (fora deste repositório, com quem escreveu) há **109 casos em
+SQL** que rodam contra um PostgreSQL local recriado do zero: isolamento
+entre marcas, versionamento de pauta, ciclo completo com o cliente,
+permissões de pessoas, os níveis de acesso à marca e a exclusão de
+planejamento. Mais **45 casos em TypeScript** sobre as duas bibliotecas
+que não tocam o banco: `src/lib/estilo.ts` (21) e `src/lib/medidas.ts`
+(24). Total: 154.
+
+Eles provam que as regras **funcionam**; `10-seguranca.cmd` prova que
+elas **estão lá** em produção. As duas perguntas são diferentes.
 
 ---
 
@@ -131,5 +174,33 @@ aparece em título, tema, conceito, descrição ou hashtag, e os pesos dos
 territórios somam 100. Conteúdo com expressão proibida **não é gravado**,
 nem quando veio da IA.
 
-Custo: cerca de US$ 0,60 por mês gerado (Opus 5, com raciocínio). Toda
-chamada fica registrada em `ai_runs`, inclusive as que falham.
+### O ciclo de aprendizado (`src/lib/estilo.ts`)
+
+A cada geração, a IA recebe de volta o que a marca já corrigiu: as
+amostras de linguagem da base, os anti-exemplos, as legendas que o
+cliente aprovou, **as reescritas da equipe** (a versão arquivada mais
+recente de cada pauta contra o texto atual — uma lição por pauta, sempre
+contra o texto final, nunca contra um intermediário descartado) e os
+pedidos de ajuste do cliente. Amostra com marca de pendência
+(`[A PREENCHER`, `[A CONFIRMAR`) é descartada: rascunho nosso não pode
+virar exemplo de estilo. Cada amostra entra com no máximo 600
+caracteres.
+
+### O crítico (`Avaliar o mês`)
+
+Uma segunda passada da IA sobre o mês já gerado, em
+`src/app/api/critica/route.ts`. Ela dá nota e veredito por pauta, diz
+por quê e o que arrumar, e grava em `plans.analysis.critica`. Não altera
+conteúdo: só aponta. Quem decide é a equipe.
+
+### A medição (`/painel/qualidade`)
+
+"Quanto a IA acerta de primeira", por marca e por mês: quantas pautas
+saíram sem nenhuma edição, quantas a equipe reescreveu, quantos refinos
+de IA, quantos pedidos do cliente e em quanto tempo ele respondeu. Ao
+lado, o **custo**: cada chamada fica registrada em `ai_runs` — inclusive
+as que falham — e a página soma por etapa e mostra o dólar por pauta
+aprovada. Cerca de US$ 0,60 por mês gerado (Opus 5, com raciocínio).
+
+Número de custo se lê com cuidado: mês com muito refino custa mais e em
+geral significa base incompleta, não IA ruim. O rodapé da página explica.

@@ -252,3 +252,72 @@ code {
   border-radius: 4px;
   padding: 1px 5px;
 }
+
+/* =========================================================
+   O celular.
+   
+   Estilo em linha não tem media query — então tudo que precisa
+   mudar de forma na tela pequena mora aqui, em classe, e o
+   componente aplica a classe em vez de resolver no style.
+   
+   A decisão que mais importa: um calendário de sete colunas não
+   cabe em 360 pixels. Em vez de encolher os cartões até ninguém
+   ler, a grade vira UMA coluna e o dia sem publicação desaparece.
+   O mês deixa de ser grade e passa a ser a lista dos dias que têm
+   coisa — que é como se lê um calendário no telefone.
+   ========================================================= */
+
+.pagina {
+  margin: 0 auto;
+  padding: 36px 28px 70px;
+}
+
+.grade-mes {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10px;
+}
+
+/* O nome do dia da semana dentro da célula: escondido no desktop,
+   onde o cabeçalho da grade já diz, e visível no celular, onde o
+   cabeçalho não existe mais. */
+.so-celular {
+  display: none;
+}
+
+.rolar-lado {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 760px) {
+  .pagina {
+    padding: 20px 16px 52px;
+  }
+
+  .grade-mes {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  /* O cabeçalho dom–sáb não faz sentido numa coluna só. */
+  .grade-mes .cab-semana {
+    display: none;
+  }
+
+  /* Dia vazio não ocupa linha no telefone. */
+  .grade-mes .dia-vazio {
+    display: none;
+  }
+
+  /* A altura fixa existe para a grade ficar regular; numa coluna,
+     só faz o dia esticar sem motivo. O !important é para vencer o
+     minHeight que vem no style do componente. */
+  .grade-mes .dia-cheio {
+    min-height: 0 !important;
+  }
+
+  .so-celular {
+    display: inline;
+  }
+}

@@ -462,10 +462,12 @@ export function Calendario({
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 5 }}>
+      {/* Mesma grade do portal do cliente: a classe cuida do celular. */}
+      <div className="grade-mes">
         {DIAS_CURTOS.map((d) => (
           <div
             key={d}
+            className="cab-semana"
             style={{
               fontSize: 10.5,
               fontWeight: 700,
@@ -481,13 +483,14 @@ export function Calendario({
         ))}
 
         {semanas.flat().map((dia, i) => {
-          if (dia === null) return <div key={`v${i}`} />
+          if (dia === null) return <div key={`v${i}`} className="dia-vazio" />
           const data = `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`
           const doDia = porDia.get(data) ?? []
           const fds = i % 7 === 0 || i % 7 === 6
           return (
             <div
               key={data}
+              className={doDia.length ? 'dia-cheio' : 'dia-vazio'}
               onDragOver={(ev) => {
                 ev.preventDefault()
                 if (alvo !== data) setAlvo(data)
@@ -515,6 +518,7 @@ export function Calendario({
               <div
                 style={{ fontSize: 11.5, color: 'var(--faint)', fontWeight: 600, marginBottom: 4 }}
               >
+                <span className="so-celular">{DIAS_CURTOS[i % 7]} · </span>
                 {dia}
               </div>
               {doDia.map((p) => {

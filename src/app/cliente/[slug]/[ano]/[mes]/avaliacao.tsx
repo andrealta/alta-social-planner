@@ -255,10 +255,13 @@ export function Avaliacao({
       {/* ---------------- calendário ---------------- */}
       {vista === 'calendario' && (
         <div style={{ ...cartao, padding: '20px 22px 22px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 10 }}>
+          {/* A forma da grade vem da classe, não do style: no celular
+              ela vira uma coluna e o dia vazio sai. Ver globals.css. */}
+          <div className="grade-mes">
             {DIAS_CURTOS.map((d) => (
               <div
                 key={d}
+                className="cab-semana"
                 style={{
                   fontSize: 10.5,
                   fontWeight: 700,
@@ -276,12 +279,13 @@ export function Avaliacao({
             {semanasDoMes(ano, mes)
               .flat()
               .map((dia, i) => {
-                if (dia === null) return <div key={`v${i}`} />
+                if (dia === null) return <div key={`v${i}`} className="dia-vazio" />
                 const data = `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`
                 const doDia = pautas.filter((p) => p.data === data)
                 return (
                   <div
                     key={data}
+                    className={doDia.length ? 'dia-cheio' : 'dia-vazio'}
                     style={{
                       minHeight: 132,
                       padding: 9,
@@ -300,6 +304,7 @@ export function Avaliacao({
                         marginBottom: 6,
                       }}
                     >
+                      <span className="so-celular">{DIAS_CURTOS[i % 7]} · </span>
                       {dia}
                     </div>
                     {doDia.map((p) => (
