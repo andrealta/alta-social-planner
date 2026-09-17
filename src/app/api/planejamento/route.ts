@@ -12,6 +12,7 @@
 
 import { clienteServidor } from '@/lib/supabase/server'
 import { registro } from '@/lib/registro'
+import { coletarEstilo, blocoDeEstilo } from '@/lib/estilo'
 import { chamarClaude, extrairJson, ErroClaude, MODELO_PADRAO, type Uso } from '@/lib/claude'
 import {
   montarPromptPautas,
@@ -157,6 +158,12 @@ export async function POST(req: Request) {
   }
   await log.passo('base e escopo carregados', `${Object.keys(base).length} secoes, ${escopo.length} linhas`)
 
+  // Como esta marca escreve, em exemplos: legendas reais, correções que
+  // a equipe já fez no texto da IA e pedidos do cliente. Vale mais que
+  // a descrição de tom de voz — e cresce sozinho com o uso.
+  const estilo = blocoDeEstilo(await coletarEstilo(supabase, marcaId, base))
+  if (estilo) await log.passo('voz da marca reunida', `${estilo.length} caracteres de exemplo`)
+
   // ---------- o mês já existe? ----------
   const { data: planoExistente } = await supabase
     .from('plans')
@@ -250,6 +257,7 @@ export async function POST(req: Request) {
   const entrada: Entrada = {
     marca: { nome: marca.name as string, segmento: marca.segment as string | null },
     base,
+    estilo,
     escopo,
     mes,
     ano,

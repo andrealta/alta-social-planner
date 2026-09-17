@@ -14,6 +14,7 @@
 import { clienteServidor } from '@/lib/supabase/server'
 import { chamarClaude, extrairJson, ErroClaude, MODELO_PADRAO } from '@/lib/claude'
 import { registro } from '@/lib/registro'
+import { coletarEstilo, blocoDeEstilo } from '@/lib/estilo'
 import {
   montarPromptConteudo,
   conferirConteudo,
@@ -104,6 +105,10 @@ export async function POST(req: Request) {
     base[s.section as string] = limpo
   }
 
+  // É aqui que a voz da marca mais importa: a legenda é o texto que o
+  // público lê. O bloco vai inteiro.
+  const estilo = blocoDeEstilo(await coletarEstilo(supabase, pauta.brand_id as string, base))
+
   const analise = (plano.analysis ?? {}) as { leitura?: string }
   const data = canal?.scheduled_date as string | undefined
   const formato = (canal?.format as string) ?? null
@@ -112,6 +117,7 @@ export async function POST(req: Request) {
   const prompt = montarPromptConteudo({
     marca: { nome: marca.name as string, segmento: marca.segment as string | null },
     base,
+    estilo,
     mes: Number(plano.month),
     ano: Number(plano.year),
     leitura: analise.leitura ?? null,

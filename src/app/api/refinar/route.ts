@@ -11,6 +11,7 @@
 import { clienteServidor } from '@/lib/supabase/server'
 import { chamarClaude, extrairJson, ErroClaude, MODELO_PADRAO } from '@/lib/claude'
 import { registro } from '@/lib/registro'
+import { coletarEstilo, blocoDeEstilo } from '@/lib/estilo'
 import {
   montarPromptRefino,
   conferirRefino,
@@ -115,11 +116,16 @@ export async function POST(req: Request) {
     territorios?: { nome: string; peso: number }[]
   }
 
+  // No refino o bloco vai curto: o pedido da pessoa é o que manda, e a
+  // pauta atual já chega inteira no prompt.
+  const estilo = blocoDeEstilo(await coletarEstilo(supabase, pauta.brand_id as string, base), true)
+
   const data = canal?.scheduled_date as string | undefined
 
   const prompt = montarPromptRefino({
     marca: { nome: marca.name as string, segmento: marca.segment as string | null },
     base,
+    estilo,
     mes: Number(plano.month),
     ano: Number(plano.year),
     leitura: analise.leitura ?? null,

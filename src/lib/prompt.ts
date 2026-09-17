@@ -37,6 +37,8 @@ export type MesAnterior = { mes: number; ano: number; temas: string[] }
 export type Entrada = {
   marca: { nome: string; segmento?: string | null }
   base: Record<string, Record<string, string>>
+  /** Exemplos reais de como esta marca escreve. Ver `lib/estilo.ts`. */
+  estilo?: string
   escopo: Linha[]
   mes: number
   ano: number
@@ -99,7 +101,7 @@ export function montarPromptPautas(e: Entrada): string {
           .join('\n')
       : 'Nenhum planejamento anterior registrado no sistema.'
 
-  return `${contextoDaMarca(e.marca, e.base)}
+  return `${contextoDaMarca(e.marca, e.base)}${e.estilo ? '\n\n' + e.estilo : ''}
 
 # HISTÓRICO RECENTE
 
@@ -384,6 +386,7 @@ export const SISTEMA_REFINO =
 export function montarPromptRefino(e: {
   marca: Entrada['marca']
   base: Entrada['base']
+  estilo?: string
   mes: number
   ano: number
   leitura?: string | null
@@ -396,7 +399,7 @@ export function montarPromptRefino(e: {
 Mantenha o que não foi pedido para mudar. Não invente produto, recurso ou dado que não
 esteja na base da marca.
 
-${contextoDaMarca(e.marca, e.base)}
+${contextoDaMarca(e.marca, e.base)}${e.estilo ? '\n\n' + e.estilo : ''}
 
 # CONTEXTO DO MÊS
 ${MESES[e.mes - 1]} de ${e.ano}.
@@ -498,6 +501,7 @@ export type Conteudo = {
 export function montarPromptConteudo(e: {
   marca: Entrada['marca']
   base: Entrada['base']
+  estilo?: string
   mes: number
   ano: number
   leitura?: string | null
@@ -511,7 +515,7 @@ export function montarPromptConteudo(e: {
 Ribeirão Preto/SP. Uma pauta já foi aprovada internamente. Sua tarefa é produzir o
 conteúdo dessa peça: a legenda que vai no post e a direção da imagem.
 
-${contextoDaMarca(e.marca, e.base)}
+${contextoDaMarca(e.marca, e.base)}${e.estilo ? '\n\n' + e.estilo : ''}
 
 # CONTEXTO DO MÊS
 ${MESES[e.mes - 1]} de ${e.ano}.${e.leitura ? '\nLeitura do mês: ' + e.leitura : ''}
@@ -530,9 +534,10 @@ CTA sugerido: ${p.cta ?? '—'}
 
 # REGRAS
 
-VOZ — a legenda precisa soar como a marca, não como uma agência falando dela. Use o tom
-de voz da base, as expressões recomendadas, e nenhuma das expressões proibidas nem seus
-sinônimos próximos. Se a base declarar restrição legal ou regulatória, obedeça.
+VOZ — a legenda precisa soar como a marca, não como uma agência falando dela. Quando
+houver exemplos reais desta marca acima, eles mandam mais que a descrição de tom de voz:
+imite o ritmo, o tamanho das frases e o vocabulário deles. Nenhuma expressão proibida,
+nem sinônimo próximo. Se a base declarar restrição legal ou regulatória, obedeça.
 
 RECURSOS — restrição dura. Não descreva imagem que dependa de recurso marcado como
 indisponível na base.

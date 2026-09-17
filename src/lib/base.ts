@@ -58,6 +58,18 @@ export const SECOES: Secao[] = [
       { id: 'v_sim', rotulo: 'Expressões recomendadas', ajuda: 'Palavras da casa, separadas por vírgula.' },
       { id: 'v_nao', rotulo: 'Expressões proibidas', ajuda: 'O sistema verifica isto em código antes de salvar qualquer pauta.' },
       { id: 'v_temas', rotulo: 'Temas bloqueados', ajuda: 'Assuntos que a marca não entra, mesmo que rendessem.' },
+      {
+        id: 'v_amostras',
+        rotulo: 'Legendas reais da marca',
+        ajuda:
+          'Cole de 15 a 30 legendas que a marca publicou e que ficaram boas, separadas por uma linha com três traços (---). É o campo que mais melhora o texto da IA: ela aprende estilo por exemplo, não por adjetivo.',
+      },
+      {
+        id: 'v_anti',
+        rotulo: 'O que a marca nunca publicaria',
+        ajuda:
+          'Três a cinco legendas que soariam erradas para esta marca — de concorrente, ou daquele texto de IA genérico —, cada uma com uma linha dizendo por quê. Separe por três traços (---).',
+      },
     ],
   },
   {
