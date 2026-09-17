@@ -18,11 +18,30 @@ const PAPEL: Record<string, { rotulo: string; explica: string }> = {
   client: { rotulo: 'Cliente', explica: 'só avalia o planejamento da própria marca' },
 }
 
-const ACESSO: Record<string, string> = {
-  owner: 'responsável',
-  editor: 'edita',
-  viewer: 'só lê',
-  client: 'avalia',
+/**
+ * O que cada nível PODE, desde a migração 0013.
+ *
+ * Antes disto os três eram só um rótulo: o banco gravava a escolha e
+ * nenhuma regra a lia. Agora valem — e a explicação fica aqui do lado
+ * para ninguém escolher no escuro.
+ */
+const ACESSO: Record<string, { rotulo: string; explica: string }> = {
+  owner: {
+    rotulo: 'responsável',
+    explica: 'edita tudo e é quem envia o planejamento ao cliente',
+  },
+  editor: {
+    rotulo: 'edita',
+    explica: 'cria, altera e aprova internamente; não envia ao cliente',
+  },
+  viewer: {
+    rotulo: 'só lê',
+    explica: 'abre e acompanha, não altera nada',
+  },
+  client: {
+    rotulo: 'avalia',
+    explica: 'aprova ou pede alteração no que for enviado',
+  },
 }
 
 /** O acesso que faz sentido para cada papel. */
@@ -294,7 +313,7 @@ export function Pessoas({
                       >
                         {acessosDe(papel).map((a) => (
                           <option key={a} value={a}>
-                            {ACESSO[a]}
+                            {ACESSO[a].rotulo}
                           </option>
                         ))}
                       </select>
@@ -303,6 +322,25 @@ export function Pessoas({
                 )
               })}
             </div>
+
+            {papel !== 'client' && (
+              <ul
+                style={{
+                  listStyle: 'none',
+                  margin: '10px 0 0',
+                  padding: 0,
+                  fontSize: 12.3,
+                  lineHeight: 1.65,
+                  color: 'var(--muted)',
+                }}
+              >
+                {['owner', 'editor', 'viewer'].map((a) => (
+                  <li key={a}>
+                    <b style={{ color: 'var(--text)' }}>{ACESSO[a].rotulo}</b> — {ACESSO[a].explica}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           <div style={{ marginTop: 16 }}>
@@ -449,7 +487,7 @@ export function Pessoas({
                               <option value="">sem acesso</option>
                               {acessosDe(p.papel).map((a) => (
                                 <option key={a} value={a}>
-                                  {ACESSO[a]}
+                                  {ACESSO[a].rotulo}
                                 </option>
                               ))}
                             </select>

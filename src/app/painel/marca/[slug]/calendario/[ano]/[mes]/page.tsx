@@ -33,6 +33,12 @@ export default async function CalendarioDoMes({
     .maybeSingle()
   if (!marca) notFound()
 
+  // O nível desta pessoa NESTA marca: responsável, edita ou só lê.
+  // Quem manda é o banco — a tela apenas evita mostrar um botão que
+  // seria recusado. Administração alcança como responsável.
+  const { data: nivelBruto } = await supabase.rpc('nivel_na_marca', { b: marca.id })
+  const nivel = (nivelBruto as string | null) ?? 'viewer'
+
   const { data: plano } = await supabase
     .from('plans')
     .select('id, status')
@@ -276,6 +282,7 @@ export default async function CalendarioDoMes({
         ano={ano}
         mes={mes}
         pautas={pautas}
+        nivel={nivel}
       />
     </main>
   )

@@ -20,3 +20,11 @@ repeticao.txt
 sonda-ia.txt
 seguranca.txt
 build.txt
+
+# A pasta de trabalho do espelho e os registros das telas.
+# Nada disso e o projeto — e copia ou anotacao.
+_espelho/
+espelho.txt
+aplicado.txt
+cadastro.txt
+carga.txt

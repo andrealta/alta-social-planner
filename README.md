@@ -29,8 +29,17 @@ Rode com dois cliques, na ordem, na primeira vez:
 | `12-git.cmd` | Envia ao GitHub, com trava contra vazar segredo |
 
 Diagnóstico, quando algo quebra: `08-testar-ia.cmd` (fala com a API da
-Anthropic direto) e `09-repetir-pedido.cmd` (repete o último pedido fora
-do Next, para separar problema de API de problema de servidor).
+Anthropic direto), `09-repetir-pedido.cmd` (repete o último pedido fora
+do Next, para separar problema de API de problema de servidor) e
+`13-testar-cadastro.cmd` (refaz a criação de pessoa fora do site e
+imprime o erro cru do Supabase; apaga o usuário de teste no fim).
+
+`14-espelho.cmd` e `15-aplicar.cmd` existem por uma limitação da ponte
+que o assistente usa para ler esta pasta: ela alcança sete níveis de
+profundidade, e as telas do calendário estão no oitavo. O `14` copia o
+projeto para `_espelho/`, uma pasta rasa com o caminho embutido no nome
+do arquivo; o `15` devolve cada arquivo ao lugar certo e confere pelo
+resumo criptográfico se chegou idêntico. `_espelho/` fica fora do Git.
 
 ---
 
@@ -66,6 +75,19 @@ Três papéis: `admin` (todas as marcas, gerencia pessoas), `staff` (as
 marcas em que for vinculado) e `client` (só o planejamento já liberado da
 própria marca).
 
+Dentro de cada marca, o vínculo tem nível (`brand_members.access`), e
+desde a migração 0013 ele **vale**: `viewer` lê e não escreve, `editor`
+escreve e aprova internamente, `owner` faz isso e é o único que libera o
+mês para o cliente. Quem recusa é a política do banco, mais dois
+gatilhos — `plans_guard` e `ideas_envio_guard` — para que trocar a coluna
+por fora também não passe. A tela esconde botões; isso é conforto, não
+segurança.
+
+Até a 0013 esses três níveis eram só um rótulo gravado que nenhuma regra
+lia. Vale registrar o tipo de erro: um controle que parece existir e não
+existe é pior do que não ter controle nenhum, porque alguém confia
+nele.
+
 Pontos que custaram caro para descobrir, e que uma revisão deve olhar:
 
 1. **Escalada de privilégio** (corrigida na 0011). A política que deixa
@@ -91,10 +113,10 @@ Rode `10-seguranca.cmd` depois de qualquer mudança no banco.
 
 ## Testes
 
-Em `asp/` (fora deste repositório, com quem escreveu) há ~64 casos em SQL
+Em `asp/` (fora deste repositório, com quem escreveu) há ~96 casos em SQL
 que rodam contra um PostgreSQL local recriado do zero: isolamento entre
-marcas, versionamento de pauta, ciclo completo com o cliente, e
-permissões de pessoas. Eles provam que as regras **funcionam**;
+marcas, versionamento de pauta, ciclo completo com o cliente,
+permissões de pessoas e os níveis de acesso à marca. Eles provam que as regras **funcionam**;
 `10-seguranca.cmd` prova que elas **estão lá** em produção. As duas
 perguntas são diferentes.
 

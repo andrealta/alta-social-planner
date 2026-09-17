@@ -29,6 +29,7 @@ export function Painel({
   ano,
   mes,
   pauta,
+  podeEditar,
   aoFechar,
   aoTrocarEstado,
   aoSalvar,
@@ -38,6 +39,8 @@ export function Painel({
   ano: number
   mes: number
   pauta: Pauta
+  /** Falso para quem só lê: os campos ficam travados e a IA some. */
+  podeEditar: boolean
   aoFechar: () => void
   aoTrocarEstado: (para: string) => void
   aoSalvar: (campos: Editaveis, versao: number) => void
@@ -391,13 +394,14 @@ export function Painel({
                   id={`p-${c.id}`}
                   rows={c.linhas}
                   value={campos[c.id]}
+                  readOnly={!podeEditar}
                   onChange={(ev) => setCampos((a) => ({ ...a, [c.id]: ev.target.value }))}
-                  style={caixaTexto}
+                  style={podeEditar ? caixaTexto : soLeitura}
                 />
               </div>
             ))}
 
-            <section
+            {podeEditar && <section
               style={{
                 margin: '20px 0',
                 padding: '14px 16px',
@@ -475,7 +479,7 @@ export function Painel({
                   <b>O que a IA mudou:</b> {mudou}
                 </div>
               )}
-            </section>
+            </section>}
 
             <button
               onClick={() => setVerExtras((v) => !v)}
@@ -512,8 +516,9 @@ export function Painel({
                       id={`p-${c.id}`}
                       rows={c.linhas}
                       value={campos[c.id]}
+                      readOnly={!podeEditar}
                       onChange={(ev) => setCampos((a) => ({ ...a, [c.id]: ev.target.value }))}
-                      style={caixaTexto}
+                      style={podeEditar ? caixaTexto : soLeitura}
                     />
                   </div>
                 ))}
@@ -542,7 +547,7 @@ export function Painel({
               </div>
             )}
 
-            <div
+            {podeEditar && <div
               style={{
                 display: 'flex',
                 gap: 9,
@@ -585,12 +590,33 @@ export function Painel({
                   Salve antes de aprovar.
                 </span>
               )}
-            </div>
+            </div>}
+
+            {!podeEditar && (
+              <p
+                style={{
+                  marginTop: 18,
+                  paddingTop: 14,
+                  borderTop: '1px solid var(--line)',
+                  fontSize: 12.8,
+                  lineHeight: 1.6,
+                  color: 'var(--muted)',
+                }}
+              >
+                Você tem acesso de leitura nesta marca. Os campos acima estão travados, e
+                aprovar ou pedir à IA são de quem edita.
+              </p>
+            )}
           </>
         )}
 
         {aba === 'conteudo' && (
-          <AbaConteudo pauta={pauta} conteudo={pauta.conteudo} aoGerar={aoGerarConteudo} />
+          <AbaConteudo
+            pauta={pauta}
+            conteudo={pauta.conteudo}
+            podeEditar={podeEditar}
+            aoGerar={aoGerarConteudo}
+          />
         )}
 
         {aba === 'versoes' && (
@@ -672,6 +698,14 @@ export function Painel({
       </aside>
     </>
   )
+}
+
+/** Campo que se lê mas não se muda: sem moldura de edição, sem cursor de texto. */
+const soLeitura: React.CSSProperties = {
+  ...caixaTexto,
+  background: 'var(--surface-2)',
+  color: 'var(--muted)',
+  cursor: 'default',
 }
 
 const etiqueta: React.CSSProperties = {

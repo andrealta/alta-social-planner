@@ -71,6 +71,14 @@ export async function POST(req: Request) {
 
   if (!pauta) return json({ erro: 'Não achei esta pauta, ou você não tem acesso a ela.' }, 404)
 
+  // Quem só lê não gasta chamada de IA. Sem esta conferência, o pedido
+  // iria até o fim, a conta seria paga, e só então o banco recusaria a
+  // gravação. O dinheiro já teria saído.
+  const { data: nivel } = await supabase.rpc('nivel_na_marca', { b: pauta.brand_id })
+  if (nivel !== 'owner' && nivel !== 'editor') {
+    return json({ erro: 'Você tem acesso de leitura nesta marca. Escrever o conteúdo é de quem edita.' }, 403)
+  }
+
   const [{ data: marca }, { data: plano }, { data: secoes }, { data: canal }, { data: linha }] =
     await Promise.all([
       supabase.from('brands').select('name, segment').eq('id', pauta.brand_id).single(),

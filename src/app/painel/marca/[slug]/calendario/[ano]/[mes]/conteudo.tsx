@@ -163,10 +163,13 @@ function Mockup({ layout, proporcao }: { layout: Record<string, string>; proporc
 export function AbaConteudo({
   pauta,
   conteudo,
+  podeEditar,
   aoGerar,
 }: {
   pauta: Pauta
   conteudo: ConteudoPauta | null
+  /** Falso para quem só lê: o texto aparece, o botão de escrever não. */
+  podeEditar: boolean
   aoGerar: (c: ConteudoPauta) => void
 }) {
   const [criando, setCriando] = useState(false)
@@ -255,13 +258,13 @@ export function AbaConteudo({
       )}
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
-        <button onClick={criar} disabled={criando} style={botao(!conteudo, criando)}>
+        {podeEditar && <button onClick={criar} disabled={criando} style={botao(!conteudo, criando)}>
           {criando
             ? `Escrevendo… ${segundos}s`
             : conteudo
               ? 'Refazer o conteúdo'
               : 'Criar conteúdo'}
-        </button>
+        </button>}
         {conteudo && !criando && (
           <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>
             {conteudo.piece_kind === 'video' ? 'vídeo' : 'imagem'} · {conteudo.aspect_ratio}
@@ -313,12 +316,19 @@ export function AbaConteudo({
         </div>
       )}
 
-      {!conteudo && !criando && (
+      {!conteudo && !criando && podeEditar && (
         <p style={{ color: 'var(--muted)', fontSize: 13.5, lineHeight: 1.6 }}>
           A IA escreve a legenda pronta para publicar, as hashtags, o texto
           alternativo, a direção de arte e o prompt da imagem em inglês. Se o
           formato for vídeo, escreve também a decupagem em cenas, com uma marcada
           como cena-chave.
+        </p>
+      )}
+
+      {!conteudo && !podeEditar && (
+        <p style={{ color: 'var(--muted)', fontSize: 13.5, lineHeight: 1.6 }}>
+          O conteúdo desta pauta ainda não foi escrito. Escrever é de quem edita a
+          marca.
         </p>
       )}
 

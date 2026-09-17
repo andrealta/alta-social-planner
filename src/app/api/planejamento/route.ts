@@ -113,6 +113,13 @@ export async function POST(req: Request) {
 
   const marcaId = marca.id as string
 
+  // Quem só lê não gasta chamada de IA — e gerar um mês é a chamada
+  // mais cara do sistema.
+  const { data: nivel } = await supabase.rpc('nivel_na_marca', { b: marcaId })
+  if (nivel !== 'owner' && nivel !== 'editor') {
+    return erro('Você tem acesso de leitura nesta marca. Gerar o planejamento é de quem edita.', 403)
+  }
+
   const [{ data: secoes }, { data: escopoBruto }] = await Promise.all([
     supabase.from('brand_knowledge').select('section, content').eq('brand_id', marcaId),
     supabase

@@ -23,13 +23,22 @@ export function Calendario({
   ano,
   mes,
   pautas: iniciais,
+  nivel,
 }: {
   slug: string
   planoId: string
   ano: number
   mes: number
   pautas: Pauta[]
+  /** 'owner' responde pela marca · 'editor' escreve · 'viewer' só lê. */
+  nivel: string
 }) {
+  // Esconder botão não é segurança: quem tem a sessão aberta consegue
+  // montar a requisição na mão. A trava de verdade está no banco. Isto
+  // aqui existe para a pessoa não clicar no que vai ser recusado.
+  const podeEditar = nivel === 'owner' || nivel === 'editor'
+  const podeEnviar = nivel === 'owner'
+
   const [pautas, setPautas] = useState(iniciais)
   const [aberta, setAberta] = useState<string | null>(null)
   const [arrastando, setArrastando] = useState<string | null>(null)
@@ -67,6 +76,7 @@ export function Calendario({
   }
 
   function soltar(data: string) {
+    if (!podeEditar) return
     const id = arrastando
     setArrastando(null)
     setAlvo(null)
@@ -231,12 +241,12 @@ export function Calendario({
             />
           </div>
         </div>
-        {emAvaliacao > 0 && (
+        {emAvaliacao > 0 && podeEditar && (
           <button onClick={aprovarPendentes} disabled={pendente} style={botao(true)}>
             Aprovar as {emAvaliacao} pendentes
           </button>
         )}
-        {prontasParaEnviar > 0 && (
+        {prontasParaEnviar > 0 && podeEnviar && (
           <button
             onClick={enviar}
             disabled={pendente}
@@ -246,6 +256,44 @@ export function Calendario({
           </button>
         )}
       </div>
+
+      {!podeEditar && (
+        <div
+          style={{
+            marginBottom: 14,
+            padding: '12px 16px',
+            border: '1px solid var(--line)',
+            borderLeft: '3px solid var(--line-2)',
+            borderRadius: '0 var(--r) var(--r) 0',
+            background: 'var(--surface-2)',
+            fontSize: 13.3,
+            lineHeight: 1.6,
+            color: 'var(--muted)',
+          }}
+        >
+          <b style={{ color: 'var(--text)' }}>Você acompanha esta marca.</b> Dá para abrir
+          tudo e ler o histórico; alterar pauta, aprovar e enviar ao cliente são de quem
+          edita. Se precisar mexer, peça à administração para mudar o seu nível.
+        </div>
+      )}
+
+      {prontasParaEnviar > 0 && podeEditar && !podeEnviar && (
+        <div
+          style={{
+            marginBottom: 14,
+            padding: '12px 16px',
+            border: '1px solid var(--line)',
+            borderLeft: '3px solid var(--st-cliente)',
+            borderRadius: '0 var(--r) var(--r) 0',
+            background: 'var(--surface-2)',
+            fontSize: 13.3,
+            lineHeight: 1.6,
+          }}
+        >
+          <b>{prontasParaEnviar} pauta(s) prontas para o cliente.</b> Quem envia é a pessoa
+          responsável pela marca — avise que este mês está pronto.
+        </div>
+      )}
 
       {pedidosDoCliente > 0 && (
         <div
@@ -378,8 +426,8 @@ export function Calendario({
                 return (
                   <div
                     key={p.id}
-                    draggable
-                    onDragStart={() => setArrastando(p.id)}
+                    draggable={podeEditar}
+                    onDragStart={() => podeEditar && setArrastando(p.id)}
                     onDragEnd={() => {
                       setArrastando(null)
                       setAlvo(null)
@@ -397,7 +445,7 @@ export function Calendario({
                       background: 'var(--surface-3)',
                       fontSize: 11.5,
                       lineHeight: 1.35,
-                      cursor: 'grab',
+                      cursor: podeEditar ? 'grab' : 'pointer',
                       opacity: arrastando === p.id ? 0.4 : 1,
                     }}
                   >
@@ -568,8 +616,9 @@ export function Calendario({
       </div>
 
       <p style={{ color: 'var(--faint)', fontSize: 12.5, marginTop: 10 }}>
-        Arraste uma pauta para outro dia para remarcar. Clique para abrir, editar e escrever o
-        conteúdo.
+        {podeEditar
+          ? 'Arraste uma pauta para outro dia para remarcar. Clique para abrir, editar e escrever o conteúdo.'
+          : 'Clique numa pauta para abrir e ler.'}
       </p>
 
       {pautaAberta && (
@@ -579,6 +628,7 @@ export function Calendario({
           ano={ano}
           mes={mes}
           pauta={pautaAberta}
+          podeEditar={podeEditar}
           aoFechar={() => setAberta(null)}
           aoTrocarEstado={(para) => trocarEstado(pautaAberta, para)}
           aoSalvar={(campos: Editaveis, versao: number) =>
