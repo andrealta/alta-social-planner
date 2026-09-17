@@ -1,0 +1,39 @@
+
+--------------------------------------------------------
+ 1. O que esta configurado
+--------------------------------------------------------
+
+  NEXT_PUBLIC_SUPABASE_URL      https://wdbucmogppscuanflskp.supabase.co
+  SUPABASE_SERVICE_ROLE_KEY     JWT antigo, papel "anon"  -> NAO serve
+  tamanho da chave              208 caracteres
+  DATABASE_URL                  presente
+
+--------------------------------------------------------
+ 2. Criando uma pessoa de teste, igual a tela faz
+--------------------------------------------------------
+
+  e-mail de teste   teste-cadastro-1789664093194@example.com
+
+  resposta HTTP     403 Forbidden
+
+  texto devolvido pelo Supabase:
+  {"code":403,"error_code":"not_admin","msg":"User not allowed"}
+
+  RESULTADO: a criacao FALHOU tambem fora do site.
+
+  401/403 quer dizer chave recusada: a que esta no .env.local
+  nao e a de servico, ou foi trocada no painel do Supabase.
+  Pegue de novo em Settings -> API e cole no .env.local.
+
+--------------------------------------------------------
+ 3. O perfil nasceu junto?
+--------------------------------------------------------
+
+  Pulado: nao houve usuario criado.
+
+--------------------------------------------------------
+ 4. Limpando
+--------------------------------------------------------
+
+  Nada a limpar.
+
