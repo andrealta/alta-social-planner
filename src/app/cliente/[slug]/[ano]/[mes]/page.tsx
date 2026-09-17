@@ -209,7 +209,7 @@ export default async function MesDoCliente({
   const fechado = plano.approved_at !== null
 
   return (
-    <main style={{ maxWidth: 860, margin: '0 auto', padding: '40px 24px 70px' }}>
+    <main style={{ maxWidth: 1280, margin: '0 auto', padding: '36px 28px 70px' }}>
       <Link href="/cliente" style={{ fontSize: 13, color: 'var(--muted)', textDecoration: 'none' }}>
         ← Todos os meses
       </Link>
@@ -283,7 +283,7 @@ export default async function MesDoCliente({
           segue para a produção.
         </div>
       ) : (
-        <p style={{ color: 'var(--muted)', fontSize: 14, marginTop: 18, lineHeight: 1.65 }}>
+        <p style={{ color: 'var(--muted)', fontSize: 14, marginTop: 18, lineHeight: 1.65, maxWidth: 760 }}>
           Leia cada publicação e responda. <b>Aprovar</b> libera a peça para produção;{' '}
           <b>Pedir alteração</b> devolve à equipe com o que você escrever. Pode responder aos
           poucos — o que você já decidiu fica salvo.

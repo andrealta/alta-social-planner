@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState } from 'react'
 import {
   DIAS_CURTOS,
   ICONE_PECA,
@@ -58,6 +58,21 @@ const SITUACAO: Record<string, { rotulo: string; curto: string; cor: string; was
   },
 }
 
+const situacaoDe = (status: string) => SITUACAO[status] ?? SITUACAO.sent_to_client
+
+/**
+ * O mês do cliente.
+ *
+ * Duas leituras do mesmo mês e um lugar só para o detalhe:
+ *
+ *   calendário — como o mês se distribui. É a vista que abre, porque
+ *                é a pergunta que o cliente faz primeiro ao receber
+ *                um planejamento: "o que vem, e quando".
+ *   lista      — o índice, para quem prefere descer a página.
+ *   gaveta     — a publicação inteira, e é onde se decide. Clicar em
+ *                qualquer lugar abre a mesma gaveta; o detalhe não
+ *                existe em dois lugares para não divergir.
+ */
 export function Avaliacao({
   slug,
   ano,
@@ -73,30 +88,55 @@ export function Avaliacao({
   cor: string
 }) {
   const [pautas, setPautas] = useState(iniciais)
-  const [vista, setVista] = useState<'lista' | 'calendario'>('lista')
-  const [aberta, setAberta] = useState<string | null>(null)
+  const [vista, setVista] = useState<'calendario' | 'lista'>('calendario')
+  const [abertaId, setAbertaId] = useState<string | null>(null)
+  const [pedindo, setPedindo] = useState(false)
   const [texto, setTexto] = useState('')
   const [erro, setErro] = useState<string | null>(null)
-  const [enviando, setEnviando] = useState<string | null>(null)
-  const [, comecar] = useTransition()
+  const [enviando, setEnviando] = useState(false)
 
+  const aberta = pautas.find((p) => p.id === abertaId) ?? null
   const pendentes = pautas.filter((p) => p.status === 'sent_to_client').length
   const aprovadas = pautas.filter((p) => p.status === 'client_approved').length
+  const semData = pautas.filter((p) => !p.data)
+
+  function abrir(id: string) {
+    setAbertaId(id)
+    setPedindo(false)
+    setTexto('')
+    setErro(null)
+  }
+
+  function fechar() {
+    setAbertaId(null)
+    setPedindo(false)
+    setTexto('')
+  }
+
+  // Esc fecha a gaveta. Quem abriu sem querer não precisa procurar o X.
+  useEffect(() => {
+    if (!abertaId) return
+    const aoTeclar = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') fechar()
+    }
+    window.addEventListener('keydown', aoTeclar)
+    return () => window.removeEventListener('keydown', aoTeclar)
+  }, [abertaId])
 
   async function responder(p: PautaCliente, decisao: 'approved' | 'changes_requested') {
     if (enviando) return
     setErro(null)
 
     if (decisao === 'changes_requested' && texto.trim() === '') {
-      setAberta(p.id)
+      setPedindo(true)
       setErro('Escreva o que você gostaria de mudar — é isso que a equipe vai ler.')
       return
     }
 
-    setEnviando(p.id)
-    const comentario = aberta === p.id ? texto : ''
+    setEnviando(true)
+    const comentario = decisao === 'changes_requested' ? texto.trim() : ''
     const r = await decidir(slug, ano, mes, p.id, decisao, comentario)
-    setEnviando(null)
+    setEnviando(false)
 
     if (!r.ok) {
       setErro(r.erro ?? 'Não consegui registrar.')
@@ -110,12 +150,12 @@ export function Avaliacao({
               ...x,
               status: decisao === 'approved' ? 'client_approved' : 'client_changes_requested',
               recados:
-                comentario.trim() === ''
+                comentario === ''
                   ? x.recados
                   : [
                       {
                         id: 'novo-' + Date.now(),
-                        body: comentario.trim(),
+                        body: comentario,
                         created_at: new Date().toISOString(),
                         meu: true,
                         autor: null,
@@ -126,26 +166,26 @@ export function Avaliacao({
           : x,
       ),
     )
-    setAberta(null)
+    setPedindo(false)
     setTexto('')
-    comecar(() => {})
   }
 
   return (
     <div>
+      {/* ---------------- resumo e alternador ---------------- */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: 14,
+          gap: 16,
           flexWrap: 'wrap',
           padding: '16px 20px',
           ...cartao,
-          marginBottom: 18,
+          marginBottom: 16,
         }}
       >
-        <div style={{ flex: 1, minWidth: 220 }}>
-          <div style={{ fontSize: 14, marginBottom: 6 }}>
+        <div style={{ flex: 1, minWidth: 240 }}>
+          <div style={{ fontSize: 14, marginBottom: 7 }}>
             <b>
               {aprovadas} de {pautas.length} aprovadas
             </b>
@@ -153,7 +193,7 @@ export function Avaliacao({
               <span style={{ color: 'var(--muted)' }}> · {pendentes} aguardando você</span>
             )}
           </div>
-          <div style={{ height: 6, borderRadius: 99, background: 'var(--surface-3)', overflow: 'hidden' }}>
+          <div style={{ height: 5, borderRadius: 99, background: 'var(--surface-3)', overflow: 'hidden' }}>
             <div
               style={{
                 width: `${pautas.length ? (aprovadas / pautas.length) * 100 : 0}%`,
@@ -165,10 +205,6 @@ export function Avaliacao({
           </div>
         </div>
 
-        {/* Duas leituras do mesmo mês: a lista para decidir, o
-            calendário para ver a distribuição. Quem avalia catorze
-            peças precisa das duas — a lista responde "o que é esta
-            peça", o calendário responde "como está o mês". */}
         <div
           style={{
             display: 'inline-flex',
@@ -178,7 +214,7 @@ export function Avaliacao({
             background: 'var(--surface-2)',
           }}
         >
-          {(['lista', 'calendario'] as const).map((v) => (
+          {(['calendario', 'lista'] as const).map((v) => (
             <button
               key={v}
               onClick={() => setVista(v)}
@@ -186,7 +222,7 @@ export function Avaliacao({
                 fontFamily: 'inherit',
                 fontSize: 13,
                 fontWeight: vista === v ? 700 : 500,
-                padding: '6px 15px',
+                padding: '6px 16px',
                 border: 'none',
                 borderRadius: 99,
                 background: vista === v ? 'var(--surface)' : 'transparent',
@@ -195,14 +231,15 @@ export function Avaliacao({
                 cursor: 'pointer',
               }}
             >
-              {v === 'lista' ? 'Lista' : 'Calendário'}
+              {v === 'calendario' ? 'Calendário' : 'Lista'}
             </button>
           ))}
         </div>
       </div>
 
-      {erro && (
+      {erro && !abertaId && (
         <div
+          role="alert"
           style={{
             marginBottom: 16,
             padding: '13px 17px',
@@ -215,20 +252,21 @@ export function Avaliacao({
         </div>
       )}
 
+      {/* ---------------- calendário ---------------- */}
       {vista === 'calendario' && (
-        <div style={{ ...cartao, padding: '18px 20px 20px', marginBottom: 18 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 8 }}>
+        <div style={{ ...cartao, padding: '20px 22px 22px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 10 }}>
             {DIAS_CURTOS.map((d) => (
               <div
                 key={d}
                 style={{
-                  fontSize: 10,
+                  fontSize: 10.5,
                   fontWeight: 700,
-                  letterSpacing: '.1em',
+                  letterSpacing: '.12em',
                   textTransform: 'uppercase',
                   color: 'var(--faint)',
                   textAlign: 'center',
-                  paddingBottom: 2,
+                  paddingBottom: 4,
                 }}
               >
                 {d}
@@ -245,85 +283,28 @@ export function Avaliacao({
                   <div
                     key={data}
                     style={{
-                      minHeight: 84,
-                      padding: 8,
+                      minHeight: 132,
+                      padding: 9,
                       borderRadius: 'var(--r)',
-                      background: 'var(--surface-2)',
+                      // Dia sem publicação não ganha caixa: quinze
+                      // molduras vazias competindo com cinco cheias é o
+                      // que faz um calendário parecer planilha.
+                      background: doDia.length ? 'var(--surface-2)' : 'transparent',
                     }}
                   >
-                    <div style={{ fontSize: 11, color: 'var(--faint)', fontWeight: 600 }}>{dia}</div>
-                    {doDia.map((p) => {
-                      const st = SITUACAO[p.status] ?? SITUACAO.sent_to_client
-                      return (
-                        <button
-                          key={p.id}
-                          onClick={() => {
-                            // O calendário mostra; quem decide é a lista.
-                            // Clicar aqui leva a pessoa até a peça, já aberta.
-                            setVista('lista')
-                            setTimeout(() => {
-                              document
-                                .getElementById(`pauta-${p.id}`)
-                                ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                            }, 60)
-                          }}
-                          style={{
-                            display: 'block',
-                            width: '100%',
-                            textAlign: 'left',
-                            marginTop: 6,
-                            padding: '7px 8px',
-                            border: 'none',
-                            borderRadius: 8,
-                            background: 'var(--surface)',
-                            boxShadow: '0 1px 2px rgba(29,37,48,.06)',
-                            cursor: 'pointer',
-                            fontFamily: 'inherit',
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 4,
-                              fontSize: 9.5,
-                              color: 'var(--muted)',
-                              marginBottom: 2,
-                            }}
-                          >
-                            <span aria-hidden>{ICONE_PECA[tipoDaPeca(p.formato)]}</span>
-                            {tipoDaPeca(p.formato)}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: 10.5,
-                              fontWeight: 700,
-                              lineHeight: 1.3,
-                              color: 'var(--text)',
-                              display: '-webkit-box',
-                              WebkitLineClamp: 3,
-                              WebkitBoxOrient: 'vertical',
-                              overflow: 'hidden',
-                            }}
-                          >
-                            {p.title}
-                          </div>
-                          <div
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 4,
-                              marginTop: 4,
-                              fontSize: 9.5,
-                              color: 'var(--muted)',
-                            }}
-                          >
-                            <i aria-hidden style={ponto(st.cor, 6)} />
-                            {st.curto}
-                          </div>
-                        </button>
-                      )
-                    })}
+                    <div
+                      style={{
+                        fontSize: 11.5,
+                        color: 'var(--faint)',
+                        fontWeight: 700,
+                        marginBottom: 6,
+                      }}
+                    >
+                      {dia}
+                    </div>
+                    {doDia.map((p) => (
+                      <CartaoDoDia key={p.id} p={p} aoAbrir={() => abrir(p.id)} />
+                    ))}
                   </div>
                 )
               })}
@@ -332,10 +313,10 @@ export function Avaliacao({
           <div
             style={{
               display: 'flex',
-              gap: 14,
+              gap: 12,
               flexWrap: 'wrap',
-              marginTop: 16,
-              paddingTop: 14,
+              marginTop: 18,
+              paddingTop: 15,
               borderTop: '1px solid var(--line)',
             }}
           >
@@ -347,274 +328,565 @@ export function Avaliacao({
                   {v.rotulo}
                 </span>
               ))}
+            <span style={{ fontSize: 12.5, color: 'var(--faint)', marginLeft: 'auto' }}>
+              Clique numa publicação para ler e responder.
+            </span>
           </div>
 
-          {pautas.some((p) => !p.data) && (
-            <p style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 12, lineHeight: 1.55 }}>
-              {pautas.filter((p) => !p.data).length} publicação(ões) ainda sem data marcada — elas
-              aparecem só na lista.
-            </p>
+          {semData.length > 0 && (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 8 }}>
+                {semData.length} publicação(ões) ainda sem data marcada:
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {semData.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => abrir(p.id)}
+                    style={{ ...botao(false), fontSize: 12.5, padding: '8px 14px' }}
+                  >
+                    {p.title}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       )}
 
+      {/* ---------------- lista ---------------- */}
       {vista === 'lista' && (
-      <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 14 }}>
-        {pautas.map((p) => {
-          const s = SITUACAO[p.status] ?? SITUACAO.sent_to_client
-          const dia = p.data ? Number(p.data.slice(8, 10)) : null
-          const pode = p.status === 'sent_to_client' || p.status === 'client_changes_requested'
-          return (
-            <li
-              key={p.id}
-              id={`pauta-${p.id}`}
-              style={{ ...cartao, padding: '20px 22px' }}
-            >
-              <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                <div style={{ textAlign: 'center', minWidth: 44 }}>
-                  <div style={{ fontFamily: 'var(--disp)', fontSize: 26, fontWeight: 600, lineHeight: 1 }}>
-                    {dia ?? '—'}
-                  </div>
-                </div>
-
-                <div style={{ flex: 1, minWidth: 240 }}>
-                  <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 6 }}>
-                    {p.linha && (
-                      <span
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 5,
-                          fontSize: 11,
-                          fontWeight: 600,
-                          padding: '3px 10px',
-                          borderRadius: 99,
-                          background: 'var(--surface-2)',
-                          color: 'var(--muted)',
-                        }}
-                      >
-                        <i aria-hidden style={ponto(corDaLinha(p.linhaIndice), 7)} />
-                        {p.linha}
-                      </span>
-                    )}
-                    {[p.formato, p.plataforma].filter(Boolean).map((t) => (
-                      <span
-                        key={String(t)}
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 600,
-                          padding: '3px 10px',
-                          borderRadius: 99,
-                          background: 'var(--surface-2)',
-                          color: 'var(--muted)',
-                        }}
-                      >
-                        {String(t)}
-                      </span>
-                    ))}
-                    <span style={{ ...pilula(s.wash), marginLeft: 'auto' }}>
-                      <i aria-hidden style={ponto(s.cor)} />
-                      {s.rotulo}
-                    </span>
-                  </div>
-
-                  <h3 style={{ fontSize: 17, fontWeight: 700, lineHeight: 1.3 }}>{p.title}</h3>
-
-                  {p.concept && (
-                    <p style={{ fontSize: 14, marginTop: 5, lineHeight: 1.6 }}>{p.concept}</p>
-                  )}
-                  {p.description && (
-                    <p style={{ fontSize: 13.5, color: 'var(--muted)', marginTop: 7, lineHeight: 1.6 }}>
-                      {p.description}
-                    </p>
-                  )}
-
-                  {p.caption && (
-                    <div style={{ marginTop: 12 }}>
-                      <div
-                        style={{
-                          fontSize: 10.5,
-                          fontWeight: 700,
-                          letterSpacing: '.12em',
-                          textTransform: 'uppercase',
-                          color: 'var(--faint)',
-                          marginBottom: 5,
-                        }}
-                      >
-                        Legenda
-                      </div>
-                      <div
-                        style={{
-                          whiteSpace: 'pre-wrap',
-                          fontSize: 13.8,
-                          lineHeight: 1.65,
-                          padding: '13px 15px',
-                          background: 'var(--surface-2)',
-                          borderRadius: 'var(--r-sm)',
-                        }}
-                      >
-                        {p.caption}
-                      </div>
-                      {p.hashtags.length > 0 && (
-                        <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 6 }}>
-                          {p.hashtags.join(' ')}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {p.cenas.length > 0 && (
-                    <div style={{ marginTop: 12 }}>
-                      <div
-                        style={{
-                          fontSize: 10.5,
-                          fontWeight: 700,
-                          letterSpacing: '.12em',
-                          textTransform: 'uppercase',
-                          color: 'var(--faint)',
-                          marginBottom: 5,
-                        }}
-                      >
-                        Cenas
-                      </div>
-                      {p.cenas.map((c, i) => (
-                        <div key={i} style={{ fontSize: 13, lineHeight: 1.6, display: 'flex', gap: 10 }}>
-                          <span style={{ color: 'var(--faint)', minWidth: 52, fontWeight: 600 }}>{c.t}</span>
-                          <span>{c.descricao}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {p.decisoes.length > 0 && (
-                    <div style={{ marginTop: 10, fontSize: 12.5, color: 'var(--muted)' }}>
-                      {p.decisoes.map((d) => (
-                        <div key={d.id}>
-                          <b
-                            style={{
-                              color:
-                                d.decisao === 'approved' ? 'var(--st-aprovado)' : 'var(--st-ajuste)',
-                            }}
-                          >
-                            {d.decisao === 'approved' ? '✓ aprovada' : '! alteração pedida'}
-                          </b>{' '}
-                          por {d.autor ?? 'alguém da sua equipe'} em{' '}
-                          {new Date(d.created_at).toLocaleDateString('pt-BR')}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {p.recados.length > 0 && (
+        <ol
+          style={{
+            listStyle: 'none',
+            margin: '0 auto',
+            padding: 0,
+            display: 'grid',
+            gap: 10,
+            maxWidth: 900,
+          }}
+        >
+          {pautas.map((p) => {
+            const s = situacaoDe(p.status)
+            const dia = p.data ? Number(p.data.slice(8, 10)) : null
+            return (
+              <li key={p.id}>
+                <button
+                  onClick={() => abrir(p.id)}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 16,
+                    padding: '15px 18px',
+                    ...cartao,
+                  }}
+                >
+                  <div style={{ textAlign: 'center', minWidth: 42 }}>
                     <div
                       style={{
-                        marginTop: 12,
-                        padding: '12px 15px',
-                        background: 'var(--surface-2)',
-                        borderRadius: 'var(--r-sm)',
+                        fontFamily: 'var(--disp)',
+                        fontSize: 24,
+                        fontWeight: 600,
+                        lineHeight: 1,
+                        color: 'var(--text)',
                       }}
                     >
-                      {p.recados.map((r) => (
-                        <div key={r.id} style={{ marginBottom: 6 }}>
-                          <div style={{ fontSize: 13, lineHeight: 1.55 }}>{r.body}</div>
-                          <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 2 }}>
-                            {r.meu ? 'você' : (r.autor ?? 'sua equipe')} ·{' '}
-                            {new Date(r.created_at).toLocaleString('pt-BR', {
-                              day: '2-digit',
-                              month: '2-digit',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </div>
-                        </div>
-                      ))}
+                      {dia ?? '—'}
                     </div>
-                  )}
+                    <div style={{ fontSize: 10, color: 'var(--faint)', marginTop: 2 }}>
+                      {tipoDaPeca(p.formato).toLowerCase()}
+                    </div>
+                  </div>
 
-                  {pode && (
-                    <>
-                      {aberta === p.id && (
-                        <div style={{ marginTop: 12 }}>
-                          <label
-                            htmlFor={`c-${p.id}`}
-                            style={{ display: 'block', fontWeight: 700, fontSize: 13, marginBottom: 4 }}
-                          >
-                            O que você gostaria de mudar?
-                          </label>
-                          <textarea
-                            id={`c-${p.id}`}
-                            rows={3}
-                            value={texto}
-                            onChange={(e) => setTexto(e.target.value)}
-                            autoFocus
-                            placeholder="Quanto mais específico, menos idas e vindas."
-                            style={caixaTexto}
-                          />
-                        </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)' }}>
+                      {p.title}
+                    </div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        flexWrap: 'wrap',
+                        marginTop: 4,
+                        fontSize: 12.3,
+                        color: 'var(--muted)',
+                      }}
+                    >
+                      {p.linha && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                          <i aria-hidden style={ponto(corDaLinha(p.linhaIndice), 7)} />
+                          {p.linha}
+                        </span>
                       )}
+                      {p.plataforma && <span>{p.plataforma}</span>}
+                      {p.recados.length > 0 && <span>{p.recados.length} recado(s)</span>}
+                    </div>
+                  </div>
 
-                      <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', marginTop: 12 }}>
-                        <button
-                          onClick={() => responder(p, 'approved')}
-                          disabled={enviando === p.id}
-                          style={{
-                            ...botao(true, enviando === p.id),
-                            fontSize: 14,
-                            padding: '11px 22px',
-                            cursor: enviando === p.id ? 'progress' : 'pointer',
-                          }}
-                        >
-                          {enviando === p.id ? 'Registrando…' : 'Aprovar'}
-                        </button>
+                  <span style={pilula(s.wash)}>
+                    <i aria-hidden style={ponto(s.cor)} />
+                    {s.rotulo}
+                  </span>
+                </button>
+              </li>
+            )
+          })}
+        </ol>
+      )}
 
-                        {aberta === p.id ? (
-                          <>
-                            <button
-                              onClick={() => responder(p, 'changes_requested')}
-                              disabled={enviando === p.id}
-                              style={botaoSecundario}
-                            >
-                              Enviar o pedido
-                            </button>
-                            <button
-                              onClick={() => {
-                                setAberta(null)
-                                setTexto('')
-                                setErro(null)
-                              }}
-                              style={{ ...botaoSecundario, border: 'none', color: 'var(--muted)' }}
-                            >
-                              Cancelar
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            onClick={() => {
-                              setAberta(p.id)
-                              setTexto('')
-                              setErro(null)
-                            }}
-                            style={botaoSecundario}
-                          >
-                            Pedir alteração
-                          </button>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            </li>
-          )
-        })}
-      </ol>
+      {/* ---------------- a gaveta ---------------- */}
+      {aberta && (
+        <Gaveta
+          p={aberta}
+          cor={cor}
+          erro={erro}
+          pedindo={pedindo}
+          texto={texto}
+          enviando={enviando}
+          aoFechar={fechar}
+          aoMudarTexto={setTexto}
+          aoAbrirPedido={() => {
+            setPedindo(true)
+            setTexto('')
+            setErro(null)
+          }}
+          aoCancelarPedido={() => {
+            setPedindo(false)
+            setTexto('')
+            setErro(null)
+          }}
+          aoResponder={(d) => responder(aberta, d)}
+        />
       )}
     </div>
   )
 }
 
-const botaoSecundario: React.CSSProperties = {
-  ...botao(false),
-  fontSize: 14,
-  padding: '11px 20px',
+/** O cartão de um dia no calendário. Pouca informação, muito clicável. */
+function CartaoDoDia({ p, aoAbrir }: { p: PautaCliente; aoAbrir: () => void }) {
+  const s = situacaoDe(p.status)
+  const tipo = tipoDaPeca(p.formato)
+  return (
+    <button
+      onClick={aoAbrir}
+      style={{
+        display: 'block',
+        width: '100%',
+        textAlign: 'left',
+        marginBottom: 6,
+        padding: '9px 10px',
+        border: 'none',
+        borderRadius: 'var(--r-sm)',
+        background: 'var(--surface)',
+        boxShadow: '0 1px 2px rgba(29,37,48,.07)',
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 5,
+          fontSize: 10,
+          color: 'var(--muted)',
+          marginBottom: 3,
+        }}
+      >
+        <span
+          aria-hidden
+          style={{
+            width: 17,
+            height: 17,
+            borderRadius: 5,
+            background: 'var(--surface-3)',
+            display: 'inline-grid',
+            placeItems: 'center',
+            fontSize: 9,
+          }}
+        >
+          {ICONE_PECA[tipo]}
+        </span>
+        {tipo}
+      </div>
+      <div
+        style={{
+          fontSize: 11.5,
+          fontWeight: 700,
+          lineHeight: 1.35,
+          color: 'var(--text)',
+          display: '-webkit-box',
+          WebkitLineClamp: 3,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+        }}
+      >
+        {p.title}
+      </div>
+      {p.linha && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 5,
+            marginTop: 5,
+            fontSize: 10,
+            color: 'var(--muted)',
+          }}
+        >
+          <i aria-hidden style={ponto(corDaLinha(p.linhaIndice), 7)} />
+          {p.linha}
+        </div>
+      )}
+      <div style={{ ...pilula(s.wash, true), marginTop: 6 }}>
+        <i aria-hidden style={ponto(s.cor)} />
+        {s.curto}
+      </div>
+    </button>
+  )
+}
+
+/** A publicação inteira, e os dois botões que resolvem o mês. */
+function Gaveta({
+  p,
+  cor,
+  erro,
+  pedindo,
+  texto,
+  enviando,
+  aoFechar,
+  aoMudarTexto,
+  aoAbrirPedido,
+  aoCancelarPedido,
+  aoResponder,
+}: {
+  p: PautaCliente
+  cor: string
+  erro: string | null
+  pedindo: boolean
+  texto: string
+  enviando: boolean
+  aoFechar: () => void
+  aoMudarTexto: (t: string) => void
+  aoAbrirPedido: () => void
+  aoCancelarPedido: () => void
+  aoResponder: (d: 'approved' | 'changes_requested') => void
+}) {
+  const s = situacaoDe(p.status)
+  const pode = p.status === 'sent_to_client' || p.status === 'client_changes_requested'
+  const tipo = tipoDaPeca(p.formato)
+
+  return (
+    <>
+      <div
+        onClick={aoFechar}
+        style={{ position: 'fixed', inset: 0, background: 'rgba(17,20,26,.38)', zIndex: 30 }}
+      />
+      <aside
+        role="dialog"
+        aria-label={p.title}
+        style={{
+          position: 'fixed',
+          top: 0,
+          right: 0,
+          bottom: 0,
+          width: 'min(680px, 100vw)',
+          zIndex: 31,
+          background: 'var(--surface)',
+          overflowY: 'auto',
+          padding: '24px 28px 48px',
+          boxShadow: '-10px 0 40px -18px rgba(29,37,48,.4)',
+          borderTop: `4px solid ${cor}`,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+          <span style={pilula(s.wash)}>
+            <i aria-hidden style={ponto(s.cor)} />
+            {s.rotulo}
+          </span>
+          {p.data && (
+            <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>
+              {p.data.slice(8, 10)}/{p.data.slice(5, 7)}
+            </span>
+          )}
+          <button
+            onClick={aoFechar}
+            aria-label="fechar"
+            style={{
+              marginLeft: 'auto',
+              background: 'none',
+              border: 'none',
+              fontSize: 24,
+              lineHeight: 1,
+              cursor: 'pointer',
+              color: 'var(--muted)',
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        <h2
+          style={{
+            fontFamily: 'var(--disp)',
+            fontSize: 24,
+            fontWeight: 600,
+            lineHeight: 1.22,
+            letterSpacing: '-.02em',
+            marginBottom: 10,
+          }}
+        >
+          {p.title}
+        </h2>
+
+        <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 20 }}>
+          {p.linha && (
+            <span style={etiqueta}>
+              <i aria-hidden style={ponto(corDaLinha(p.linhaIndice), 7)} />
+              {p.linha}
+            </span>
+          )}
+          <span style={etiqueta}>
+            <span aria-hidden>{ICONE_PECA[tipo]}</span>
+            {tipo}
+            {p.formato && tipo.toLowerCase() !== p.formato.toLowerCase() ? ` · ${p.formato}` : ''}
+          </span>
+          {p.plataforma && <span style={etiqueta}>{p.plataforma}</span>}
+          {p.editorial_line && <span style={etiqueta}>{p.editorial_line}</span>}
+        </div>
+
+        {p.concept && (
+          <p style={{ fontSize: 15, lineHeight: 1.65, marginBottom: 10 }}>{p.concept}</p>
+        )}
+        {p.description && (
+          <p style={{ fontSize: 14, lineHeight: 1.7, color: 'var(--muted)', marginBottom: 16 }}>
+            {p.description}
+          </p>
+        )}
+
+        {p.caption && (
+          <Bloco titulo="Legenda">
+            <div
+              style={{
+                whiteSpace: 'pre-wrap',
+                fontSize: 14,
+                lineHeight: 1.7,
+                padding: '15px 17px',
+                background: 'var(--surface-2)',
+                borderRadius: 'var(--r-sm)',
+              }}
+            >
+              {p.caption}
+            </div>
+            {p.hashtags.length > 0 && (
+              <div style={{ fontSize: 12.8, color: 'var(--muted)', marginTop: 7 }}>
+                {p.hashtags.join(' ')}
+              </div>
+            )}
+          </Bloco>
+        )}
+
+        {p.art_concept && (
+          <Bloco titulo="Ideia de imagem">
+            <p style={{ fontSize: 13.8, lineHeight: 1.65, color: 'var(--muted)' }}>
+              {p.art_concept}
+            </p>
+          </Bloco>
+        )}
+
+        {p.cenas.length > 0 && (
+          <Bloco titulo="Cenas">
+            {p.cenas.map((c, i) => (
+              <div
+                key={i}
+                style={{
+                  display: 'flex',
+                  gap: 12,
+                  fontSize: 13.5,
+                  lineHeight: 1.65,
+                  padding: '4px 0',
+                }}
+              >
+                <span style={{ color: 'var(--faint)', minWidth: 54, fontWeight: 600 }}>{c.t}</span>
+                <span>{c.descricao}</span>
+              </div>
+            ))}
+          </Bloco>
+        )}
+
+        {p.cta && (
+          <Bloco titulo="Chamada para ação">
+            <p style={{ fontSize: 13.8 }}>{p.cta}</p>
+          </Bloco>
+        )}
+
+        {p.decisoes.length > 0 && (
+          <Bloco titulo="Decisões">
+            {p.decisoes.map((d) => (
+              <div key={d.id} style={{ fontSize: 13, color: 'var(--muted)', padding: '2px 0' }}>
+                <b
+                  style={{
+                    color: d.decisao === 'approved' ? 'var(--st-aprovado)' : 'var(--st-ajuste)',
+                  }}
+                >
+                  {d.decisao === 'approved' ? 'aprovada' : 'alteração pedida'}
+                </b>{' '}
+                por {d.autor ?? 'alguém da sua equipe'} em{' '}
+                {new Date(d.created_at).toLocaleDateString('pt-BR')}
+              </div>
+            ))}
+          </Bloco>
+        )}
+
+        {p.recados.length > 0 && (
+          <Bloco titulo="Conversa">
+            <div style={{ padding: '13px 15px', background: 'var(--surface-2)', borderRadius: 'var(--r-sm)' }}>
+              {p.recados.map((r) => (
+                <div key={r.id} style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: 13.5, lineHeight: 1.6 }}>{r.body}</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 2 }}>
+                    {r.meu ? 'você' : (r.autor ?? 'sua equipe')} ·{' '}
+                    {new Date(r.created_at).toLocaleString('pt-BR', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Bloco>
+        )}
+
+        {erro && (
+          <div
+            role="alert"
+            style={{
+              margin: '16px 0',
+              padding: '13px 16px',
+              borderRadius: 'var(--r)',
+              background: 'var(--laranja-wash)',
+              fontSize: 13.3,
+              lineHeight: 1.6,
+            }}
+          >
+            {erro}
+          </div>
+        )}
+
+        {pode ? (
+          <div style={{ marginTop: 24, paddingTop: 18, borderTop: '1px solid var(--line)' }}>
+            {pedindo && (
+              <div style={{ marginBottom: 14 }}>
+                <label
+                  htmlFor={`c-${p.id}`}
+                  style={{
+                    display: 'block',
+                    fontWeight: 600,
+                    fontSize: 12.5,
+                    color: 'var(--muted)',
+                    marginBottom: 5,
+                  }}
+                >
+                  O que você gostaria de mudar?
+                </label>
+                <textarea
+                  id={`c-${p.id}`}
+                  rows={4}
+                  value={texto}
+                  onChange={(e) => aoMudarTexto(e.target.value)}
+                  autoFocus
+                  placeholder="Quanto mais específico, menos idas e vindas."
+                  style={caixaTexto}
+                />
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
+              {pedindo ? (
+                <>
+                  <button
+                    onClick={() => aoResponder('changes_requested')}
+                    disabled={enviando}
+                    style={{ ...botao(true, enviando), fontSize: 14, padding: '11px 22px' }}
+                  >
+                    {enviando ? 'Enviando…' : 'Enviar o pedido'}
+                  </button>
+                  <button onClick={aoCancelarPedido} disabled={enviando} style={botao(false)}>
+                    Cancelar
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => aoResponder('approved')}
+                    disabled={enviando}
+                    style={{ ...botao(true, enviando), fontSize: 14, padding: '11px 24px' }}
+                  >
+                    {enviando ? 'Registrando…' : 'Aprovar'}
+                  </button>
+                  <button onClick={aoAbrirPedido} disabled={enviando} style={botao(false)}>
+                    Pedir alteração
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div
+            style={{
+              marginTop: 24,
+              padding: '14px 17px',
+              borderRadius: 'var(--r)',
+              background: 'var(--ok-wash)',
+              fontSize: 13.5,
+              lineHeight: 1.6,
+            }}
+          >
+            Você já aprovou esta publicação. Se mudou de ideia, fale com a equipe da Alta — a
+            aprovação fica registrada, e desfazer é decisão de gente, não de botão.
+          </div>
+        )}
+      </aside>
+    </>
+  )
+}
+
+function Bloco({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+  return (
+    <section style={{ marginBottom: 18 }}>
+      <div
+        style={{
+          fontSize: 10.5,
+          fontWeight: 700,
+          letterSpacing: '.14em',
+          textTransform: 'uppercase',
+          color: 'var(--faint)',
+          marginBottom: 7,
+        }}
+      >
+        {titulo}
+      </div>
+      {children}
+    </section>
+  )
+}
+
+const etiqueta: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 5,
+  fontSize: 11,
+  fontWeight: 600,
+  padding: '4px 11px',
+  borderRadius: 99,
+  background: 'var(--surface-2)',
+  color: 'var(--muted)',
 }
