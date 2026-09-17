@@ -52,15 +52,45 @@ function limitar(texto: string, max: number): string {
 }
 
 /**
+ * Marcador que a equipe escreve quando o campo ainda não foi resolvido
+ * — o mesmo que a tela da base usa para não contar campo pendente como
+ * preenchido.
+ *
+ * Aqui ele importa por um motivo que só apareceu com dado real: o
+ * campo de amostras vem com uma instrução escrita por mim ("cole aqui
+ * de 15 a 30 legendas…"), e o importador do Instagram preserva o que
+ * está escrito à mão. Sem este filtro, a primeira "legenda de exemplo"
+ * que a IA receberia seria a minha instrução — e ela aprenderia a
+ * escrever instrução.
+ */
+const PENDENTE = /\[\s*(a\s+)?(confirmar|preencher|segue\s+vazio|verificar|pendente)/i
+
+/**
  * As amostras chegam num campo de texto só, separadas por uma linha
  * com três traços. Formato escolhido por ser o que alguém consegue
  * colar do celular sem pensar em formato.
+ *
+ * Cada amostra é cortada em 600 caracteres. As legendas reais da Alta
+ * têm 477 em média, então quase nenhuma é tocada — o corte existe para
+ * a legenda de três mil caracteres não empurrar o resto do contexto
+ * para fora e cobrar por isso em toda geração.
  */
 export function separarAmostras(texto: string | undefined | null, max: number): string[] {
   return (texto ?? '')
     .split(/^\s*-{3,}\s*$/m)
-    .map((t) => t.trim())
-    .filter((t) => t.length > 25)
+    .map((t) =>
+      t
+        .split('\n')
+        // Linha de procedência — "=== legendas trazidas do Instagram
+        // em ... ===" — é anotação para quem lê a base, não texto da
+        // marca. Se ela entrasse no exemplo, a IA aprenderia a
+        // escrever cabeçalho de importação.
+        .filter((l) => !l.trimStart().startsWith('==='))
+        .join('\n')
+        .trim(),
+    )
+    .filter((t) => t.length > 25 && !PENDENTE.test(t))
+    .map((t) => limitar(t, 600))
     .slice(0, max)
 }
 
