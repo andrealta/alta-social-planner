@@ -155,8 +155,8 @@ export default function Entrar() {
             lineHeight: 1.55,
           }}
         >
-          As contas são criadas pela administração. Se você não tem acesso, fale
-          com o André.
+          Para cadastrar um novo acesso entre em contato com o atendimento da
+          sua marca.
         </p>
       </div>
     </main>
