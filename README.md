@@ -147,6 +147,14 @@ Apagar planejamento (migração 0014) é de `owner` e de `admin`, e passa
 por `apagar_plano()`. Um gatilho recusa apagar mês que o cliente já
 avaliou: o que ele aprovou é registro, não rascunho.
 
+Apagar pessoa (migração 0016) é só de `admin`, e com duas travas de
+gatilho: ninguém apaga a própria conta, e o último administrador não
+sai. Vale registrar como isso apareceu: o pedido era "criar o botão de
+excluir", e ao abrir o banco a política `profiles_admin_all` já era
+`for all` — `all` inclui `delete`. A exclusão já existia pela API,
+inclusive a da própria conta e a do único administrador. Faltava a
+tela, não a permissão. A migração fecha, não abre.
+
 Pontos que custaram caro para descobrir, e que uma revisão deve olhar:
 
 1. **Escalada de privilégio** (corrigida na 0011). A política que deixa
@@ -172,15 +180,15 @@ Rode `10-seguranca.cmd` depois de qualquer mudança no banco.
 
 ## Testes
 
-Em `asp/` (fora deste repositório, com quem escreveu) há **123 casos em
+Em `asp/` (fora deste repositório, com quem escreveu) há **139 casos em
 SQL** que rodam contra um PostgreSQL local recriado do zero: isolamento
 entre marcas, versionamento de pauta, ciclo completo com o cliente,
 permissões de pessoas, os níveis de acesso à marca e a exclusão de
 planejamento, a varredura de concorrentes e a resposta à pergunta que
 mais importa nela: o cliente não vê o que pesquisamos sobre o mercado
-dele. Mais **73 casos em TypeScript** sobre as bibliotecas que não
+dele, e a exclusão de pessoa. Mais **73 casos em TypeScript** sobre as bibliotecas que não
 tocam o banco: `src/lib/estilo.ts` (21), `src/lib/medidas.ts` (24) e
-`src/lib/concorrencia.ts` (28). Total: 196.
+`src/lib/concorrencia.ts` (28). Total: 212.
 
 Eles provam que as regras **funcionam**; `10-seguranca.cmd` prova que
 elas **estão lá** em produção. As duas perguntas são diferentes.

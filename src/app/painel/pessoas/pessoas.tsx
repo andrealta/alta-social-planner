@@ -1,7 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { criarPessoa, definirPapel, vincular, desvincular } from './acoes'
+import {
+  criarPessoa,
+  definirPapel,
+  vincular,
+  desvincular,
+  resumoDaPessoa,
+  apagarPessoa,
+  type Historico,
+} from './acoes'
 
 export type Marca = { id: string; nome: string; slug: string }
 export type Pessoa = {
@@ -74,6 +82,44 @@ export function Pessoas({
   const [escolhidas, setEscolhidas] = useState<Record<string, string>>({})
 
   const nomeDaMarca = new Map(marcas.map((m) => [m.id, m.nome]))
+
+  // Exclusão em dois passos, como no planejamento: o primeiro clique
+  // não apaga nada — ele vai buscar o que a pessoa deixa para trás e
+  // mostra. O segundo é que decide. A pergunta "tem certeza?" sozinha
+  // não informa nada; um número, sim.
+  const [confirmando, setConfirmando] = useState<{
+    id: string
+    historico: Historico | null
+  } | null>(null)
+
+  const quantosAdmins = pessoas.filter((p) => p.papel === 'admin').length
+
+  async function pedirExclusao(p: Pessoa) {
+    setErro(null)
+    setAviso(null)
+    setConfirmando({ id: p.id, historico: null })
+    const r = await resumoDaPessoa(p.id)
+    if (!r.ok) {
+      setErro(r.erro ?? 'Não consegui ler o histórico desta pessoa.')
+      setConfirmando(null)
+      return
+    }
+    setConfirmando({ id: p.id, historico: r.historico ?? null })
+  }
+
+  async function excluir(p: Pessoa) {
+    setSalvando(true)
+    setErro(null)
+    const r = await apagarPessoa(p.id)
+    setSalvando(false)
+    if (!r.ok) {
+      setErro(r.erro ?? 'Não consegui apagar.')
+      return
+    }
+    setPessoas((antes) => antes.filter((x) => x.id !== p.id))
+    setConfirmando(null)
+    setAviso(r.aviso ?? `${p.nome} foi removido. O histórico continua, sem o nome.`)
+  }
 
   function limpar() {
     setNome('')
@@ -500,6 +546,96 @@ export function Pessoas({
                     <p style={{ color: 'var(--faint)', fontSize: 12.3, marginTop: 8 }}>
                       Administração alcança todas as marcas — não precisa de vínculo.
                     </p>
+                  )}
+
+                  {p.id !== euId &&
+                    !(p.papel === 'admin' && quantosAdmins <= 1) &&
+                    confirmando?.id !== p.id && (
+                      <button
+                        onClick={() => pedirExclusao(p)}
+                        style={{
+                          marginTop: 10,
+                          padding: 0,
+                          border: 'none',
+                          background: 'none',
+                          fontFamily: 'inherit',
+                          fontSize: 12.5,
+                          color: 'var(--faint)',
+                          textDecoration: 'underline',
+                          textUnderlineOffset: 3,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Excluir cadastro
+                      </button>
+                    )}
+
+                  {p.papel === 'admin' && quantosAdmins <= 1 && p.id !== euId && (
+                    <p style={{ color: 'var(--faint)', fontSize: 12.3, marginTop: 8 }}>
+                      Não dá para excluir: é a única conta de administração que existe.
+                    </p>
+                  )}
+
+                  {confirmando?.id === p.id && (
+                    <div
+                      style={{
+                        marginTop: 12,
+                        padding: '14px 16px',
+                        border: '1px solid var(--line)',
+                        borderLeft: '3px solid var(--laranja)',
+                        borderRadius: '0 var(--r) var(--r) 0',
+                        background: 'var(--laranja-wash)',
+                        fontSize: 13.5,
+                        lineHeight: 1.6,
+                      }}
+                    >
+                      <b>Excluir o cadastro de {p.nome}?</b>
+                      <div style={{ color: 'var(--muted)', marginTop: 4 }}>
+                        {confirmando.historico === null ? (
+                          'Conferindo o que esta pessoa deixa para trás…'
+                        ) : (
+                          <>
+                            O login deixa de existir e ela some desta lista.{' '}
+                            {(() => {
+                              const h = confirmando.historico
+                              const partes = [
+                                h.aprovacoes > 0 && `${h.aprovacoes} aprovação(ões)`,
+                                h.versoes > 0 && `${h.versoes} versão(ões) de texto`,
+                                h.comentarios > 0 && `${h.comentarios} comentário(s)`,
+                                h.planos > 0 && `${h.planos} planejamento(s) criado(s)`,
+                              ].filter(Boolean) as string[]
+                              return partes.length > 0 ? (
+                                <>
+                                  O histórico dela — {partes.join(', ')} — <b>continua gravado</b>,
+                                  mas passa a aparecer sem nome. Isso não se desfaz.
+                                </>
+                              ) : (
+                                <>
+                                  Ela ainda não deixou histórico no sistema
+                                  {h.marcas > 0 ? `, só o vínculo com ${h.marcas} marca(s)` : ''}.
+                                </>
+                              )
+                            })()}
+                          </>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                        <button
+                          onClick={() => excluir(p)}
+                          disabled={salvando || confirmando.historico === null}
+                          style={{
+                            ...botao(false, salvando || confirmando.historico === null),
+                            borderColor: 'var(--laranja)',
+                            color: 'var(--laranja)',
+                          }}
+                        >
+                          {salvando ? 'Excluindo…' : 'Excluir definitivamente'}
+                        </button>
+                        <button onClick={() => setConfirmando(null)} style={botao(false)}>
+                          Manter
+                        </button>
+                      </div>
+                    </div>
                   )}
                 </li>
               ))}

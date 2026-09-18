@@ -174,6 +174,121 @@ export async function definirPapel(userId: string, papel: string): Promise<Resul
   return { ok: true }
 }
 
+export type Historico = {
+  nome: string
+  papel: string
+  aprovacoes: number
+  versoes: number
+  comentarios: number
+  planos: number
+  marcas: number
+}
+
+/**
+ * O que a pessoa deixa para trás, antes de o administrador decidir.
+ *
+ * "Apagar Marina" e "apagar Marina, que aprovou 14 conteúdos" são
+ * decisões diferentes, e a segunda não pode chegar como surpresa
+ * depois do clique.
+ */
+export async function resumoDaPessoa(
+  userId: string,
+): Promise<{ ok: boolean; erro?: string; historico?: Historico }> {
+  const ctx = await souAdmin()
+  if ('erro' in ctx) return { ok: false, erro: ctx.erro }
+
+  const { data, error } = await ctx.supabase.rpc('historico_da_pessoa', { p_id: userId })
+  if (error) return { ok: false, erro: error.message }
+
+  const h = (data ?? {}) as Record<string, unknown>
+  return {
+    ok: true,
+    historico: {
+      nome: String(h.nome ?? ''),
+      papel: String(h.papel ?? ''),
+      aprovacoes: Number(h.aprovacoes ?? 0),
+      versoes: Number(h.versoes ?? 0),
+      comentarios: Number(h.comentarios ?? 0),
+      planos: Number(h.planos ?? 0),
+      marcas: Number(h.marcas ?? 0),
+    },
+  }
+}
+
+/**
+ * Apaga o cadastro: o perfil e o login.
+ *
+ * A ORDEM IMPORTA, e não é a intuitiva. O perfil sai primeiro porque é
+ * nele que moram as travas do banco — não apagar a si mesmo, não
+ * apagar o último administrador. Se o login saísse antes e o banco
+ * recusasse depois, o sistema poderia ficar sem nenhuma conta capaz de
+ * administrar, e a saída seria mexer no Supabase na mão.
+ *
+ * O caminho contrário tem falha benigna: perfil apagado e login vivo
+ * vira uma conta que entra e não vê nada, porque sem perfil o sistema
+ * a trata como cliente sem marca. Some da lista, não incomoda ninguém,
+ * e dá para remover no painel do Supabase. É o lado certo para errar.
+ *
+ * O histórico não some: aprovação, versão de texto e comentário
+ * continuam gravados, apenas sem o nome de quem fez.
+ */
+export async function apagarPessoa(userId: string): Promise<Resultado> {
+  const ctx = await souAdmin()
+  if ('erro' in ctx) return { ok: false, erro: ctx.erro }
+
+  if (userId === ctx.user.id) {
+    return {
+      ok: false,
+      erro: 'Você não pode apagar a própria conta — perderia o acesso e não teria como desfazer.',
+    }
+  }
+
+  // 1. o perfil, onde estão as travas
+  const { data: apagados, error } = await ctx.supabase
+    .from('profiles')
+    .delete()
+    .eq('id', userId)
+    .select('id')
+
+  if (error) return { ok: false, erro: error.message }
+  if (!apagados || apagados.length === 0) {
+    return {
+      ok: false,
+      erro: 'Nada foi apagado. Ou a pessoa já não existe, ou o banco recusou a exclusão.',
+    }
+  }
+
+  // 2. o login
+  let admin
+  try {
+    admin = clienteAdmin()
+  } catch {
+    revalidatePath('/painel/pessoas')
+    return {
+      ok: true,
+      aviso:
+        'O cadastro saiu da lista, mas o login continua existindo: a chave de serviço ' +
+        'não está configurada. Remova em Supabase → Authentication → Users.',
+    }
+  }
+
+  const { error: erroLogin } = await admin.auth.admin.deleteUser(userId)
+
+  revalidatePath('/painel/pessoas')
+
+  if (erroLogin) {
+    return {
+      ok: true,
+      aviso:
+        'O cadastro saiu da lista, mas o login não foi removido: ' +
+        erroLogin.message +
+        '. Essa conta entra e não vê nada; remova em Supabase → Authentication → Users.',
+    }
+  }
+
+  return { ok: true }
+}
+
 /** Vincula (ou muda o acesso de) uma pessoa a uma marca. */
 export async function vincular(
   userId: string,
