@@ -29,6 +29,7 @@ Rode com dois cliques, na ordem, na primeira vez:
 | `12-git.cmd` | Envia ao GitHub, com trava contra vazar segredo |
 | `16-instagram.cmd` | Traz legendas reais do Instagram para a base da marca |
 | `17-exportar.cmd` | **Tira o backup completo do banco** |
+| `18-concorrentes.cmd` | Varre o Instagram dos concorrentes citados na base |
 
 Diagnóstico, quando algo quebra: `08-testar-ia.cmd` (fala com a API da
 Anthropic direto), `09-repetir-pedido.cmd` (repete o último pedido fora
@@ -56,6 +57,25 @@ arquivo é lido de volta depois de escrito, para que o backup não minta.
 jeito nenhum. **Guarde uma cópia desta pasta fora deste computador** —
 um backup que mora no mesmo disco do original protege contra engano, não
 contra perda. E rode antes de qualquer migração nova.
+
+### A varredura dos concorrentes (`18-concorrentes.cmd`)
+
+Lê o campo **Concorrentes** da biblioteca da marca, tira dali os @, e
+consulta cada um pelo *Business Discovery* da Meta: seguidores, número
+de publicações, e das recentes a legenda, curtidas, comentários, data,
+formato e link. Guarda em `research_runs` e `research_sources`.
+
+Ele usa um token diferente do `16-instagram.cmd`, e isso é a maior
+fonte de confusão aqui: **`IG_TOKEN` começa com `IG` e fala de você;
+`META_TOKEN` começa com `EAA` e fala dos concorrentes.** São duas APIs,
+dois endereços. O Business Discovery só existe no caminho com login do
+Facebook, e esse exige Página do Facebook vinculada.
+
+Limites que valem saber antes de prometer a alguém: só conta
+profissional e pública, sem Stories, sem anúncios, sem o texto dos
+comentários. E o script **não interpreta** — coleta, conta e guarda.
+Interpretar é trabalho da IA na geração do mês, com a base da marca do
+lado; script que conclui sozinho vira palpite com cara de número.
 
 ### As legendas do Instagram (`16-instagram.cmd`)
 
@@ -152,13 +172,15 @@ Rode `10-seguranca.cmd` depois de qualquer mudança no banco.
 
 ## Testes
 
-Em `asp/` (fora deste repositório, com quem escreveu) há **109 casos em
+Em `asp/` (fora deste repositório, com quem escreveu) há **123 casos em
 SQL** que rodam contra um PostgreSQL local recriado do zero: isolamento
 entre marcas, versionamento de pauta, ciclo completo com o cliente,
 permissões de pessoas, os níveis de acesso à marca e a exclusão de
-planejamento. Mais **45 casos em TypeScript** sobre as duas bibliotecas
-que não tocam o banco: `src/lib/estilo.ts` (21) e `src/lib/medidas.ts`
-(24). Total: 154.
+planejamento, a varredura de concorrentes e a resposta à pergunta que
+mais importa nela: o cliente não vê o que pesquisamos sobre o mercado
+dele. Mais **73 casos em TypeScript** sobre as bibliotecas que não
+tocam o banco: `src/lib/estilo.ts` (21), `src/lib/medidas.ts` (24) e
+`src/lib/concorrencia.ts` (28). Total: 196.
 
 Eles provam que as regras **funcionam**; `10-seguranca.cmd` prova que
 elas **estão lá** em produção. As duas perguntas são diferentes.
@@ -185,6 +207,23 @@ pedidos de ajuste do cliente. Amostra com marca de pendência
 (`[A PREENCHER`, `[A CONFIRMAR`) é descartada: rascunho nosso não pode
 virar exemplo de estilo. Cada amostra entra com no máximo 600
 caracteres.
+
+### A concorrência (`src/lib/concorrencia.ts`)
+
+O jeito óbvio de usar a varredura é o errado. Despejar as legendas dos
+concorrentes como exemplo faz a IA escrever a média do setor — que é
+exatamente o lugar de onde uma agência tira o cliente. O bloco entra
+invertido, como restrição:
+
+1. **não repita** o que já aparece em mais de um perfil;
+2. **procure o vazio** — o que ninguém está dizendo e esta marca pode
+   provar que sabe;
+3. **leia o formato** do que rendeu acima da média deles.
+
+E há uma exigência de transparência no fim do bloco: a IA tem de
+escrever, na leitura do mês, o que o setor está repetindo e qual brecha
+ela escolheu. Sem isso ninguém consegue auditar se a varredura ajudou
+ou se só encareceu a geração.
 
 ### O crítico (`Avaliar o mês`)
 

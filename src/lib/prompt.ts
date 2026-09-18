@@ -39,6 +39,11 @@ export type Entrada = {
   base: Record<string, Record<string, string>>
   /** Exemplos reais de como esta marca escreve. Ver `lib/estilo.ts`. */
   estilo?: string
+  /**
+   * O que os concorrentes andam publicando. Ver `lib/concorrencia.ts`.
+   * Entra como restrição — "não repita isto" —, nunca como exemplo.
+   */
+  concorrencia?: string
   escopo: Linha[]
   mes: number
   ano: number
@@ -101,7 +106,7 @@ export function montarPromptPautas(e: Entrada): string {
           .join('\n')
       : 'Nenhum planejamento anterior registrado no sistema.'
 
-  return `${contextoDaMarca(e.marca, e.base)}${e.estilo ? '\n\n' + e.estilo : ''}
+  return `${contextoDaMarca(e.marca, e.base)}${e.estilo ? '\n\n' + e.estilo : ''}${e.concorrencia ? '\n\n' + e.concorrencia : ''}
 
 # HISTÓRICO RECENTE
 
@@ -730,6 +735,7 @@ export function montarPromptCritica(e: {
   marca: Entrada['marca']
   base: Entrada['base']
   estilo?: string
+  concorrencia?: string
   mes: number
   ano: number
   leitura?: string | null
@@ -752,7 +758,7 @@ export function montarPromptCritica(e: {
 
   return `Avalie o planejamento de ${MESES[e.mes - 1]} de ${e.ano} da marca abaixo, pauta por pauta.
 
-${contextoDaMarca(e.marca, e.base)}${e.estilo ? '\n\n' + e.estilo : ''}
+${contextoDaMarca(e.marca, e.base)}${e.estilo ? '\n\n' + e.estilo : ''}${e.concorrencia ? '\n\n' + e.concorrencia : ''}
 
 # ESCOPO CONTRATADO
 ${e.escopo.map((l) => `${l.label}: ${l.quota} peça(s)/mês`).join('\n')}

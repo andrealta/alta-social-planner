@@ -13,6 +13,7 @@
 import { clienteServidor } from '@/lib/supabase/server'
 import { registro } from '@/lib/registro'
 import { coletarEstilo, blocoDeEstilo } from '@/lib/estilo'
+import { coletarConcorrencia, blocoDeConcorrencia } from '@/lib/concorrencia'
 import { chamarClaude, extrairJson, ErroClaude, MODELO_PADRAO, type Uso } from '@/lib/claude'
 import {
   montarPromptPautas,
@@ -164,6 +165,15 @@ export async function POST(req: Request) {
   const estilo = blocoDeEstilo(await coletarEstilo(supabase, marcaId, base))
   if (estilo) await log.passo('voz da marca reunida', `${estilo.length} caracteres de exemplo`)
 
+  // A última varredura dos concorrentes, quando existe. Entra no prompt
+  // como restrição — o que já está ocupado e onde está o vazio —, nunca
+  // como exemplo a imitar. Sem varredura, o mês é gerado como sempre
+  // foi: isto nunca pode virar pré-requisito para trabalhar.
+  const concorrencia = blocoDeConcorrencia(await coletarConcorrencia(supabase, marcaId))
+  if (concorrencia) {
+    await log.passo('concorrencia lida', `${concorrencia.length} caracteres de varredura`)
+  }
+
   // ---------- o mês já existe? ----------
   const { data: planoExistente } = await supabase
     .from('plans')
@@ -258,6 +268,7 @@ export async function POST(req: Request) {
     marca: { nome: marca.name as string, segmento: marca.segment as string | null },
     base,
     estilo,
+    concorrencia,
     escopo,
     mes,
     ano,

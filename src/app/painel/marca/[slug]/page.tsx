@@ -68,6 +68,43 @@ export default async function BaseDaMarca({
 
   const proibidas = situacao(iniciais['voice']?.['v_nao'])
 
+  // A última varredura dos concorrentes. Fica aqui, e não numa tela
+  // própria, porque ela pertence à base: é consequência do campo
+  // Concorrentes, e quem preenche um deve ver o outro.
+  const { data: varreduras } = await supabase
+    .from('research_runs')
+    .select('id, started_at, queries, discarded')
+    .eq('brand_id', marca.id)
+    .eq('kind', 'competitors')
+    .eq('status', 'done')
+    .order('started_at', { ascending: false })
+    .limit(1)
+
+  const varredura = (varreduras ?? [])[0]
+  const { count: publicacoes } = varredura
+    ? await supabase
+        .from('research_sources')
+        .select('id', { count: 'exact', head: true })
+        .eq('research_run_id', varredura.id as string)
+    : { count: 0 }
+
+  const arrobasCitados = [
+    ...new Set(
+      (iniciais['identity']?.['i_conc'] ?? '')
+        .match(/@([A-Za-z0-9._]{2,30})/g)
+        ?.map((a) => a.replace(/\.+$/, '').toLowerCase()) ?? [],
+    ),
+  ]
+  const lidos = Array.isArray(varredura?.queries) ? (varredura.queries as string[]) : []
+  const recusados = Array.isArray(varredura?.discarded)
+    ? (varredura.discarded as { handle?: string; motivo?: string }[])
+    : []
+  const diasDaVarredura = varredura
+    ? Math.floor(
+        (Date.now() - new Date(varredura.started_at as string).getTime()) / 86400000,
+      )
+    : null
+
   return (
     <main style={{ maxWidth: 980, margin: '0 auto', padding: '40px 24px 60px' }}>
       <Link
@@ -186,6 +223,71 @@ export default async function BaseDaMarca({
           <b>As expressões proibidas ainda não estão definidas.</b> É o único
           campo que o sistema vai conferir em código antes de gravar uma pauta.
           Sem ele, a verificação não tem o que verificar.
+        </div>
+      )}
+
+      {podeEditar && (
+        <div
+          style={{
+            marginTop: 18,
+            padding: '15px 18px',
+            border: '1px solid var(--line)',
+            borderRadius: 'var(--r)',
+            background: 'var(--surface)',
+            fontSize: 13.5,
+            lineHeight: 1.65,
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'baseline',
+              gap: 10,
+              flexWrap: 'wrap',
+              marginBottom: 4,
+            }}
+          >
+            <b>Concorrência</b>
+            {varredura && (
+              <span style={{ fontSize: 11.5, color: 'var(--faint)' }}>
+                varrido em{' '}
+                {new Date(varredura.started_at as string).toLocaleDateString('pt-BR')}
+                {diasDaVarredura !== null && diasDaVarredura > 45 && ' · já tem mais de mês e meio'}
+              </span>
+            )}
+          </div>
+
+          {varredura ? (
+            <div style={{ color: 'var(--muted)' }}>
+              {publicacoes ?? 0} publicação(ões) de {lidos.length} perfil(is) —{' '}
+              {lidos.map((h) => '@' + h).join(', ')}. Isto entra na geração do mês como
+              restrição: o que já está ocupado não se repete, e a brecha é onde o mês ganha.
+              {recusados.length > 0 && (
+                <>
+                  {' '}
+                  <b style={{ color: 'var(--text)' }}>
+                    Não deu para ler {recusados.map((r) => '@' + r.handle).join(', ')}
+                  </b>{' '}
+                  — quase sempre é conta pessoal, fechada, ou @ digitado errado.
+                </>
+              )}
+            </div>
+          ) : arrobasCitados.length > 0 ? (
+            <div style={{ color: 'var(--muted)' }}>
+              {arrobasCitados.length} perfil(is) citado(s) no campo Concorrentes, nenhuma
+              varredura feita ainda. A geração do mês segue funcionando sem ela.
+            </div>
+          ) : (
+            <div style={{ color: 'var(--muted)' }}>
+              Nenhum concorrente com @ no campo <b>Concorrentes</b>, ali embaixo em
+              Identidade. Sem o @ não há como consultar o perfil — escreva assim:
+              {' '}Marca X (@marcax).
+            </div>
+          )}
+
+          <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 6 }}>
+            Para varrer ou atualizar, rode o <b>18-concorrentes.cmd</b> na pasta do projeto.
+          </div>
         </div>
       )}
 

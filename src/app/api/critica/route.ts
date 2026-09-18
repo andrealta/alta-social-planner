@@ -15,6 +15,7 @@
 import { clienteServidor } from '@/lib/supabase/server'
 import { chamarClaude, extrairJson, ErroClaude, MODELO_PADRAO } from '@/lib/claude'
 import { coletarEstilo, blocoDeEstilo } from '@/lib/estilo'
+import { coletarConcorrencia, blocoDeConcorrencia } from '@/lib/concorrencia'
 import {
   montarPromptCritica,
   conferirCritica,
@@ -142,10 +143,16 @@ export async function POST(req: Request) {
 
   const estilo = blocoDeEstilo(await coletarEstilo(supabase, marcaId, base))
 
+  // O crítico já pergunta "isto serviria para qualquer concorrente?".
+  // Com as publicações reais dos concorrentes na mão, ele responde com
+  // evidência em vez de intuição — e pode citar quem já disse aquilo.
+  const concorrencia = blocoDeConcorrencia(await coletarConcorrencia(supabase, marcaId), true)
+
   const prompt = montarPromptCritica({
     marca: { nome: marca.name as string, segmento: marca.segment as string | null },
     base,
     estilo,
+    concorrencia,
     mes: Number(plano.month),
     ano: Number(plano.year),
     leitura: analise.leitura ?? null,
