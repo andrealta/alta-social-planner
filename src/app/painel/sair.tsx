@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { clienteNavegador } from '@/lib/supabase/client'
@@ -16,7 +17,24 @@ export function Sair() {
     router.refresh()
   }
 
+  // "Minha conta" mora junto do "Sair" porque os dois aparecem em
+  // todo topo de tela, da equipe e do cliente — e é ali que a pessoa
+  // procura quando quer mexer na própria conta.
   return (
+    <>
+    <Link
+      href="/conta"
+      style={{
+        fontSize: 13,
+        fontWeight: 600,
+        padding: '8px 4px',
+        color: 'var(--muted)',
+        textDecoration: 'none',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      Minha conta
+    </Link>
     <button
       onClick={sair}
       disabled={saindo}
@@ -36,5 +54,6 @@ export function Sair() {
     >
       {saindo ? 'Saindo…' : 'Sair'}
     </button>
+    </>
   )
 }

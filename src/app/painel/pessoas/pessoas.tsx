@@ -296,7 +296,8 @@ export function Pessoas({
             {senhaGerada.senha}
           </div>
           <p style={{ fontSize: 12.5, marginTop: 7, lineHeight: 1.5 }}>
-            Mande por um canal privado, e peça para a pessoa trocar assim que entrar.
+            Mande por um canal privado, e peça para a pessoa trocar em <b>Minha conta</b>, no
+            topo da tela, assim que entrar.
           </p>
         </Caixa>
       )}

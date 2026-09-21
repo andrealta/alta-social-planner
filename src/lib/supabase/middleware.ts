@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { ambienteSupabase } from './env'
 
 /** Rotas que exigem estar logado. */
-const PROTEGIDAS = ['/painel', '/cliente']
+const PROTEGIDAS = ['/painel', '/cliente', '/conta']
 
 /**
  * Renova a sessão a cada navegação e decide quem entra onde.
