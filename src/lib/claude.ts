@@ -12,6 +12,8 @@
 const ENDERECO = 'https://api.anthropic.com/v1/messages'
 const VERSAO_API = '2023-06-01'
 
+import { limparTravessoes } from './travessao'
+
 /** O modelo padrão e o preço dele, por milhão de tokens, em dólar. */
 export const MODELO_PADRAO = 'claude-opus-5'
 
@@ -306,7 +308,8 @@ export function extrairJson<T = unknown>(texto: string): T {
 
   const tentar = (s: string): T | null => {
     try {
-      return JSON.parse(s) as T
+      // Todo texto da IA sai daqui sem travessão (ver travessao.ts).
+      return limparTravessoes(JSON.parse(s)) as T
     } catch {
       return null
     }

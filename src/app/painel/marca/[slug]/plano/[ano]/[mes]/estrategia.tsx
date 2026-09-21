@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { botao, caixaTexto } from '@/lib/visual'
 import { salvarEstrategia } from './acoes'
+import { semTravessao } from '@/lib/travessao'
 
 /**
  * A estratégia do mês como o cliente vai ler.
@@ -120,7 +121,7 @@ export function Estrategia({
               {salvando ? 'Salvando…' : texto.trim() ? 'Publicar para o cliente' : 'Salvar vazio'}
             </button>
             {leitura && !texto.trim() && (
-              <button onClick={() => setTexto(leitura)} style={botao(false)}>
+              <button onClick={() => setTexto(semTravessao(leitura))} style={botao(false)}>
                 Começar pela leitura do mês
               </button>
             )}

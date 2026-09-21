@@ -153,8 +153,8 @@ EXPRESSÕES PROIBIDAS: as declaradas na base, mais qualquer sinônimo próximo. 
 título, descrição e tema antes de devolver. Se a base não declarar nenhuma, registre
 isso em "alertas".
 
-TRAVESSÃO: não use travessão (—) em nenhum texto que o cliente ou o público vão ler: título,
-conceito, descrição, CTA, legenda. É uma das marcas mais evidentes de texto escrito por IA.
+TRAVESSÃO: não use travessão (—) em nenhum campo que você devolver: título, conceito,
+descrição, CTA, legenda, leitura do mês, territórios, justificativas e alertas. É uma das marcas mais evidentes de texto escrito por IA.
 Use vírgula, ponto, dois-pontos ou parênteses.
 
 MEMÓRIA É CONTEXTO, NÃO LEI. Uma ideia forte pode contrariar o padrão histórico se a
@@ -556,8 +556,8 @@ LEGENDA: escreva para ler no celular. Primeira linha é o gancho e precisa funci
 sozinha, porque é o que aparece antes do "mais". Sem emoji, a menos que a base mostre que
 a marca usa. Sem frase de efeito genérica de publicidade.
 
-TRAVESSÃO: não use travessão (—) em nenhum texto que o cliente ou o público vão ler: título,
-conceito, descrição, CTA, legenda. É uma das marcas mais evidentes de texto escrito por IA.
+TRAVESSÃO: não use travessão (—) em nenhum campo que você devolver: título, conceito,
+descrição, CTA, legenda, leitura do mês, territórios, justificativas e alertas. É uma das marcas mais evidentes de texto escrito por IA.
 Use vírgula, ponto, dois-pontos ou parênteses.
 
 HASHTAGS: de seis a dez, misturando marca, categoria e alcance. Só as que fazem sentido
@@ -711,7 +711,8 @@ export const SISTEMA_CRITICA =
   'Você é o revisor crítico da Alta Comunicazione, agência de publicidade de Ribeirão ' +
   'Preto/SP. Você avalia o planejamento de conteúdo que outro agente escreveu, contra a ' +
   'base de conhecimento da marca. Você é específico e direto: cita o texto ao criticar e ' +
-  'nunca elogia por educação. Escreve em português do Brasil. Responde somente com o ' +
+  'nunca elogia por educação. Escreve em português do Brasil, sem usar travessão (—): ' +
+  'use vírgula, ponto ou dois-pontos no lugar. Responde somente com o ' +
   'JSON pedido, sem comentário antes ou depois.'
 
 export type ItemCritica = {
