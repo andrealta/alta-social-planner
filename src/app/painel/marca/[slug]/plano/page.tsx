@@ -1,8 +1,9 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { clienteServidor } from '@/lib/supabase/server'
-import { MESES } from '@/lib/prompt'
+import { mesTitulado } from '@/lib/prompt'
 import { Gerador } from './gerador'
+import { MesesPlanejados, type MesPlanejado } from './meses'
 
 const SITUACAO: Record<string, { rotulo: string; cor: string }> = {
   draft: { rotulo: 'rascunho', cor: 'faint' },
@@ -44,6 +45,44 @@ export default async function Planos({ params }: { params: Promise<{ slug: strin
   ])
 
   const pecas = (escopo ?? []).reduce((s, e) => s + Number(e.monthly_quota ?? 0), 0)
+
+  // Quem pode excluir, quantas pautas cada mês tem, e em quais o
+  // cliente já decidiu alguma coisa. O banco é quem manda nas três
+  // coisas; a tela só pergunta para não oferecer o que vai ser recusado.
+  const [{ data: nivel }, { data: ideias }, { data: decisoesCliente }] = await Promise.all([
+    supabase.rpc('nivel_na_marca', { b: marca.id }),
+    supabase.from('content_ideas').select('id, plan_id').eq('brand_id', marca.id),
+    supabase
+      .from('approvals')
+      .select('idea_id')
+      .eq('brand_id', marca.id)
+      .eq('actor_kind', 'client'),
+  ])
+
+  const planoDaIdeia = new Map<string, string>()
+  const pautasDoPlano = new Map<string, number>()
+  for (const i of ideias ?? []) {
+    planoDaIdeia.set(i.id as string, i.plan_id as string)
+    pautasDoPlano.set(i.plan_id as string, (pautasDoPlano.get(i.plan_id as string) ?? 0) + 1)
+  }
+  const planosDecididos = new Set<string>()
+  for (const d of decisoesCliente ?? []) {
+    const plano = planoDaIdeia.get(d.idea_id as string)
+    if (plano) planosDecididos.add(plano)
+  }
+
+  // "Novembro de 2026". Antes a lista usava text-transform: capitalize,
+  // que põe maiúscula em TODA palavra — e o "de" virava "De".
+  const meses: MesPlanejado[] = (planos ?? []).map((p) => ({
+    id: p.id as string,
+    mes: Number(p.month),
+    ano: Number(p.year),
+    nome: `${mesTitulado(Number(p.month))} de ${p.year}`,
+    situacao: SITUACAO[p.status as string] ?? { rotulo: p.status as string, cor: 'faint' },
+    pautas: pautasDoPlano.get(p.id as string) ?? 0,
+    clienteDecidiu: planosDecididos.has(p.id as string),
+    comCliente: p.status === 'sent_to_client' || p.status === 'approved',
+  }))
 
   const agora = new Date()
   const proximo = new Date(agora.getFullYear(), agora.getMonth() + 1, 1)
@@ -113,62 +152,7 @@ export default async function Planos({ params }: { params: Promise<{ slug: strin
           Meses já planejados
         </h2>
 
-        {(planos ?? []).length === 0 ? (
-          <p style={{ color: 'var(--muted)', fontSize: 14 }}>Nenhum ainda.</p>
-        ) : (
-          <ul
-            style={{
-              listStyle: 'none',
-              margin: 0,
-              padding: 0,
-              border: '1px solid var(--line)',
-              borderRadius: 'var(--r-lg)',
-              background: 'var(--surface)',
-              boxShadow: 'var(--shadow)',
-              overflow: 'hidden',
-            }}
-          >
-            {(planos ?? []).map((p, i) => {
-              const s = SITUACAO[p.status as string] ?? { rotulo: p.status as string, cor: 'faint' }
-              return (
-                <li
-                  key={p.id as string}
-                  style={{ borderBottom: i === (planos ?? []).length - 1 ? 'none' : '1px solid var(--line)' }}
-                >
-                  <Link
-                    href={`/painel/marca/${slug}/calendario/${p.year}/${p.month}`}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      gap: 12,
-                      padding: '14px 20px',
-                      textDecoration: 'none',
-                      color: 'inherit',
-                    }}
-                  >
-                    <span style={{ fontWeight: 700, fontSize: 15, textTransform: 'capitalize' }}>
-                      {MESES[Number(p.month) - 1]} de {p.year as number}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: 11.5,
-                        fontWeight: 600,
-                        padding: '3px 10px',
-                        borderRadius: 99,
-                        background: 'var(--surface-3)',
-                        color: `var(--${s.cor})`,
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {s.rotulo}
-                    </span>
-                  </Link>
-                </li>
-              )
-            })}
-          </ul>
-        )}
+        <MesesPlanejados slug={slug} meses={meses} podeApagar={nivel === 'owner'} />
       </section>
     </main>
   )

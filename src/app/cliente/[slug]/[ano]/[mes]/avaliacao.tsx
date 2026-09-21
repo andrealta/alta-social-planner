@@ -34,7 +34,14 @@ export type PautaCliente = {
   art_concept: string | null
   cenas: { t?: string; descricao?: string; chave?: boolean }[]
   recados: { id: string; body: string; created_at: string; meu: boolean; autor: string | null }[]
-  decisoes: { id: string; decisao: string; autor: string | null; created_at: string }[]
+  decisoes: {
+    id: string
+    decisao: string
+    autor: string | null
+    created_at: string
+    /** Foi quem está olhando a tela que decidiu. */
+    meu: boolean
+  }[]
 }
 
 const SITUACAO: Record<string, { rotulo: string; curto: string; cor: string; wash: string }> = {
@@ -45,13 +52,13 @@ const SITUACAO: Record<string, { rotulo: string; curto: string; cor: string; was
     wash: 'var(--st-cliente-wash)',
   },
   client_changes_requested: {
-    rotulo: 'Você pediu alteração',
+    rotulo: 'Alteração pedida',
     curto: 'pediu alteração',
     cor: 'var(--st-ajuste)',
     wash: 'var(--st-ajuste-wash)',
   },
   client_approved: {
-    rotulo: 'Aprovada por você',
+    rotulo: 'Aprovada',
     curto: 'aprovada',
     cor: 'var(--st-aprovado)',
     wash: 'var(--st-aprovado-wash)',
@@ -79,6 +86,7 @@ export function Avaliacao({
   mes,
   pautas: iniciais,
   cor,
+  euNome,
 }: {
   slug: string
   ano: number
@@ -86,6 +94,8 @@ export function Avaliacao({
   pautas: PautaCliente[]
   /** A cor da marca do cliente, para o mês ter a cara dele. */
   cor: string
+  /** O nome de quem está avaliando, para a decisão já nascer com dono. */
+  euNome: string | null
 }) {
   const [pautas, setPautas] = useState(iniciais)
   const [vista, setVista] = useState<'calendario' | 'lista'>('calendario')
@@ -149,6 +159,19 @@ export function Avaliacao({
           ? {
               ...x,
               status: decisao === 'approved' ? 'client_approved' : 'client_changes_requested',
+              // A decisão entra na tela na hora, já com o nome. Antes
+              // ela só aparecia depois de recarregar a página — e quem
+              // acabou de aprovar via o detalhe sem dizer por quem.
+              decisoes: [
+                {
+                  id: 'nova-' + Date.now(),
+                  decisao,
+                  autor: euNome,
+                  created_at: new Date().toISOString(),
+                  meu: true,
+                },
+                ...x.decisoes,
+              ],
               recados:
                 comentario === ''
                   ? x.recados
@@ -742,8 +765,15 @@ function Gaveta({
                 >
                   {d.decisao === 'approved' ? 'aprovada' : 'alteração pedida'}
                 </b>{' '}
-                por {d.autor ?? 'alguém da sua equipe'} em{' '}
-                {new Date(d.created_at).toLocaleDateString('pt-BR')}
+                por <b style={{ color: 'var(--text)' }}>{d.meu ? 'você' : (d.autor ?? 'alguém da sua equipe')}</b>{' '}
+                em{' '}
+                {new Date(d.created_at).toLocaleString('pt-BR', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
               </div>
             ))}
           </Bloco>
@@ -855,8 +885,33 @@ function Gaveta({
               lineHeight: 1.6,
             }}
           >
-            Você já aprovou esta publicação. Se mudou de ideia, fale com a equipe da Alta — a
-            aprovação fica registrada, e desfazer é decisão de gente, não de botão.
+            {(() => {
+              // A lista vem da mais nova para a mais antiga.
+              const a = p.decisoes.find((d) => d.decisao === 'approved')
+              const quem = a && !a.meu && a.autor ? a.autor : null
+              return (
+                <>
+                  {quem
+                    ? `Esta publicação já foi aprovada por ${quem}.`
+                    : 'Você já aprovou esta publicação.'}{' '}
+                  Se quiser fazer alguma alteração, é só falar com a equipe da Alta. Como a
+                  aprovação já foi registrada, a gente cuida desse ajuste com você.
+                  {a && (
+                    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
+                      Aprovada por {a.autor ?? (a.meu ? 'você' : 'alguém da sua equipe')} em{' '}
+                      {new Date(a.created_at).toLocaleString('pt-BR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                      .
+                    </div>
+                  )}
+                </>
+              )
+            })()}
           </div>
         )}
       </aside>
