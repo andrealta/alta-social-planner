@@ -289,6 +289,122 @@ export async function apagarPessoa(userId: string): Promise<Resultado> {
   return { ok: true }
 }
 
+/**
+ * Corrige o nome e o e-mail de alguém.
+ *
+ * O e-mail é o login. Ele mora em dois lugares — no cadastro de acesso
+ * do Supabase (`auth.users`) e na ficha da pessoa (`profiles`) — e os
+ * dois têm de andar juntos. A ordem é: primeiro o login, que é quem
+ * recusa e-mail repetido; depois a ficha. Se a ficha falhar, o login
+ * já mudou, e a mensagem diz isso com todas as letras. Salvar de novo
+ * resolve, porque trocar o login para o e-mail que ele já tem não faz
+ * nada.
+ *
+ * O e-mail novo entra já confirmado: é a administração corrigindo um
+ * cadastro, não a pessoa pedindo a troca — não faz sentido mandar
+ * "confirme seu novo e-mail" para quem nem sabe que ele mudou.
+ */
+export async function editarPessoa(
+  userId: string,
+  dados: { nome: string; email: string },
+): Promise<Resultado> {
+  const ctx = await souAdmin()
+  if ('erro' in ctx) return { ok: false, erro: ctx.erro }
+
+  const nome = (dados.nome ?? '').trim()
+  const email = (dados.email ?? '').trim().toLowerCase()
+  if (nome.length < 2) return { ok: false, erro: 'Escreva o nome da pessoa.' }
+  if (!emailValido(email)) return { ok: false, erro: 'Esse e-mail não parece válido.' }
+
+  const { data: atual } = await ctx.supabase
+    .from('profiles')
+    .select('name, email')
+    .eq('id', userId)
+    .maybeSingle()
+  if (!atual) return { ok: false, erro: 'Não encontrei essa pessoa. Atualize a página.' }
+
+  const mudouEmail = ((atual.email as string) ?? '').toLowerCase() !== email
+
+  if (mudouEmail) {
+    let admin
+    try {
+      admin = clienteAdmin()
+    } catch {
+      return {
+        ok: false,
+        erro:
+          'Para trocar o e-mail é preciso a chave de serviço do Supabase configurada. ' +
+          'O nome dá para trocar sem ela — mantenha o e-mail como está e salve.',
+      }
+    }
+    const { error } = await admin.auth.admin.updateUserById(userId, {
+      email,
+      email_confirm: true,
+    })
+    if (error) {
+      return {
+        ok: false,
+        erro: /already|registered|exists/i.test(error.message)
+          ? 'Já existe outra pessoa cadastrada com esse e-mail.'
+          : 'Não consegui trocar o e-mail: ' + error.message,
+      }
+    }
+  }
+
+  const { error: erroFicha } = await ctx.supabase
+    .from('profiles')
+    .update({ name: nome, email })
+    .eq('id', userId)
+
+  if (erroFicha) {
+    return {
+      ok: false,
+      erro: mudouEmail
+        ? `O login já passou a ser ${email}, mas a ficha não gravou (${erroFicha.message}). ` +
+          'Clique em salvar de novo.'
+        : 'Não consegui salvar: ' + erroFicha.message,
+    }
+  }
+
+  revalidatePath('/painel/pessoas')
+  return {
+    ok: true,
+    aviso: mudouEmail
+      ? `Pronto. A partir de agora ${nome} entra com ${email} — a senha continua a mesma.`
+      : undefined,
+  }
+}
+
+/**
+ * Gera uma senha temporária nova para alguém que esqueceu a dele.
+ *
+ * A senha antiga para de funcionar na hora. A nova aparece uma vez,
+ * como no cadastro, para ser passada por um canal privado.
+ *
+ * Não vale para a própria conta: quem administra e está logado não
+ * precisa que outra tela invente uma senha para ele.
+ */
+export async function novaSenha(userId: string): Promise<Resultado> {
+  const ctx = await souAdmin()
+  if ('erro' in ctx) return { ok: false, erro: ctx.erro }
+  if (userId === ctx.user.id) {
+    return { ok: false, erro: 'Para a sua própria conta, use a troca de senha do seu acesso.' }
+  }
+
+  let admin
+  try {
+    admin = clienteAdmin()
+  } catch (e) {
+    return { ok: false, erro: e instanceof Error ? e.message : 'Chave de serviço indisponível.' }
+  }
+
+  const senha = senhaTemporaria()
+  const { error } = await admin.auth.admin.updateUserById(userId, { password: senha })
+  if (error) return { ok: false, erro: 'Não consegui trocar a senha: ' + error.message }
+
+  return { ok: true, senha }
+}
+
 /** Vincula (ou muda o acesso de) uma pessoa a uma marca. */
 export async function vincular(
   userId: string,

@@ -8,6 +8,8 @@ import {
   desvincular,
   resumoDaPessoa,
   apagarPessoa,
+  editarPessoa,
+  novaSenha,
   type Historico,
 } from './acoes'
 
@@ -72,7 +74,12 @@ export function Pessoas({
   const [criando, setCriando] = useState(false)
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
-  const [senhaGerada, setSenhaGerada] = useState<{ email: string; senha: string } | null>(null)
+  const [senhaGerada, setSenhaGerada] = useState<{
+    email: string
+    senha: string
+    /** O que aconteceu — "Pessoa criada." ou "Senha nova gerada." */
+    titulo?: string
+  } | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
 
   const [nome, setNome] = useState('')
@@ -119,6 +126,51 @@ export function Pessoas({
     setPessoas((antes) => antes.filter((x) => x.id !== p.id))
     setConfirmando(null)
     setAviso(r.aviso ?? `${p.nome} foi removido. O histórico continua, sem o nome.`)
+  }
+
+  // Edição dos dados. Um cadastro aberto por vez: dois formulários
+  // abertos na mesma lista é pedir para salvar o errado.
+  const [editando, setEditando] = useState<{ id: string; nome: string; email: string } | null>(null)
+  const [pedindoSenha, setPedindoSenha] = useState(false)
+
+  function abrirEdicao(p: Pessoa) {
+    setErro(null)
+    setAviso(null)
+    setConfirmando(null)
+    setPedindoSenha(false)
+    setEditando({ id: p.id, nome: p.nome, email: p.email })
+  }
+
+  async function salvarEdicao(p: Pessoa) {
+    if (!editando) return
+    setSalvando(true)
+    setErro(null)
+    const r = await editarPessoa(p.id, { nome: editando.nome, email: editando.email })
+    setSalvando(false)
+    if (!r.ok) {
+      setErro(r.erro ?? 'Não consegui salvar.')
+      return
+    }
+    const nome = editando.nome.trim()
+    const email = editando.email.trim().toLowerCase()
+    setPessoas((l) => l.map((x) => (x.id === p.id ? { ...x, nome, email } : x)))
+    setEditando(null)
+    setAviso(r.aviso ?? `Dados de ${nome} atualizados.`)
+  }
+
+  async function gerarSenha(p: Pessoa) {
+    setSalvando(true)
+    setErro(null)
+    const r = await novaSenha(p.id)
+    setSalvando(false)
+    setPedindoSenha(false)
+    if (!r.ok || !r.senha) {
+      setErro(r.erro ?? 'Não consegui gerar a senha.')
+      return
+    }
+    setEditando(null)
+    setSenhaGerada({ email: p.email, senha: r.senha, titulo: `Senha nova para ${p.nome}.` })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   function limpar() {
@@ -226,7 +278,7 @@ export function Pessoas({
 
       {senhaGerada && (
         <Caixa cor="ok">
-          <b>Pessoa criada.</b> Passe estes dados a ela — esta senha aparece{' '}
+          <b>{senhaGerada.titulo ?? 'Pessoa criada.'}</b> Passe estes dados a ela — esta senha aparece{' '}
           <b>uma única vez</b> e some quando você sair desta tela.
           <div
             style={{
@@ -548,8 +600,148 @@ export function Pessoas({
                     </p>
                   )}
 
+                  {editando?.id !== p.id && confirmando?.id !== p.id && (
+                    <button
+                      onClick={() => abrirEdicao(p)}
+                      style={{
+                        marginTop: 10,
+                        marginRight: 18,
+                        padding: 0,
+                        border: 'none',
+                        background: 'none',
+                        fontFamily: 'inherit',
+                        fontSize: 12.5,
+                        color: 'var(--muted)',
+                        textDecoration: 'underline',
+                        textUnderlineOffset: 3,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Editar dados
+                    </button>
+                  )}
+
+                  {editando?.id === p.id && (
+                    <div
+                      style={{
+                        marginTop: 12,
+                        padding: '14px 16px',
+                        borderRadius: 'var(--r)',
+                        background: 'var(--surface-2)',
+                        fontSize: 13.5,
+                      }}
+                    >
+                      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                        <label style={{ flex: '1 1 200px' }}>
+                          <span style={rotulo}>Nome</span>
+                          <input
+                            value={editando.nome}
+                            onChange={(e) => setEditando({ ...editando, nome: e.target.value })}
+                            style={campo}
+                            autoComplete="off"
+                          />
+                        </label>
+                        <label style={{ flex: '1 1 240px' }}>
+                          <span style={rotulo}>E-mail (é o login)</span>
+                          <input
+                            type="email"
+                            value={editando.email}
+                            onChange={(e) => setEditando({ ...editando, email: e.target.value })}
+                            disabled={!temChaveAdmin}
+                            style={{ ...campo, opacity: temChaveAdmin ? 1 : 0.6 }}
+                            autoComplete="off"
+                          />
+                        </label>
+                      </div>
+                      {editando.email.trim().toLowerCase() !== p.email.toLowerCase() && (
+                        <p style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 8, lineHeight: 1.5 }}>
+                          Trocar o e-mail troca o login: a partir de salvar, {p.nome.split(' ')[0]} entra
+                          com o endereço novo. A senha continua a mesma. Avise a pessoa.
+                        </p>
+                      )}
+                      {!temChaveAdmin && (
+                        <p style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 8, lineHeight: 1.5 }}>
+                          O e-mail só pode ser trocado com a chave de serviço do Supabase configurada.
+                          O nome pode.
+                        </p>
+                      )}
+                      <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                        <button
+                          onClick={() => salvarEdicao(p)}
+                          disabled={salvando}
+                          style={botao(true, salvando)}
+                        >
+                          {salvando ? 'Salvando…' : 'Salvar'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditando(null)
+                            setPedindoSenha(false)
+                          }}
+                          disabled={salvando}
+                          style={botao(false)}
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+
+                      {temChaveAdmin && p.id !== euId && (
+                        <div
+                          style={{
+                            marginTop: 14,
+                            paddingTop: 12,
+                            borderTop: '1px solid var(--line)',
+                            fontSize: 12.8,
+                            color: 'var(--muted)',
+                            lineHeight: 1.55,
+                          }}
+                        >
+                          {!pedindoSenha ? (
+                            <>
+                              Esqueceu a senha?{' '}
+                              <button
+                                onClick={() => setPedindoSenha(true)}
+                                style={{
+                                  padding: 0,
+                                  border: 'none',
+                                  background: 'none',
+                                  fontFamily: 'inherit',
+                                  fontSize: 12.8,
+                                  color: 'var(--accent)',
+                                  textDecoration: 'underline',
+                                  textUnderlineOffset: 3,
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Gerar uma senha temporária nova
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              A senha atual de {p.nome.split(' ')[0]} <b>deixa de funcionar na hora</b>, e
+                              a nova aparece uma única vez no topo desta tela.
+                              <div style={{ display: 'flex', gap: 8, marginTop: 9, flexWrap: 'wrap' }}>
+                                <button
+                                  onClick={() => gerarSenha(p)}
+                                  disabled={salvando}
+                                  style={botao(false, salvando)}
+                                >
+                                  Gerar senha nova
+                                </button>
+                                <button onClick={() => setPedindoSenha(false)} style={botao(false)}>
+                                  Deixar como está
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {p.id !== euId &&
                     !(p.papel === 'admin' && quantosAdmins <= 1) &&
+                    editando?.id !== p.id &&
                     confirmando?.id !== p.id && (
                       <button
                         onClick={() => pedirExclusao(p)}
