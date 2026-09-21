@@ -465,20 +465,46 @@ export default async function Precisao() {
           maxWidth: 760,
         }}
       >
-        <b style={{ color: 'var(--text)' }}>Como ler isto sem se enganar.</b> "Sem edição" não é
-        o mesmo que "boa": uma pauta pode passar intacta porque ninguém revisou com atenção.
-        O número só vale comparado com ele mesmo, na mesma marca, entre meses — e vale mais
-        quando a coluna de pedidos do cliente anda junto. Se as duas caem, melhorou. Se a
-        primeira sobe e a segunda também, alguém está aprovando rápido demais.
-        <br />
-        <br />
-        <b style={{ color: 'var(--text)' }}>Sobre o custo.</b> O valor que importa é o de baixo, por
-        pauta aprovada — o total diz pouco. Marca com trinta refinos e quatro pautas aprovadas
-        custa caro por peça mesmo com total pequeno, e isso não é problema de preço: é sinal de
-        base incompleta. Chamada que falhou entra na conta, porque token gasto em erro é token
-        cobrado. Planejamento excluído também entra: a geração aconteceu e foi paga, e sumir com
-        o custo dele faria o mês refeito parecer mais barato do que foi. Os valores são em
-        dólar, que é como a API cobra.
+        <b style={{ color: 'var(--text)' }}>Como ler estes números</b>
+        <p style={{ marginTop: 4 }}>
+          Uma pauta aprovada sem edição nem sempre significa que ela estava perfeita. O
+          importante é acompanhar a evolução dos conteúdos da marca ao longo do tempo e olhar os
+          números de alterações em conjunto.
+        </p>
+        <ul style={{ margin: '6px 0 0', paddingLeft: 20 }}>
+          <li>
+            <b style={{ color: 'var(--text)' }}>Sem edição aumenta e os pedidos de ajustes do cliente diminuem:</b> ótimo
+            sinal. A IA está aprendendo a marca e acertando mais vezes de primeira.
+          </li>
+          <li>
+            <b style={{ color: 'var(--text)' }}>Conteúdos sem edição aumentam, mas os pedidos de ajustes do cliente também
+            sobem:</b> vale uma atenção na revisão interna. Pode ter coisa passando por aqui que o
+            cliente acaba corrigindo depois.
+          </li>
+        </ul>
+        <p style={{ marginTop: 6 }}>
+          O objetivo é perceber se o processo está ficando mais inteligente mês após mês.
+        </p>
+
+        <b style={{ color: 'var(--text)', display: 'block', marginTop: 16 }}>Sobre o custo</b>
+        <p style={{ marginTop: 4 }}>
+          Aqui, o número que mais importa não é quanto foi gasto no total, mas o 
+          <b style={{ color: 'var(--text)' }}>custo por pauta aprovada</b>.
+        </p>
+        <p style={{ marginTop: 6 }}>
+          Se uma marca exige muitas tentativas, ajustes e novas gerações até chegar em poucas
+          pautas aprovadas, cada peça acaba ficando mais cara. Normalmente, isso é um bom sinal
+          de que a base da marca ainda pode aprender um pouco mais.
+        </p>
+        <p style={{ marginTop: 6 }}>
+          E sim: até as tentativas que deram errado entram na conta do aprendizado. Planejamentos
+          excluídos, erros e gerações descartadas também consumiram processamento da IA e,
+          portanto, tiveram custo.
+        </p>
+        <p style={{ marginTop: 6 }}>
+          Os valores aparecem em dólar porque é assim que a Anthropic faz a cobrança. A IA pensa
+          em português, mas a conta ainda chega em dólar para a tristeza do Roberto. 😄
+        </p>
       </section>
     </main>
   )
