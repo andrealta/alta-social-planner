@@ -22,6 +22,7 @@ export function Estrategia({
   atualizadaEm,
   leitura,
   podeEditar,
+  lembrete = false,
 }: {
   slug: string
   planoId: string
@@ -29,6 +30,8 @@ export function Estrategia({
   atualizadaEm: string | null
   leitura: string | null
   podeEditar: boolean
+  /** Destaca o bloco quando ainda está vazio, para ninguém enviar o mês sem ele. */
+  lembrete?: boolean
 }) {
   const [texto, setTexto] = useState(inicial ?? '')
   const [salvo, setSalvo] = useState(inicial ?? '')
@@ -57,10 +60,16 @@ export function Estrategia({
         marginTop: 16,
         padding: '18px 22px',
         borderRadius: 'var(--r-lg)',
-        background: 'var(--surface)',
+        background: lembrete && !salvo.trim() && podeEditar ? 'var(--amarelo-wash, var(--warn-wash))' : 'var(--surface)',
         boxShadow: 'var(--shadow)',
       }}
     >
+      {lembrete && !salvo.trim() && podeEditar && (
+        <p style={{ fontSize: 13.5, fontWeight: 600, marginBottom: 8 }}>
+          Falta escrever a estratégia deste mês. Sem ela, o cliente não vê o bloco
+          &ldquo;A estratégia deste mês&rdquo; no portal nem no PDF.
+        </p>
+      )}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
         <div
           style={{

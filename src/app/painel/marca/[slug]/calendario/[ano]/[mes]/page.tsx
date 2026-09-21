@@ -4,6 +4,7 @@ import { clienteServidor } from '@/lib/supabase/server'
 import { mesTitulado } from '@/lib/prompt'
 import { Calendario } from './calendario'
 import type { ConteudoPauta, Decisao, JuizoDaPauta, Pauta, Recado, Versao } from './comum'
+import { Estrategia } from '../../../plano/[ano]/[mes]/estrategia'
 
 export default async function CalendarioDoMes({
   params,
@@ -41,7 +42,7 @@ export default async function CalendarioDoMes({
 
   const { data: plano } = await supabase
     .from('plans')
-    .select('id, status, analysis')
+    .select('id, status, analysis, client_released_at, estrategia_cliente, estrategia_atualizada_em')
     .eq('brand_id', marca.id)
     .eq('year', ano)
     .eq('month', mes)
@@ -323,6 +324,20 @@ export default async function CalendarioDoMes({
           {mesTitulado(mes)} de {ano}
         </h1>
       </header>
+
+      {/* A estratégia que o cliente lê fica AQUI, na tela onde a equipe
+          trabalha o mês. Antes ela morava só na página da leitura, atrás
+          de um link discreto, e na prática ninguém chegava até ela:
+          o mês ia para o cliente sem o bloco. */}
+      <Estrategia
+        slug={slug}
+        planoId={plano.id as string}
+        inicial={(plano.estrategia_cliente as string | null) ?? null}
+        atualizadaEm={(plano.estrategia_atualizada_em as string | null) ?? null}
+        leitura={((plano.analysis ?? {}) as { leitura?: string }).leitura ?? null}
+        podeEditar={nivel === 'owner' || nivel === 'editor'}
+        lembrete={!(plano.estrategia_cliente as string | null)?.trim()}
+      />
 
       <Calendario
         slug={slug}
