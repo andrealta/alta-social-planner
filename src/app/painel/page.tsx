@@ -2,6 +2,9 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { clienteServidor } from '@/lib/supabase/server'
 import { Sair } from './sair'
+import { calcularStatusEquipe, type Fila } from '@/lib/status'
+import { duracao } from '@/lib/medidas'
+import { Quadro, Icone, type Numero } from '@/lib/quadro'
 
 const PAPEL: Record<string, string> = {
   admin: 'Administração',
@@ -35,7 +38,7 @@ export default async function Painel() {
 
   const { data: marcas } = await supabase
     .from('brands')
-    .select('id, name, slug, segment')
+    .select('id, name, slug, segment, color')
     .order('name')
 
   const { data: vinculos } = await supabase
@@ -53,6 +56,58 @@ export default async function Painel() {
   // uma tela cheia de coisas que as políticas do banco vão negar uma
   // a uma — funciona, mas é uma péssima recepção.
   if (papel === 'client') redirect('/cliente')
+
+  // A fila de trabalho: onde está cada pauta agora. Mesmas políticas
+  // do banco, então cada pessoa vê a fila das marcas que alcança.
+  const [{ data: planos }, { data: pautas }, { data: decisoes }] = await Promise.all([
+    supabase.from('plans').select('id, brand_id'),
+    supabase.from('content_ideas').select('id, plan_id, status').limit(10000),
+    supabase
+      .from('approvals')
+      .select('idea_id, actor_kind, seconds_to_decide')
+      .eq('actor_kind', 'client')
+      .limit(10000),
+  ])
+
+  const status = calcularStatusEquipe({
+    planos: (planos ?? []).map((p) => ({ id: p.id as string, brand_id: p.brand_id as string })),
+    pautas: (pautas ?? []).map((p) => ({
+      id: p.id as string,
+      plan_id: p.plan_id as string,
+      status: (p.status as string) ?? '',
+    })),
+    decisoes: (decisoes ?? []).map((d) => ({
+      idea_id: d.idea_id as string,
+      actor_kind: (d.actor_kind as string) ?? '',
+      seconds_to_decide: d.seconds_to_decide === null ? null : Number(d.seconds_to_decide),
+    })),
+  })
+  const tempo = duracao(status.segundosMedios)
+  const numeros: Numero[] = [
+    { valor: String(marcas?.length ?? 0), rotulo: (marcas?.length ?? 0) === 1 ? 'marca' : 'marcas', icone: 'marca' },
+    { valor: String(status.meses), rotulo: status.meses === 1 ? 'mês planejado' : 'meses planejados', icone: 'calendario' },
+    { valor: String(status.conteudos), rotulo: 'pautas criadas', icone: 'conteudo' },
+    { valor: String(status.aprovadas), rotulo: 'aprovadas pelo cliente', icone: 'aprovado' },
+    {
+      valor: String(status.naEquipe),
+      rotulo: 'com a equipe',
+      nota: 'geradas, em revisão ou em correção',
+      icone: 'equipe',
+    },
+    { valor: String(status.comCliente), rotulo: 'com o cliente', nota: 'esperando resposta', icone: 'cliente' },
+    {
+      valor: String(status.ajustes),
+      rotulo: 'ajustes para fazer',
+      nota: 'o cliente pediu alteração',
+      icone: 'ajuste',
+      destaque: status.ajustes > 0,
+    },
+    {
+      valor: tempo ?? 'sem dados',
+      rotulo: 'resposta média do cliente',
+      icone: 'tempo',
+    },
+  ]
 
   return (
     <main className="pagina" style={{ maxWidth: 720 }}>
@@ -126,6 +181,8 @@ export default async function Painel() {
         </div>
       </header>
 
+      <Quadro titulo="Status geral" numeros={numeros} marginTop={28} />
+
       <section style={{ marginTop: 32 }}>
         <h2
           style={{
@@ -173,10 +230,14 @@ export default async function Painel() {
                     color: 'inherit',
                   }}
                 >
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 15 }}>{m.name as string}</div>
-                    <div style={{ color: 'var(--muted)', fontSize: 13 }}>
-                      {(m.segment as string) ?? 'sem segmento'}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 13, minWidth: 0 }}>
+                    <Inicial nome={m.name as string} cor={(m.color as string | null) ?? null} />
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 15 }}>{m.name as string}</div>
+                      <div style={{ color: 'var(--muted)', fontSize: 13 }}>
+                        {(m.segment as string) ?? 'sem segmento'}
+                      </div>
+                      <Selos fila={status.porMarca.get(m.id as string)} />
                     </div>
                   </div>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 10, whiteSpace: 'nowrap' }}>
@@ -241,5 +302,68 @@ export default async function Painel() {
         vaza dado de cliente.
       </section>
     </main>
+  )
+}
+
+/** A inicial da marca num círculo com a cor dela, como no portal do cliente. */
+function Inicial({ nome, cor }: { nome: string; cor: string | null }) {
+  return (
+    <div
+      aria-hidden
+      style={{
+        width: 40,
+        height: 40,
+        flexShrink: 0,
+        borderRadius: 99,
+        background: cor ?? 'var(--accent)',
+        color: '#fff',
+        display: 'grid',
+        placeItems: 'center',
+        fontFamily: 'var(--disp)',
+        fontWeight: 600,
+        fontSize: 16,
+      }}
+    >
+      {nome.trim().charAt(0).toUpperCase()}
+    </div>
+  )
+}
+
+/**
+ * O que está pendente naquela marca, em selos. Só aparece o que
+ * existe: marca sem nada pendente fica limpa, e é isso que chama o olho
+ * para as que têm.
+ */
+function Selos({ fila }: { fila: Fila | undefined }) {
+  if (!fila) return null
+  const selos = [
+    { n: fila.ajustes, texto: fila.ajustes === 1 ? 'ajuste para fazer' : 'ajustes para fazer', cor: 'var(--laranja-tinta)', fundo: 'var(--laranja-wash)', icone: 'ajuste' as const },
+    { n: fila.naEquipe, texto: 'com a equipe', cor: 'var(--amarelo-tinta)', fundo: 'var(--amarelo-wash)', icone: 'equipe' as const },
+    { n: fila.comCliente, texto: 'com o cliente', cor: 'var(--accent)', fundo: 'var(--accent-wash)', icone: 'cliente' as const },
+  ].filter((x) => x.n > 0)
+  if (selos.length === 0) return null
+  return (
+    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 7 }}>
+      {selos.map((x) => (
+        <span
+          key={x.texto}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
+            fontSize: 11.5,
+            fontWeight: 600,
+            padding: '2px 9px 2px 3px',
+            borderRadius: 99,
+            background: x.fundo,
+            color: x.cor,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <Icone nome={x.icone} tamanho={18} />
+          {x.n} {x.texto}
+        </span>
+      ))}
+    </div>
   )
 }

@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import type { ReactNode } from 'react'
 import { redirect } from 'next/navigation'
 import { clienteServidor } from '@/lib/supabase/server'
 import { mesTitulado } from '@/lib/prompt'
@@ -8,6 +7,7 @@ import { Sair } from '@/app/painel/sair'
 import { ordenarMeses } from '@/lib/ordem'
 import { calcularStatus } from '@/lib/status'
 import { duracao } from '@/lib/medidas'
+import { Quadro, type Numero } from '@/lib/quadro'
 
 /**
  * A primeira tela do cliente depois de entrar.
@@ -421,7 +421,7 @@ function StatusGeral({ status }: { status: ReturnType<typeof calcularStatus> }) 
     : null
   const tempo = duracao(status.segundosMedios)
 
-  const numeros: { valor: string; rotulo: string; nota?: string; icone: NomeIcone }[] = [
+  const numeros: Numero[] = [
     { valor: String(status.meses), rotulo: status.meses === 1 ? 'mês planejado' : 'meses planejados', icone: 'calendario' },
     { valor: String(status.conteudos), rotulo: 'conteúdos criados', icone: 'conteudo' },
     { valor: String(status.aprovadas), rotulo: 'aprovados', icone: 'aprovado' },
@@ -441,60 +441,7 @@ function StatusGeral({ status }: { status: ReturnType<typeof calcularStatus> }) 
   ]
 
   return (
-    <div
-      style={{
-        marginTop: 22,
-        padding: '20px 22px',
-        borderRadius: 'var(--r-lg)',
-        background: 'var(--surface)',
-        boxShadow: 'var(--shadow)',
-      }}
-    >
-      <div
-        style={{
-          fontFamily: 'var(--disp)',
-          fontSize: 11,
-          fontWeight: 500,
-          letterSpacing: '.16em',
-          textTransform: 'uppercase',
-          color: 'var(--faint)',
-          marginBottom: 14,
-        }}
-      >
-        Status geral
-      </div>
-
-      <div
-        style={{
-          display: 'grid',
-          // 120px: duas colunas no celular em vez de seis linhas soltas.
-          gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
-          gap: '18px 20px',
-        }}
-      >
-        {numeros.map((n) => (
-          <div key={n.rotulo}>
-            <Icone nome={n.icone} />
-            <div
-              style={{
-                fontFamily: 'var(--disp)',
-                fontSize: 26,
-                fontWeight: 600,
-                lineHeight: 1.1,
-                letterSpacing: '-.02em',
-                color: 'var(--text)',
-              }}
-            >
-              {n.valor}
-            </div>
-            <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 3 }}>{n.rotulo}</div>
-            {n.nota && (
-              <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 1 }}>{n.nota}</div>
-            )}
-          </div>
-        ))}
-      </div>
-
+    <Quadro titulo="Status geral" numeros={numeros}>
       {status.temas.length > 0 && (
         <div
           style={{
@@ -515,105 +462,6 @@ function StatusGeral({ status }: { status: ReturnType<typeof calcularStatus> }) 
           ))}
         </div>
       )}
-    </div>
-  )
-}
-
-/**
- * Um ícone por número do Status geral, cada um com a sua cor. A cor
- * repete a que o número já tem no resto do portal: verde é aprovado,
- * laranja é ajuste, azul é da Alta. Desenho em linha, sem biblioteca,
- * para não pesar a página por seis figuras.
- */
-type NomeIcone = 'calendario' | 'conteudo' | 'aprovado' | 'primeira' | 'ajuste' | 'tempo'
-
-const ICONES: Record<NomeIcone, { cor: string; fundo: string; desenho: ReactNode }> = {
-  calendario: {
-    cor: 'var(--accent)',
-    fundo: 'var(--accent-wash)',
-    desenho: (
-      <>
-        <rect x="3" y="4.5" width="18" height="16" rx="2.5" />
-        <path d="M3 9.5h18M8 2.5v4M16 2.5v4" />
-      </>
-    ),
-  },
-  conteudo: {
-    cor: 'var(--linha-1)',
-    fundo: 'color-mix(in srgb, var(--linha-1) 12%, transparent)',
-    desenho: (
-      <>
-        <rect x="3.5" y="3.5" width="17" height="17" rx="3" />
-        <circle cx="9" cy="9" r="1.8" />
-        <path d="M20.5 15l-4.5-4.5L6 20.5" />
-      </>
-    ),
-  },
-  aprovado: {
-    cor: 'var(--ok)',
-    fundo: 'var(--ok-wash)',
-    desenho: (
-      <>
-        <circle cx="12" cy="12" r="9" />
-        <path d="M8 12.3l2.7 2.7L16.2 9.5" />
-      </>
-    ),
-  },
-  primeira: {
-    cor: 'var(--amarelo-tinta)',
-    fundo: 'var(--amarelo-wash)',
-    desenho: <path d="M12 3l2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 16.8l-5.4 2.9 1.1-6.1-4.5-4.2 6.1-.8z" />,
-  },
-  ajuste: {
-    cor: 'var(--laranja)',
-    fundo: 'var(--laranja-wash)',
-    desenho: (
-      <>
-        <path d="M9 14L4 9l5-5" />
-        <path d="M4 9h10.5a5.5 5.5 0 010 11H11" />
-      </>
-    ),
-  },
-  tempo: {
-    cor: 'var(--accent)',
-    fundo: 'var(--accent-wash)',
-    desenho: (
-      <>
-        <circle cx="12" cy="12" r="9" />
-        <path d="M12 7v5l3.2 2" />
-      </>
-    ),
-  },
-}
-
-function Icone({ nome }: { nome: NomeIcone }) {
-  const i = ICONES[nome]
-  return (
-    <div
-      aria-hidden
-      style={{
-        width: 34,
-        height: 34,
-        borderRadius: 10,
-        background: i.fundo,
-        color: i.cor,
-        display: 'grid',
-        placeItems: 'center',
-        marginBottom: 10,
-      }}
-    >
-      <svg
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.9"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        {i.desenho}
-      </svg>
-    </div>
+    </Quadro>
   )
 }

@@ -21,6 +21,7 @@ import {
   type PautaMedida,
   type VersaoMedida,
 } from '@/lib/medidas'
+import { Quadro, type Numero } from '@/lib/quadro'
 
 /**
  * Precisão: o antes e o depois.
@@ -223,6 +224,46 @@ export default async function Precisao() {
           const cor = (m.color as string | null) ?? 'var(--accent)'
           const concluidos = meses.filter((x) => x.segundosAteConcluir !== null)
           const respostaMarca = duracao(segundosMediosDe(concluidos.map((x) => x.conta)))
+          const soma = (f: (c: Conta) => number) => meses.reduce((t, x) => t + f(x.conta), 0)
+          const custoMarca = custoPorMarca.get(m.id as string) ?? custoVazio()
+          const porPautaMarca = usdPorPautaAprovada(custoMarca, soma((c) => c.aprovadas))
+          const numeros: Numero[] = [
+            {
+              valor: somaPautas > 0 ? `${pctRecente}%` : 'sem dados',
+              rotulo: 'sem edição',
+              nota:
+                somaPautas > 0
+                  ? tresUltimos.length === 1
+                    ? 'no último mês'
+                    : `nos últimos ${tresUltimos.length} meses`
+                  : undefined,
+              icone: 'alvo',
+            },
+            { valor: String(soma((c) => c.pautas)), rotulo: 'pautas geradas', icone: 'conteudo' },
+            { valor: String(soma((c) => c.correcoesEquipe)), rotulo: 'reescritas pela equipe', icone: 'editado' },
+            { valor: String(soma((c) => c.refinosIA)), rotulo: 'refinos de IA', icone: 'refino' },
+            {
+              valor: String(soma((c) => c.pedidosCliente)),
+              rotulo: 'pedidos do cliente',
+              icone: 'ajuste',
+            },
+            {
+              valor: respostaMarca ?? 'sem dados',
+              rotulo: 'resposta média do cliente',
+              nota:
+                concluidos.length === 0
+                  ? 'só conta mês 100% aprovado'
+                  : concluidos.length === 1
+                    ? '1 mês concluído'
+                    : `${concluidos.length} meses concluídos`,
+              icone: 'tempo',
+            },
+            {
+              valor: porPautaMarca !== null ? dolar(porPautaMarca) : 'sem dados',
+              rotulo: 'custo por pauta aprovada',
+              icone: 'custo',
+            },
+          ]
 
           return (
             <section key={m.id as string} style={{ marginTop: 30 }}>
@@ -245,17 +286,6 @@ export default async function Precisao() {
                 >
                   {m.name as string}
                 </h2>
-                <span style={{ fontSize: 13.5, color: 'var(--muted)' }}>
-                  {somaPautas > 0
-                    ? `${pctRecente}% sem edição nos últimos ${tresUltimos.length} mês(es)`
-                    : 'sem pautas ainda'}
-                </span>
-                {respostaMarca && (
-                  <span style={{ fontSize: 13.5, color: 'var(--muted)' }}>
-                    · o cliente responde em média em {respostaMarca}
-                    {concluidos.length > 0 && ` (${concluidos.length} mês(es) concluído(s))`}
-                  </span>
-                )}
                 <Link
                   href={`/painel/marca/${m.slug as string}`}
                   style={{
@@ -268,6 +298,10 @@ export default async function Precisao() {
                 >
                   Base da marca →
                 </Link>
+              </div>
+
+              <div style={{ marginBottom: 12 }}>
+                <Quadro titulo="Resumo da marca" numeros={numeros} marginTop={0} />
               </div>
 
               {meses.length === 0 && (

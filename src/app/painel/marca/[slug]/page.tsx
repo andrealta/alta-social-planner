@@ -4,6 +4,9 @@ import { clienteServidor } from '@/lib/supabase/server'
 import { SECOES, situacao } from '@/lib/base'
 import { Editor } from './editor'
 import { Cor } from './cor'
+import { calcularStatusEquipe } from '@/lib/status'
+import { duracao } from '@/lib/medidas'
+import { Quadro, type Numero } from '@/lib/quadro'
 
 export default async function BaseDaMarca({
   params,
@@ -48,6 +51,45 @@ export default async function BaseDaMarca({
       .eq('active', true)
       .order('position'),
   ])
+
+  // O status desta marca: a mesma conta da tela inicial, só com ela.
+  const [{ data: planos }, { data: pautas }, { data: decisoes }] = await Promise.all([
+    supabase.from('plans').select('id, brand_id').eq('brand_id', marca.id),
+    supabase.from('content_ideas').select('id, plan_id, status').eq('brand_id', marca.id),
+    supabase
+      .from('approvals')
+      .select('idea_id, actor_kind, seconds_to_decide')
+      .eq('brand_id', marca.id)
+      .eq('actor_kind', 'client'),
+  ])
+  const status = calcularStatusEquipe({
+    planos: (planos ?? []).map((p) => ({ id: p.id as string, brand_id: p.brand_id as string })),
+    pautas: (pautas ?? []).map((p) => ({
+      id: p.id as string,
+      plan_id: p.plan_id as string,
+      status: (p.status as string) ?? '',
+    })),
+    decisoes: (decisoes ?? []).map((d) => ({
+      idea_id: d.idea_id as string,
+      actor_kind: (d.actor_kind as string) ?? '',
+      seconds_to_decide: d.seconds_to_decide === null ? null : Number(d.seconds_to_decide),
+    })),
+  })
+  const tempo = duracao(status.segundosMedios)
+  const numeros: Numero[] = [
+    { valor: String(status.meses), rotulo: status.meses === 1 ? 'mês planejado' : 'meses planejados', icone: 'calendario' },
+    { valor: String(status.conteudos), rotulo: 'pautas criadas', icone: 'conteudo' },
+    { valor: String(status.aprovadas), rotulo: 'aprovadas pelo cliente', icone: 'aprovado' },
+    { valor: String(status.naEquipe), rotulo: 'com a equipe', icone: 'equipe' },
+    { valor: String(status.comCliente), rotulo: 'com o cliente', icone: 'cliente' },
+    {
+      valor: String(status.ajustes),
+      rotulo: 'ajustes para fazer',
+      icone: 'ajuste',
+      destaque: status.ajustes > 0,
+    },
+    { valor: tempo ?? 'sem dados', rotulo: 'resposta média do cliente', icone: 'tempo' },
+  ]
 
   const iniciais: Record<string, Record<string, string>> = {}
   for (const s of SECOES) iniciais[s.chave] = {}
@@ -206,6 +248,8 @@ export default async function BaseDaMarca({
           ))}
         </div>
       )}
+
+      {status.meses > 0 && <Quadro titulo="Status da marca" numeros={numeros} minimo={108} />}
 
       {proibidas !== 'ok' && (
         <div

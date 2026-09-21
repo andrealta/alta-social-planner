@@ -111,3 +111,70 @@ export function calcularStatus(dados: {
     temas,
   }
 }
+
+// =============================================================
+// O status da equipe
+// =============================================================
+//
+// O do cliente olha para trás (o que a parceria produziu). O da equipe
+// olha para a fila: onde está cada pauta agora e o que depende de nós.
+// Conta todo mês planejado, inclusive o que ainda não foi liberado,
+// porque para a equipe esse é justamente o trabalho em andamento.
+
+/** Pautas que ainda estão com a equipe: geradas, em revisão ou em correção. */
+const NA_EQUIPE = new Set(['ai_generated', 'internal_review', 'internal_changes', 'internally_approved'])
+
+export type Fila = { naEquipe: number; comCliente: number; ajustes: number }
+
+export type StatusEquipe = Fila & {
+  meses: number
+  conteudos: number
+  aprovadas: number
+  segundosMedios: number | null
+  porMarca: Map<string, Fila>
+}
+
+export function calcularStatusEquipe(dados: {
+  planos: { id: string; brand_id: string }[]
+  pautas: PautaStatus[]
+  decisoes: Pick<DecisaoStatus, 'idea_id' | 'actor_kind' | 'seconds_to_decide'>[]
+}): StatusEquipe {
+  const marcaDoPlano = new Map(dados.planos.map((p) => [p.id, p.brand_id]))
+  const pautas = dados.pautas.filter((p) => marcaDoPlano.has(p.plan_id))
+  const ids = new Set(pautas.map((p) => p.id))
+
+  const porMarca = new Map<string, Fila>()
+  const total: Fila = { naEquipe: 0, comCliente: 0, ajustes: 0 }
+  let aprovadas = 0
+  for (const p of pautas) {
+    const marca = marcaDoPlano.get(p.plan_id) as string
+    const f = porMarca.get(marca) ?? { naEquipe: 0, comCliente: 0, ajustes: 0 }
+    const onde: keyof Fila | null = NA_EQUIPE.has(p.status)
+      ? 'naEquipe'
+      : p.status === 'sent_to_client'
+        ? 'comCliente'
+        : p.status === 'client_changes_requested'
+          ? 'ajustes'
+          : null
+    if (onde) {
+      f[onde]++
+      total[onde]++
+    }
+    if (p.status === 'client_approved') aprovadas++
+    porMarca.set(marca, f)
+  }
+
+  const tempos = dados.decisoes
+    .filter((d) => d.actor_kind === 'client' && ids.has(d.idea_id))
+    .map((d) => d.seconds_to_decide)
+    .filter((s): s is number => typeof s === 'number' && s >= 0)
+
+  return {
+    ...total,
+    meses: dados.planos.length,
+    conteudos: pautas.length,
+    aprovadas,
+    segundosMedios: tempos.length ? tempos.reduce((s, v) => s + v, 0) / tempos.length : null,
+    porMarca,
+  }
+}
