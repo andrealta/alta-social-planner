@@ -18,6 +18,8 @@ export type MesPlanejado = {
   /** Quantas aprovações e pedidos de alteração do cliente o mês tem. */
   decisoesCliente: number
   comCliente: boolean
+  /** O cliente aprovou o mês inteiro. A linha fica verde e vai para o fim. */
+  concluido: boolean
   /** Se quem está olhando pode excluir este mês — e, se não, por quê. */
   exclusao: Exclusao
 }
@@ -92,7 +94,10 @@ export function MesesPlanejados({
         {meses.map((m, i) => (
           <li
             key={m.id}
-            style={{ borderBottom: i === meses.length - 1 ? 'none' : '1px solid var(--line)' }}
+            style={{
+              borderBottom: i === meses.length - 1 ? 'none' : '1px solid var(--line)',
+              background: m.concluido ? 'var(--st-aprovado-wash)' : undefined,
+            }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 14px 0 0' }}>
               <Link
@@ -116,7 +121,7 @@ export function MesesPlanejados({
                     fontWeight: 600,
                     padding: '3px 10px',
                     borderRadius: 99,
-                    background: 'var(--surface-3)',
+                    background: m.concluido ? 'var(--surface)' : 'var(--surface-3)',
                     color: `var(--${m.situacao.cor})`,
                     whiteSpace: 'nowrap',
                   }}

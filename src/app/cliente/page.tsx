@@ -4,6 +4,7 @@ import { clienteServidor } from '@/lib/supabase/server'
 import { mesTitulado } from '@/lib/prompt'
 import { pilula, ponto } from '@/lib/visual'
 import { Sair } from '@/app/painel/sair'
+import { ordenarMeses } from '@/lib/ordem'
 
 /**
  * A primeira tela do cliente depois de entrar.
@@ -84,6 +85,15 @@ export default async function PortalDoCliente() {
     })
     porMarca.set(p.brand_id as string, lista)
   }
+  // Os meses que ainda pedem resposta vêm primeiro; os aprovados por
+  // inteiro vão para o fim da fila. Dentro de cada grupo, do mais
+  // próximo para o mais distante (ver lib/ordem.ts).
+  for (const [marca, lista] of porMarca) {
+    porMarca.set(
+      marca,
+      ordenarMeses(lista, (p) => p.ano, (p) => p.mes, { concluido: (p) => p.fechado }),
+    )
+  }
 
   const comPlano = (marcas ?? []).filter((m) => (porMarca.get(m.id as string) ?? []).length > 0)
   const aguardandoTotal = (planos ?? []).reduce(
@@ -140,7 +150,7 @@ export default async function PortalDoCliente() {
               <b style={{ color: 'var(--text)' }}>
                 {aguardandoTotal} publicaç{aguardandoTotal === 1 ? 'ão' : 'ões'} aguardando você.
               </b>{' '}
-              Abra o mês e responda no seu tempo — o que você já decidiu fica salvo.
+              Abra o mês e avance nas respostas. Tudo o que você avaliar será salvo automaticamente.
             </>
           ) : (
             'Nada aguardando você no momento. Quando a equipe enviar um mês novo, ele aparece aqui.'
@@ -239,7 +249,7 @@ export default async function PortalDoCliente() {
                 {lista.map((p) => {
                   const pct = p.total ? Math.round((p.aprovadas / p.total) * 100) : 0
                   const etiqueta = p.fechado
-                    ? { texto: 'Aprovado', cor: 'var(--st-aprovado)', wash: 'var(--st-aprovado-wash)' }
+                    ? { texto: 'Aprovado', cor: 'var(--st-aprovado)', wash: 'var(--surface)' }
                     : p.aguardando > 0
                       ? {
                           texto: `${p.aguardando} aguardando`,
@@ -258,8 +268,11 @@ export default async function PortalDoCliente() {
                         color: 'inherit',
                         padding: '20px 22px 18px',
                         borderRadius: 'var(--r-lg)',
-                        background: 'var(--surface)',
-                        boxShadow: 'var(--shadow)',
+                        // Mês aprovado por inteiro: verde claro, e sem a
+                        // sombra — está resolvido, não pede o olho.
+                        background: p.fechado ? 'var(--st-aprovado-wash)' : 'var(--surface)',
+                        boxShadow: p.fechado ? 'none' : 'var(--shadow)',
+                        border: p.fechado ? '1px solid var(--st-aprovado-wash)' : 'none',
                       }}
                     >
                       <div
@@ -311,11 +324,17 @@ export default async function PortalDoCliente() {
                           style={{
                             height: 5,
                             borderRadius: 99,
-                            background: 'var(--surface-3)',
+                            background: p.fechado ? 'var(--surface)' : 'var(--surface-3)',
                             overflow: 'hidden',
                           }}
                         >
-                          <div style={{ width: `${pct}%`, height: '100%', background: cor }} />
+                          <div
+                            style={{
+                              width: `${pct}%`,
+                              height: '100%',
+                              background: p.fechado ? 'var(--st-aprovado)' : cor,
+                            }}
+                          />
                         </div>
                       </div>
 

@@ -5,6 +5,7 @@ import { mesTitulado } from '@/lib/prompt'
 import { Gerador } from './gerador'
 import { MesesPlanejados, type MesPlanejado } from './meses'
 import { exclusaoDoPlano } from './regra'
+import { ordenarMeses } from '@/lib/ordem'
 
 const SITUACAO: Record<string, { rotulo: string; cor: string }> = {
   draft: { rotulo: 'rascunho', cor: 'faint' },
@@ -76,7 +77,21 @@ export default async function Planos({ params }: { params: Promise<{ slug: strin
 
   // "Novembro de 2026". Antes a lista usava text-transform: capitalize,
   // que põe maiúscula em TODA palavra — e o "de" virava "De".
-  const meses: MesPlanejado[] = (planos ?? []).map((p) => ({
+  // Pendentes primeiro, aprovados por inteiro no fim; dentro de cada
+  // grupo, do mais próximo para o mais distante (ver lib/ordem.ts).
+  type LinhaPlano = {
+    id: string
+    month: number
+    year: number
+    status: string
+    client_released_at: string | null
+  }
+  const meses: MesPlanejado[] = ordenarMeses(
+    (planos ?? []) as LinhaPlano[],
+    (p) => Number(p.year),
+    (p) => Number(p.month),
+    { concluido: (p) => p.status === 'approved' },
+  ).map((p) => ({
     id: p.id as string,
     mes: Number(p.month),
     ano: Number(p.year),
@@ -85,6 +100,7 @@ export default async function Planos({ params }: { params: Promise<{ slug: strin
     pautas: pautasDoPlano.get(p.id as string) ?? 0,
     decisoesCliente: decisoesDoPlano.get(p.id as string) ?? 0,
     comCliente: p.client_released_at !== null,
+    concluido: p.status === 'approved',
     exclusao: exclusaoDoPlano(papel, nivel as string | null, p.client_released_at !== null),
   }))
 
