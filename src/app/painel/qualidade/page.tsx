@@ -502,8 +502,10 @@ export default async function Precisao() {
           portanto, tiveram custo.
         </p>
         <p style={{ marginTop: 6 }}>
-          Os valores aparecem em dólar porque é assim que a Anthropic faz a cobrança. A IA pensa
-          em português, mas a conta ainda chega em dólar para a tristeza do Roberto. 😄
+          Os valores aparecem em dólar porque é assim que a Anthropic faz a cobrança.
+        </p>
+        <p style={{ marginTop: 6 }}>
+          A IA pensa em português, mas a conta ainda chega em dólar, para a tristeza do Roberto. 😄
         </p>
       </section>
     </main>
