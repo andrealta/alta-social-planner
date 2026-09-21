@@ -259,7 +259,7 @@ export default async function BaseDaMarca({
 
           {varredura ? (
             <div style={{ color: 'var(--muted)' }}>
-              {publicacoes ?? 0} publicação(ões) de {lidos.length} perfil(is) —{' '}
+              {publicacoes ?? 0} publicação(ões) de {lidos.length} perfil(is):{' '}
               {lidos.map((h) => '@' + h).join(', ')}. Isto entra na geração do mês como
               restrição: o que já está ocupado não se repete, e a brecha é onde o mês ganha.
               {recusados.length > 0 && (
@@ -268,7 +268,7 @@ export default async function BaseDaMarca({
                   <b style={{ color: 'var(--text)' }}>
                     Não deu para ler {recusados.map((r) => '@' + r.handle).join(', ')}
                   </b>{' '}
-                  — quase sempre é conta pessoal, fechada, ou @ digitado errado.
+                  . Quase sempre é conta pessoal, fechada, ou @ digitado errado.
                 </>
               )}
             </div>
@@ -280,7 +280,7 @@ export default async function BaseDaMarca({
           ) : (
             <div style={{ color: 'var(--muted)' }}>
               Nenhum concorrente com @ no campo <b>Concorrentes</b>, ali embaixo em
-              Identidade. Sem o @ não há como consultar o perfil — escreva assim:
+              Identidade. Sem o @ não há como consultar o perfil. Escreva assim:
               {' '}Marca X (@marcax).
             </div>
           )}

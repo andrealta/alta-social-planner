@@ -137,7 +137,7 @@ export default async function PdfDoMes({
   params: Promise<{ slug: string; ano: string; mes: string }>
 }) {
   const { slug, ano: anoTexto, mes: mesTexto } = await params
-  const { ano, mes, marca, pautas } = await carregarMesDoCliente(slug, anoTexto, mesTexto)
+  const { ano, mes, marca, pautas, estrategia } = await carregarMesDoCliente(slug, anoTexto, mesTexto)
 
   const nomeDoMes = `${mesTitulado(mes)} de ${ano}`
   const cor = marca.cor ?? '#2502D0'
@@ -197,6 +197,13 @@ export default async function PdfDoMes({
             )}
           </div>
         </header>
+
+        {estrategia && (
+          <section style={{ marginBottom: 22 }}>
+            <h2 className="titulo-secao">A estratégia deste mês</h2>
+            <p style={{ fontSize: 13.5, lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>{estrategia}</p>
+          </section>
+        )}
 
         <section>
           <h2 className="titulo-secao">Calendário</h2>

@@ -272,7 +272,7 @@ export function AbaConteudo({
         )}
         {criando && (
           <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>
-            legenda, hashtags e direção de arte — de dois a cinco minutos
+            legenda, hashtags e direção de arte. Leva de dois a cinco minutos
           </span>
         )}
       </div>

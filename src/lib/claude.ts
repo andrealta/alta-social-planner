@@ -268,7 +268,7 @@ export async function chamarClaude(prompt: string, opcoes: Opcoes = {}): Promise
       texto.trim() === ''
         ? `O modelo gastou todo o limite de ${opcoes.maxTokens ?? 16000} tokens raciocinando e parou antes de escrever a resposta. ` +
           'O limite precisa ser maior, ou a tarefa menor.'
-        : 'A resposta bateu no limite de tamanho no meio do texto. O planejamento saiu incompleto — aumente o limite ou reduza o número de peças.',
+        : 'A resposta bateu no limite de tamanho no meio do texto. O planejamento saiu incompleto. Aumente o limite ou reduza o número de peças.',
     )
     e.uso = uso
     e.custoUsd = custo(modelo, uso)

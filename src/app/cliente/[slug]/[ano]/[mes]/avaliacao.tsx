@@ -144,7 +144,7 @@ export function Avaliacao({
 
     if (decisao === 'changes_requested' && texto.trim() === '') {
       setPedindo(true)
-      setErro('Escreva o que você gostaria de mudar — é isso que a equipe vai ler.')
+      setErro('Escreva o que você gostaria de mudar. É isso que a equipe vai ler.')
       return
     }
 
@@ -434,7 +434,7 @@ export function Avaliacao({
                         color: 'var(--text)',
                       }}
                     >
-                      {dia ?? '—'}
+                      {dia ?? '?'}
                     </div>
                     <div style={{ fontSize: 10, color: 'var(--faint)', marginTop: 2 }}>
                       {tipoDaPeca(p.formato).toLowerCase()}

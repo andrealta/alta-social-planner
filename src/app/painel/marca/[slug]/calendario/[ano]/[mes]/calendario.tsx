@@ -330,7 +330,7 @@ export function Calendario({
           }}
         >
           <b>{prontasParaEnviar} pauta(s) prontas para o cliente.</b> Quem envia é a pessoa
-          responsável pela marca — avise que este mês está pronto.
+          responsável pela marca e avise que este mês está pronto.
         </div>
       )}
 
@@ -450,7 +450,7 @@ export function Calendario({
             fontSize: 13.5,
           }}
         >
-          <b>{semData.length} pauta(s) sem data.</b> Elas não aparecem no calendário — abra pela
+          <b>{semData.length} pauta(s) sem data.</b> Elas não aparecem no calendário. Abra pela
           lista abaixo e marque um dia.
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
             {semData.map((p) => (
@@ -671,7 +671,7 @@ export function Calendario({
       >
         {linhasUsadas.length > 0 && (
           <div>
-            <div style={rotuloLegenda}>Linha de produto — a cor da lateral</div>
+            <div style={rotuloLegenda}>Linha de produto (a cor da lateral)</div>
             <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
               {linhasUsadas.map(([nome, indice]) => (
                 <span key={nome} style={itemLegenda}>

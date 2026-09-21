@@ -176,7 +176,7 @@ export default async function Painel() {
                   <div>
                     <div style={{ fontWeight: 700, fontSize: 15 }}>{m.name as string}</div>
                     <div style={{ color: 'var(--muted)', fontSize: 13 }}>
-                      {(m.segment as string) ?? '—'}
+                      {(m.segment as string) ?? 'sem segmento'}
                     </div>
                   </div>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 10, whiteSpace: 'nowrap' }}>
@@ -191,7 +191,7 @@ export default async function Painel() {
                       }}
                     >
                       {ACESSO[acessoPorMarca.get(m.id as string) ?? ''] ??
-                        (papel === 'admin' ? 'administração' : '—')}
+                        (papel === 'admin' ? 'administração' : 'sem vínculo')}
                     </span>
                     <span style={{ color: 'var(--faint)', fontSize: 16 }} aria-hidden>
                       &rsaquo;
@@ -216,7 +216,7 @@ export default async function Painel() {
             <b style={{ color: 'var(--text)', display: 'block', marginBottom: 6 }}>
               Nenhuma marca ainda
             </b>
-            O banco está vazio — as marcas entram na próxima etapa. Se você
+            O banco está vazio. As marcas entram na próxima etapa. Se você
             esperava ver alguma aqui, é porque o seu papel ou o seu vínculo
             ainda não foi definido.
           </div>
@@ -236,7 +236,7 @@ export default async function Painel() {
         }}
       >
         <b>O isolamento está valendo.</b> Esta página não filtra nada por
-        marca — ela pede &ldquo;todas as marcas&rdquo; ao banco, e o banco
+        marca: ela pede &ldquo;todas as marcas&rdquo; ao banco, e o banco
         devolve só as que você pode ver. Uma consulta esquecida no futuro não
         vaza dado de cliente.
       </section>

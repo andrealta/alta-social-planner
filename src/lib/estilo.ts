@@ -38,9 +38,14 @@ export type Estilo = {
   aprovadas: string[]
   correcoes: Correcao[]
   pedidos: { pauta: string; texto: string }[]
+  /**
+   * O feedback geral que o cliente deixou sobre meses anteriores
+   * (migração 0021): o que funcionou e o que merece atenção.
+   */
+  feedbacks: { mes: string; destaques: string | null; atencao: string | null }[]
 }
 
-const VAZIO: Estilo = { amostras: [], anti: [], aprovadas: [], correcoes: [], pedidos: [] }
+const VAZIO: Estilo = { amostras: [], anti: [], aprovadas: [], correcoes: [], pedidos: [], feedbacks: [] }
 
 /** Corta sem deixar a frase pela metade quando dá. */
 function limitar(texto: string, max: number): string {
@@ -207,7 +212,7 @@ export async function coletarEstilo(
 
     const pedidos = (recados ?? [])
       .map((r) => ({
-        pauta: tituloDe.get(r.idea_id as string) ?? '—',
+        pauta: tituloDe.get(r.idea_id as string) ?? 'sem título',
         texto: limitar((r.body as string) ?? '', 220),
       }))
       .filter((p) => p.texto.length > 10)
@@ -237,7 +242,35 @@ export async function coletarEstilo(
       .map((c) => limitar((c.caption as string) ?? '', 420))
       .filter((c) => c.length > 40)
 
-    return { amostras, anti, aprovadas, correcoes: correcoes.slice(0, 8), pedidos }
+    // ---------- o feedback geral dos últimos meses ----------
+    // É o cliente falando do mês inteiro, e não de uma peça: é onde
+    // aparece "menos vídeo" ou "adorei o tom dos carrosséis". Os três
+    // mais recentes bastam — feedback de um ano atrás pode já ter
+    // sido atendido.
+    const { data: fichas } = await supabase
+      .from('feedback_mes')
+      .select('destaques, atencao, updated_at, plan_id')
+      .eq('brand_id', brandId)
+      .order('updated_at', { ascending: false })
+      .limit(3)
+
+    const idsPlanos = [...new Set((fichas ?? []).map((f) => f.plan_id as string))]
+    const { data: planosFicha } = idsPlanos.length
+      ? await supabase.from('plans').select('id, month, year').in('id', idsPlanos)
+      : { data: [] }
+    const mesDe = new Map<string, string>(
+      (planosFicha ?? []).map((p): [string, string] => [
+        p.id as string,
+        `${String(p.month).padStart(2, '0')}/${p.year}`,
+      ]),
+    )
+    const feedbacks = (fichas ?? []).map((f) => ({
+      mes: mesDe.get(f.plan_id as string) ?? '',
+      destaques: f.destaques ? limitar(f.destaques as string, 400) : null,
+      atencao: f.atencao ? limitar(f.atencao as string, 400) : null,
+    }))
+
+    return { amostras, anti, aprovadas, correcoes: correcoes.slice(0, 8), pedidos, feedbacks }
   } catch {
     // Estilo é melhoria, não requisito. Se qualquer consulta falhar, a
     // geração acontece como antes — sem o bloco, e sem erro na cara de
@@ -258,7 +291,7 @@ export function blocoDeEstilo(e: Estilo, curto = false): string {
 
   if (e.amostras.length > 0) {
     partes.push(
-      '## COMO A MARCA ESCREVE — legendas reais\n' +
+      '## COMO A MARCA ESCREVE: legendas reais\n' +
         'Publicadas e aprovadas por esta marca. Imite o ritmo, o tamanho das frases, a ' +
         'pontuação e o vocabulário. Não copie o conteúdo.\n\n' +
         e.amostras
@@ -296,7 +329,7 @@ export function blocoDeEstilo(e: Estilo, curto = false): string {
           .slice(0, curto ? 4 : 8)
           .map(
             (c) =>
-              `— ${c.campo}\n` +
+              `- ${c.campo}\n` +
               `  estava: ${c.antes}\n` +
               `  ficou:  ${c.depois}` +
               (c.motivo ? `\n  motivo: ${c.motivo}` : ''),
@@ -312,8 +345,26 @@ export function blocoDeEstilo(e: Estilo, curto = false): string {
         'descrição de tom de voz.\n\n' +
         e.pedidos
           .slice(0, curto ? 3 : 6)
-          .map((p) => `— sobre "${p.pauta}": ${p.texto}`)
+          .map((p) => `- sobre "${p.pauta}": ${p.texto}`)
           .join('\n'),
+    )
+  }
+
+  const feedbacks = e.feedbacks ?? []
+  if (feedbacks.length > 0) {
+    partes.push(
+      '## O QUE O CLIENTE DISSE DOS ÚLTIMOS MESES\n' +
+        'O balanço que o próprio cliente escreveu sobre meses inteiros. Repita o que ele ' +
+        'destacou como bom; trate os pontos de atenção como regra para este mês.\n\n' +
+        feedbacks
+          .slice(0, curto ? 1 : 3)
+          .map(
+            (f) =>
+              `- ${f.mes || 'mês anterior'}` +
+              (f.destaques ? `\n  funcionou: ${f.destaques}` : '') +
+              (f.atencao ? `\n  atenção: ${f.atencao}` : ''),
+          )
+          .join('\n\n'),
     )
   }
 

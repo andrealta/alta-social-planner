@@ -80,7 +80,7 @@ export async function criarPessoa(dados: {
   if (dados.papel === 'client' && marcas.length === 0) {
     return {
       ok: false,
-      erro: 'Um cliente precisa estar vinculado a pelo menos uma marca — senão ele entra e não vê nada.',
+      erro: 'Um cliente precisa estar vinculado a pelo menos uma marca. Senão ele entra e não vê nada.',
     }
   }
 
@@ -239,7 +239,7 @@ export async function apagarPessoa(userId: string): Promise<Resultado> {
   if (userId === ctx.user.id) {
     return {
       ok: false,
-      erro: 'Você não pode apagar a própria conta — perderia o acesso e não teria como desfazer.',
+      erro: 'Você não pode apagar a própria conta: perderia o acesso e não teria como desfazer.',
     }
   }
 
@@ -334,7 +334,7 @@ export async function editarPessoa(
         ok: false,
         erro:
           'Para trocar o e-mail é preciso a chave de serviço do Supabase configurada. ' +
-          'O nome dá para trocar sem ela — mantenha o e-mail como está e salve.',
+          'O nome dá para trocar sem ela: mantenha o e-mail como está e salve.',
       }
     }
     const { error } = await admin.auth.admin.updateUserById(userId, {
@@ -370,7 +370,7 @@ export async function editarPessoa(
   return {
     ok: true,
     aviso: mudouEmail
-      ? `Pronto. A partir de agora ${nome} entra com ${email} — a senha continua a mesma.`
+      ? `Pronto. A partir de agora ${nome} entra com ${email}. A senha continua a mesma.`
       : undefined,
   }
 }

@@ -50,7 +50,7 @@ export function Cor({
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 12.5, color: 'var(--muted)' }}>
         <span aria-hidden style={selo(amostra)} />
-        {inicial ? `Cor da marca: ${inicial}` : 'Sem cor própria — o portal usa a cor do sistema'}
+        {inicial ? `Cor da marca: ${inicial}` : 'Sem cor própria: o portal usa a cor do sistema'}
       </div>
     )
   }

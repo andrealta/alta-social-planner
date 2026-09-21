@@ -4,6 +4,7 @@ import { botao } from '@/lib/visual'
 import { Sair } from '@/app/painel/sair'
 import { Avaliacao } from './avaliacao'
 import { carregarMesDoCliente } from './dados'
+import { FeedbackDoMes } from './feedback'
 
 export default async function MesDoCliente({
   params,
@@ -11,7 +12,7 @@ export default async function MesDoCliente({
   params: Promise<{ slug: string; ano: string; mes: string }>
 }) {
   const { slug, ano: anoTexto, mes: mesTexto } = await params
-  const { ano, mes, marca, fechado, pautas, eu } = await carregarMesDoCliente(
+  const { ano, mes, marca, fechado, pautas, eu, estrategia, meuFeedback } = await carregarMesDoCliente(
     slug,
     anoTexto,
     mesTexto,
@@ -96,6 +97,36 @@ export default async function MesDoCliente({
         <Sair />
       </header>
 
+      {estrategia && (
+        <section
+          style={{
+            marginTop: 18,
+            padding: '20px 24px',
+            borderRadius: 'var(--r-lg)',
+            background: 'var(--surface)',
+            boxShadow: 'var(--shadow)',
+            borderLeft: `4px solid ${corDaMarca}`,
+          }}
+        >
+          <div
+            style={{
+              fontFamily: 'var(--disp)',
+              fontSize: 11,
+              fontWeight: 500,
+              letterSpacing: '.18em',
+              textTransform: 'uppercase',
+              color: 'var(--faint)',
+              marginBottom: 8,
+            }}
+          >
+            A estratégia deste mês
+          </div>
+          <p style={{ fontSize: 15.5, lineHeight: 1.7, whiteSpace: 'pre-wrap', maxWidth: 820 }}>
+            {estrategia}
+          </p>
+        </section>
+      )}
+
       {fechado ? (
         <div
           style={{
@@ -107,14 +138,14 @@ export default async function MesDoCliente({
             lineHeight: 1.6,
           }}
         >
-          <b>Mês aprovado por completo.</b> Nada mais precisa de você aqui — a equipe da Alta
+          <b>Mês aprovado por completo.</b> Nada mais precisa de você aqui. A equipe da Alta
           segue para a produção.
         </div>
       ) : (
         <p style={{ color: 'var(--muted)', fontSize: 14, marginTop: 18, lineHeight: 1.65, maxWidth: 760 }}>
           Leia cada publicação e responda. <b>Aprovar</b> libera a peça para produção;{' '}
           <b>Pedir alteração</b> devolve à equipe com o que você escrever. Pode responder aos
-          poucos — o que você já decidiu fica salvo.
+          poucos: o que você já decidiu fica salvo.
         </p>
       )}
 
@@ -128,6 +159,8 @@ export default async function MesDoCliente({
           euNome={eu.nome}
         />
       </div>
+
+      <FeedbackDoMes slug={slug} ano={ano} mes={mes} inicial={meuFeedback} />
     </main>
   )
 }

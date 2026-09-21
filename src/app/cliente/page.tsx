@@ -5,6 +5,8 @@ import { mesTitulado } from '@/lib/prompt'
 import { pilula, ponto } from '@/lib/visual'
 import { Sair } from '@/app/painel/sair'
 import { ordenarMeses } from '@/lib/ordem'
+import { calcularStatus } from '@/lib/status'
+import { duracao } from '@/lib/medidas'
 
 /**
  * A primeira tela do cliente depois de entrar.
@@ -48,7 +50,16 @@ export default async function PortalDoCliente() {
     .order('year', { ascending: false })
     .order('month', { ascending: false })
 
-  const { data: pautas } = await supabase.from('content_ideas').select('plan_id, status')
+  const [{ data: pautas }, { data: decisoes }, { data: comentarios }] = await Promise.all([
+    supabase.from('content_ideas').select('id, plan_id, status'),
+    // Para o status geral: o que o cliente decidiu e o que escreveu ao
+    // pedir alteração. As políticas do banco só devolvem o da marca dele.
+    supabase
+      .from('approvals')
+      .select('idea_id, decision, actor_kind, seconds_to_decide, comment_id')
+      .eq('actor_kind', 'client'),
+    supabase.from('comments').select('id, body').eq('author_kind', 'client'),
+  ])
 
   const conta = new Map<string, { total: number; aguardando: number; aprovadas: number }>()
   for (const p of pautas ?? []) {
@@ -183,6 +194,36 @@ export default async function PortalDoCliente() {
           const inicial = nome.trim().charAt(0).toUpperCase()
           const lista = porMarca.get(m.id as string) ?? []
           const esperando = lista.reduce((s, p) => s + p.aguardando, 0)
+
+          const planosDaMarca = (planos ?? []).filter((p) => p.brand_id === m.id)
+          const idsPlanos = new Set(planosDaMarca.map((p) => p.id as string))
+          const status = calcularStatus({
+            planos: planosDaMarca.map((p) => ({
+              id: p.id as string,
+              liberado: p.client_released_at !== null,
+            })),
+            pautas: (pautas ?? [])
+              .filter((p) => idsPlanos.has(p.plan_id as string))
+              .map((p) => ({
+                id: p.id as string,
+                plan_id: p.plan_id as string,
+                status: (p.status as string) ?? '',
+              })),
+            decisoes: (decisoes ?? []).map((d) => ({
+              idea_id: d.idea_id as string,
+              decision: (d.decision as string) ?? '',
+              actor_kind: (d.actor_kind as string) ?? '',
+              seconds_to_decide:
+                d.seconds_to_decide === null || d.seconds_to_decide === undefined
+                  ? null
+                  : Number(d.seconds_to_decide),
+              comment_id: (d.comment_id as string | null) ?? null,
+            })),
+            comentarios: (comentarios ?? []).map((k) => ({
+              id: k.id as string,
+              body: (k.body as string) ?? '',
+            })),
+          })
 
           return (
             <section key={m.id as string} style={{ marginBottom: 42 }}>
@@ -352,10 +393,123 @@ export default async function PortalDoCliente() {
                   )
                 })}
               </div>
+
+              {status.conteudos > 0 && <StatusGeral status={status} />}
             </section>
           )
         })
       )}
     </main>
+  )
+}
+
+/**
+ * O status geral da parceria, abaixo dos meses.
+ *
+ * Fica DEPOIS dos cards de propósito: quem entra aqui vem responder o
+ * que está pendente, e isso tem de ser a primeira coisa na tela. O
+ * status é o que se olha com calma, depois.
+ *
+ * Só números e texto, sem gráfico: são seis quantidades soltas, e um
+ * número grande com um rótulo claro lê melhor do que qualquer barra.
+ */
+function StatusGeral({ status }: { status: ReturnType<typeof calcularStatus> }) {
+  const pctPrimeira = status.aprovadas
+    ? Math.round((status.aprovadasDePrimeira / status.aprovadas) * 100)
+    : null
+  const tempo = duracao(status.segundosMedios)
+
+  const numeros: { valor: string; rotulo: string; nota?: string }[] = [
+    { valor: String(status.meses), rotulo: status.meses === 1 ? 'mês planejado' : 'meses planejados' },
+    { valor: String(status.conteudos), rotulo: 'conteúdos criados' },
+    { valor: String(status.aprovadas), rotulo: 'aprovados' },
+    {
+      valor: String(status.aprovadasDePrimeira),
+      rotulo: 'aprovados de primeira',
+      nota: pctPrimeira !== null ? `${pctPrimeira}% dos aprovados` : undefined,
+    },
+    {
+      valor: String(status.devolvidas),
+      rotulo: 'devolvidos para ajuste',
+      nota: 'vezes em que você pediu alteração',
+    },
+    ...(tempo ? [{ valor: tempo, rotulo: 'seu tempo médio de resposta' }] : []),
+  ]
+
+  return (
+    <div
+      style={{
+        marginTop: 22,
+        padding: '20px 22px',
+        borderRadius: 'var(--r-lg)',
+        background: 'var(--surface)',
+        boxShadow: 'var(--shadow)',
+      }}
+    >
+      <div
+        style={{
+          fontFamily: 'var(--disp)',
+          fontSize: 11,
+          fontWeight: 500,
+          letterSpacing: '.16em',
+          textTransform: 'uppercase',
+          color: 'var(--faint)',
+          marginBottom: 14,
+        }}
+      >
+        Status geral
+      </div>
+
+      <div
+        style={{
+          display: 'grid',
+          // 120px: duas colunas no celular em vez de seis linhas soltas.
+          gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+          gap: '18px 20px',
+        }}
+      >
+        {numeros.map((n) => (
+          <div key={n.rotulo}>
+            <div
+              style={{
+                fontFamily: 'var(--disp)',
+                fontSize: 26,
+                fontWeight: 600,
+                lineHeight: 1.1,
+                letterSpacing: '-.02em',
+                color: 'var(--text)',
+              }}
+            >
+              {n.valor}
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 3 }}>{n.rotulo}</div>
+            {n.nota && (
+              <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 1 }}>{n.nota}</div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {status.temas.length > 0 && (
+        <div
+          style={{
+            marginTop: 18,
+            paddingTop: 14,
+            borderTop: '1px solid var(--line)',
+            fontSize: 13.5,
+            lineHeight: 1.6,
+          }}
+        >
+          <span style={{ color: 'var(--muted)' }}>O que você mais pediu para ajustar: </span>
+          {status.temas.map((t, i) => (
+            <span key={t.tema}>
+              {i > 0 && ', '}
+              <b>{t.tema}</b>
+              <span style={{ color: 'var(--faint)' }}> ({t.vezes})</span>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }

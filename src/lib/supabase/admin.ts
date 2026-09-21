@@ -42,7 +42,7 @@ export function clienteAdmin() {
     throw new Error(
       'SUPABASE_SERVICE_ROLE_KEY não está definida. Sem ela dá para mudar papel e vincular ' +
         'marca, mas não dá para criar pessoa nova. Pegue em Settings → API no painel do ' +
-        'Supabase e acrescente ao .env.local — sem NEXT_PUBLIC_ no nome.',
+        'Supabase e acrescente ao .env.local, sem NEXT_PUBLIC_ no nome.',
     )
   }
 
@@ -75,7 +75,7 @@ function chaveErrada(chave: string): string | null {
     ' Pegue a chave de serviço no painel do Supabase, em Settings → API Keys ' +
     '(a secreta, que começa com sb_secret_, ou a antiga service_role), e troque ' +
     'no .env.local e na Vercel. Essa chave passa por cima de todo o isolamento ' +
-    'entre marcas — não mande por e-mail, nem em print, nem para mim.'
+    'entre marcas. Não mande por e-mail, nem em print, nem para mim.'
 
   if (chave.startsWith('sb_publishable_')) {
     return 'A chave em SUPABASE_SERVICE_ROLE_KEY é a PÚBLICA, não a de serviço.' + arrume

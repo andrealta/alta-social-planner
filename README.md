@@ -197,15 +197,15 @@ Rode `10-seguranca.cmd` depois de qualquer mudança no banco.
 
 ## Testes
 
-Em `asp/` (fora deste repositório, com quem escreveu) há **166 casos em
+Em `asp/` (fora deste repositório, com quem escreveu) há **181 casos em
 SQL** que rodam contra um PostgreSQL local recriado do zero: isolamento
 entre marcas, versionamento de pauta, ciclo completo com o cliente,
 permissões de pessoas, os níveis de acesso à marca e a exclusão de
 planejamento, a varredura de concorrentes e a resposta à pergunta que
 mais importa nela: o cliente não vê o que pesquisamos sobre o mercado
-dele, a exclusão de pessoa e quem pode ver o nome de quem avaliou. Mais **108 casos em TypeScript** sobre as bibliotecas que não
-tocam o banco: `src/lib/estilo.ts` (21), `src/lib/medidas.ts` (46) e
-`src/lib/concorrencia.ts` (28) e a regra de exclusão da tela (13). Total: 274.
+dele, a exclusão de pessoa e quem pode ver o nome de quem avaliou. Mais **149 casos em TypeScript** sobre as bibliotecas que não
+tocam o banco: `src/lib/estilo.ts` (30), `src/lib/medidas.ts` (46) e
+`src/lib/concorrencia.ts` (28), `src/lib/status.ts` (20), `src/lib/ordem.ts` (12) e a regra de exclusão da tela (13). Total: 330.
 
 Eles provam que as regras **funcionam**; `10-seguranca.cmd` prova que
 elas **estão lá** em produção. As duas perguntas são diferentes.
@@ -268,3 +268,20 @@ aprovada. Cerca de US$ 0,60 por mês gerado (Opus 5, com raciocínio).
 
 Número de custo se lê com cuidado: mês com muito refino custa mais e em
 geral significa base incompleta, não IA ruim. O rodapé da página explica.
+
+### Estratégia do mês e feedback do cliente (migração 0021)
+
+A **leitura do mês** que a IA escreve é interna: cita concorrentes e a
+brecha escolhida. O cliente lê outra coisa — `plans.estrategia_cliente`,
+que a equipe escreve (pode partir da leitura com um clique) e publica.
+Vazia, o portal não mostra o bloco.
+
+O **feedback do mês** (`feedback_mes`) é do cliente: o que funcionou e o
+que merece atenção. Uma ficha por pessoa por mês, editável por ela; a
+equipe lê e não escreve em nome dele. As três fichas mais recentes
+entram no prompt (`lib/estilo.ts`), com os pontos de atenção tratados
+como regra.
+
+O **status geral** da tela inicial do cliente (`lib/status.ts`) é só
+conta sobre o que o banco já tem. As "alterações mais pedidas" saem de
+um classificador por palavra-chave, transparente e sem custo — não de IA.

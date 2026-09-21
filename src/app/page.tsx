@@ -66,7 +66,7 @@ export default function Home() {
         </h1>
         <p style={{ color: 'var(--muted)', fontSize: 16 }}>
           O sistema está rodando na sua máquina. Esta página confirma que o
-          projeto compila e serve — daqui em diante, tudo que construirmos
+          projeto compila e serve. Daqui em diante, tudo que construirmos
           aparece aqui.
         </p>
       </header>

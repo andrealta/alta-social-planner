@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import { clienteServidor } from '@/lib/supabase/server'
 import { MESES, mesTitulado } from '@/lib/prompt'
 import { Apagar } from './apagar'
+import { Estrategia } from './estrategia'
 import { exclusaoDoPlano } from '../../regra'
 
 type Achado = { gravidade: 'erro' | 'aviso'; texto: string }
@@ -43,7 +44,9 @@ export default async function Plano({
 
   const { data: plano } = await supabase
     .from('plans')
-    .select('id, status, briefing, analysis, created_at, client_released_at')
+    .select(
+      'id, status, briefing, analysis, created_at, client_released_at, estrategia_cliente, estrategia_atualizada_em',
+    )
     .eq('brand_id', marca.id)
     .eq('year', ano)
     .eq('month', mes)
@@ -57,6 +60,24 @@ export default async function Plano({
     supabase.rpc('nivel_na_marca', { b: marca.id }),
     supabase.from('profiles').select('role').eq('id', user.id).single(),
   ])
+  const podeEditar =
+    (perfil?.role as string) === 'admin' ||
+    ((perfil?.role as string) === 'staff' && (nivel === 'owner' || nivel === 'editor'))
+
+  // O que o cliente escreveu sobre o mês inteiro (0021).
+  const { data: fichas } = await supabase
+    .from('feedback_mes')
+    .select('id, destaques, atencao, updated_at, author_id')
+    .eq('plan_id', plano.id)
+    .order('updated_at', { ascending: false })
+  const autoresFicha = [...new Set((fichas ?? []).map((f) => f.author_id as string).filter(Boolean))]
+  const { data: autores } = autoresFicha.length
+    ? await supabase.from('profiles').select('id, name').in('id', autoresFicha)
+    : { data: [] }
+  const nomeDoAutor = new Map<string, string>(
+    (autores ?? []).map((a): [string, string] => [a.id as string, (a.name as string) ?? '']),
+  )
+
   const exclusao = exclusaoDoPlano(
     (perfil?.role as string) ?? null,
     nivel as string | null,
@@ -185,6 +206,59 @@ export default async function Plano({
         </section>
       )}
 
+      <Estrategia
+        slug={slug}
+        planoId={plano.id as string}
+        inicial={(plano.estrategia_cliente as string | null) ?? null}
+        atualizadaEm={(plano.estrategia_atualizada_em as string | null) ?? null}
+        leitura={analise.leitura ?? null}
+        podeEditar={podeEditar}
+      />
+
+      {(fichas ?? []).length > 0 && (
+        <section
+          style={{
+            marginTop: 16,
+            padding: '18px 22px',
+            borderRadius: 'var(--r-lg)',
+            background: 'var(--surface-2)',
+          }}
+        >
+          <div
+            style={{
+              fontFamily: 'var(--disp)',
+              fontSize: 11,
+              fontWeight: 500,
+              letterSpacing: '.18em',
+              textTransform: 'uppercase',
+              color: 'var(--faint)',
+              marginBottom: 8,
+            }}
+          >
+            O que o cliente achou do mês
+          </div>
+          {(fichas ?? []).map((f) => (
+            <div key={f.id as string} style={{ fontSize: 14, lineHeight: 1.65, marginBottom: 10 }}>
+              {f.destaques && (
+                <p>
+                  <b>O que funcionou:</b> {f.destaques as string}
+                </p>
+              )}
+              {f.atencao && (
+                <p style={{ marginTop: 4 }}>
+                  <b>Pontos de atenção:</b> {f.atencao as string}
+                </p>
+              )}
+              <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 3 }}>
+                {nomeDoAutor.get(f.author_id as string) || 'cliente'} ·{' '}
+                {new Date(f.updated_at as string).toLocaleDateString('pt-BR')} · entra no
+                aprendizado da IA nos próximos meses
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+
       {(erros.length > 0 || avisos.length > 0) && (
         <section
           style={{
@@ -199,7 +273,7 @@ export default async function Plano({
           }}
         >
           <b style={{ display: 'block', marginBottom: 5 }}>
-            Conferência automática{erros.length > 0 ? ' — com problema' : ''}
+            Conferência automática{erros.length > 0 ? ': com problema' : ''}
           </b>
           <ul style={{ margin: 0, paddingLeft: 18 }}>
             {[...erros, ...avisos].map((a, i) => (
@@ -297,7 +371,7 @@ export default async function Plano({
               >
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontFamily: 'var(--disp)', fontSize: 26, fontWeight: 600, lineHeight: 1 }}>
-                    {dia ?? '—'}
+                    {dia ?? '?'}
                   </div>
                   <div style={{ fontSize: 10.5, color: 'var(--faint)', textTransform: 'uppercase', letterSpacing: '.08em' }}>
                     {MESES[mes - 1].slice(0, 3)}
@@ -306,7 +380,7 @@ export default async function Plano({
 
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 5 }}>
-                    {p.scope_id && <Etiqueta>{nomeDaLinha.get(p.scope_id as string) ?? '—'}</Etiqueta>}
+                    {p.scope_id && <Etiqueta>{nomeDaLinha.get(p.scope_id as string) ?? 'sem linha'}</Etiqueta>}
                     {canal?.format ? <Etiqueta>{canal.format}</Etiqueta> : null}
                     {p.editorial_line ? <Etiqueta>{p.editorial_line as string}</Etiqueta> : null}
                   </div>

@@ -272,7 +272,7 @@ export default async function Precisao() {
 
               {meses.length === 0 && (
                 <p style={{ fontSize: 13.5, color: 'var(--muted)', marginBottom: 4 }}>
-                  Nenhum planejamento desta marca existe hoje — os que foram gerados foram
+                  Nenhum planejamento desta marca existe hoje. Os que foram gerados foram
                   excluídos. O custo deles continua abaixo.
                 </p>
               )}
@@ -376,7 +376,7 @@ export default async function Precisao() {
                           </td>
                           <td style={{ padding: '12px 16px', textAlign: 'right', color: 'var(--muted)', whiteSpace: 'nowrap' }}>
                             {c.decisoesCliente === 0 ? (
-                              '—'
+                              'sem respostas'
                             ) : (
                               <>
                                 {c.decisoesCliente} decisões
@@ -427,14 +427,14 @@ export default async function Precisao() {
                       </span>
                       {custo.falhas > 0 && (
                         <span style={{ color: 'var(--laranja-tinta)', fontWeight: 600 }}>
-                          {custo.falhas} falha(s) — token gasto sem resultado
+                          {custo.falhas} falha(s): token gasto sem resultado
                         </span>
                       )}
                     </div>
                     {custo.excluido.chamadas > 0 && (
                       <div style={{ color: 'var(--muted)', fontSize: 12.5, marginTop: 2 }}>
                         Inclui <b style={{ color: 'var(--text)' }}>{dolar(custo.excluido.usd)}</b> de{' '}
-                        {custo.excluido.meses.length} planejamento(s) excluído(s) —{' '}
+                        {custo.excluido.meses.length} planejamento(s) excluído(s):{' '}
                         {custo.excluido.meses
                           .sort()
                           .map((am) => {

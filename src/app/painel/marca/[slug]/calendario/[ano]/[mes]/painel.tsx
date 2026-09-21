@@ -297,7 +297,7 @@ export function Painel({
                   </b>
                   {juizo.vencida && (
                     <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
-                      — avaliação feita numa versão anterior desta pauta
+                      (avaliação feita numa versão anterior desta pauta)
                     </span>
                   )}
                 </div>
@@ -668,7 +668,7 @@ export function Painel({
               <>
                 <p style={{ color: 'var(--muted)', fontSize: 12.8, marginBottom: 14, lineHeight: 1.55 }}>
                   Cada linha é o texto que foi substituído, guardado do jeito que estava. O
-                  histórico não pode ser reescrito — nem por mim.
+                  histórico não pode ser reescrito, nem por mim.
                 </p>
                 <ol style={{ listStyle: 'none', margin: 0, padding: 0 }}>
                   {[...pauta.historico]

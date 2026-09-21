@@ -52,7 +52,7 @@ export const SECOES: Secao[] = [
   {
     chave: 'voice',
     titulo: 'Tom de voz',
-    resumo: 'Como a marca fala — e, principalmente, como ela não fala.',
+    resumo: 'Como a marca fala e, principalmente, como ela não fala.',
     campos: [
       { id: 'v_tom', rotulo: 'Como a marca fala', ajuda: 'Pessoa do discurso, formalidade, humor, gíria.' },
       { id: 'v_sim', rotulo: 'Expressões recomendadas', ajuda: 'Palavras da casa, separadas por vírgula.' },
@@ -68,7 +68,7 @@ export const SECOES: Secao[] = [
         id: 'v_anti',
         rotulo: 'O que a marca nunca publicaria',
         ajuda:
-          'Três a cinco legendas que soariam erradas para esta marca — de concorrente, ou daquele texto de IA genérico —, cada uma com uma linha dizendo por quê. Separe por três traços (---).',
+          'Três a cinco legendas que soariam erradas para esta marca (de concorrente, ou daquele texto de IA genérico), cada uma com uma linha dizendo por quê. Separe por três traços (---).',
       },
     ],
   },

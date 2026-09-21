@@ -327,7 +327,7 @@ export function Editor({
                       color: v ? 'var(--text)' : 'var(--faint)',
                     }}
                   >
-                    {v || '—'}
+                    {v || 'não preenchido'}
                   </div>
                 )}
               </div>

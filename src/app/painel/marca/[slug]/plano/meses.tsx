@@ -197,7 +197,7 @@ export function MesesPlanejados({
                     <b>
                       O cliente já registrou {m.decisoesCliente} decisão(ões) neste mês.
                     </b>{' '}
-                    As aprovações e os pedidos de alteração saem junto — é o registro de que ele viu
+                    As aprovações e os pedidos de alteração saem junto, e são o registro de que ele viu
                     e respondeu. Se quiser guardar uma cópia, rode o <b>17-exportar.cmd</b> antes.
                   </p>
                 )}

@@ -278,7 +278,7 @@ export function Pessoas({
 
       {senhaGerada && (
         <Caixa cor="ok">
-          <b>{senhaGerada.titulo ?? 'Pessoa criada.'}</b> Passe estes dados a ela — esta senha aparece{' '}
+          <b>{senhaGerada.titulo ?? 'Pessoa criada.'}</b> Passe estes dados a ela. Esta senha aparece{' '}
           <b>uma única vez</b> e some quando você sair desta tela.
           <div
             style={{
@@ -435,7 +435,7 @@ export function Pessoas({
               >
                 {['owner', 'editor', 'viewer'].map((a) => (
                   <li key={a}>
-                    <b style={{ color: 'var(--text)' }}>{ACESSO[a].rotulo}</b> — {ACESSO[a].explica}
+                    <b style={{ color: 'var(--text)' }}>{ACESSO[a].rotulo}</b>: {ACESSO[a].explica}
                   </li>
                 ))}
               </ul>
@@ -452,7 +452,7 @@ export function Pessoas({
                 style={{ marginTop: 3 }}
               />
               <span style={{ fontSize: 13.5, lineHeight: 1.5 }}>
-                <b>Convite por e-mail</b> — ela escolhe a própria senha, e ninguém na Alta chega a
+                <b>Convite por e-mail</b>: ela escolhe a própria senha, e ninguém na Alta chega a
                 saber qual é. Depende de o envio de e-mail estar configurado no Supabase.
               </span>
             </label>
@@ -464,7 +464,7 @@ export function Pessoas({
                 style={{ marginTop: 3 }}
               />
               <span style={{ fontSize: 13.5, lineHeight: 1.5 }}>
-                <b>Senha temporária</b> — o sistema gera uma e mostra uma vez, para você passar à
+                <b>Senha temporária</b>: o sistema gera uma e mostra uma vez, para você passar à
                 pessoa. Funciona sempre, mas alguém além dela conhece a senha até que ela troque.
               </span>
             </label>
@@ -597,7 +597,7 @@ export function Pessoas({
                   )}
                   {p.papel === 'admin' && (
                     <p style={{ color: 'var(--faint)', fontSize: 12.3, marginTop: 8 }}>
-                      Administração alcança todas as marcas — não precisa de vínculo.
+                      Administração alcança todas as marcas e não precisa de vínculo.
                     </p>
                   )}
 
@@ -799,7 +799,7 @@ export function Pessoas({
                               ].filter(Boolean) as string[]
                               return partes.length > 0 ? (
                                 <>
-                                  O histórico dela — {partes.join(', ')} — <b>continua gravado</b>,
+                                  O histórico dela ({partes.join(', ')}) <b>continua gravado</b>,
                                   mas passa a aparecer sem nome. Isso não se desfaz.
                                 </>
                               ) : (

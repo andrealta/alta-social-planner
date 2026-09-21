@@ -184,7 +184,7 @@ export function blocoDeConcorrencia(
     `Coletado do Instagram${
       c.quando ? ' em ' + new Date(c.quando).toLocaleDateString('pt-BR') : ''
     }: ${total} publicação(ões) de ${c.contas.length} perfil(is)` +
-    (dias !== null && dias > 45 ? ` — atenção: a varredura tem ${dias} dias.` : '.') +
+    (dias !== null && dias > 45 ? `. Atenção: a varredura tem ${dias} dias.` : '.') +
     '\n\n' +
     'ISTO NÃO É EXEMPLO PARA IMITAR. É o contrário: serve para você não ' +
     'escrever o que o setor inteiro já está escrevendo. Use em três passos, nesta ordem:\n\n' +
@@ -194,7 +194,7 @@ export function blocoDeConcorrencia(
     '2. PROCURE O VAZIO. O que nenhum deles está dizendo, e esta marca tem como provar ' +
     'que sabe, é onde o mês ganha. A oportunidade está no que falta, não no que sobra.\n' +
     '3. LEIA O FORMATO. O que rendeu acima da média DELES diz o que o público do ' +
-    'segmento para para ver — isso é leitura de formato, não de assunto.'
+    'segmento para para ver. Isso é leitura de formato, não de assunto.'
 
   const corpo = c.contas
     .map((conta) => {
@@ -208,7 +208,7 @@ export function blocoDeConcorrencia(
         )
       })
       return (
-        `@${conta.handle} — ${conta.autor} (${conta.posts.length} publicações lidas, ` +
+        `@${conta.handle}, ${conta.autor} (${conta.posts.length} publicações lidas, ` +
         `engajamento mediano ${conta.mediana})\n` +
         linhas.join('\n')
       )

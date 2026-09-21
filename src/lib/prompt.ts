@@ -116,7 +116,7 @@ ${hist}
 
 Planejamento de ${nomeMes} de ${e.ano}.
 
-Escopo contratado — restrição dura, feche exatamente:
+Escopo contratado (restrição dura, feche exatamente):
 ${e.escopo.map((c) => `- ${c.label || '(sem nome)'}: ${c.quota} publicações`).join('\n')}
 Total: ${total} publicações.
 
@@ -125,36 +125,40 @@ ${e.briefing.trim() || 'Nenhuma declarada.'}
 
 # REGRAS
 
-ESCOPO — restrição dura. Feche a cota de cada linha exatamente. Ao final preencha
+ESCOPO: restrição dura. Feche a cota de cada linha exatamente. Ao final preencha
 "conferencia" com a contagem, usando as mesmas chaves do escopo acima.
 
-RECURSOS — restrição dura. Ideia que dependa de recurso marcado como indisponível na
+RECURSOS: restrição dura. Ideia que dependa de recurso marcado como indisponível na
 base deve ser descartada, não adaptada.
 
-DATAS SENSÍVEIS — restrição dura. Datas de significado histórico, religioso ou social
+DATAS SENSÍVEIS: restrição dura. Datas de significado histórico, religioso ou social
 não podem ser usadas como gancho de conveniência, nem mencionadas de passagem como
 "feriadão" ou pretexto de promoção. Ou a marca tem algo substantivo a dizer e diz com
 profundidade, ou a data é ocupada por conteúdo comum que não a menciona.
 
-ROTAÇÃO DE TERRITÓRIO — território que dominou os meses anteriores entra com no máximo
+ROTAÇÃO DE TERRITÓRIO: território que dominou os meses anteriores entra com no máximo
 metade do peso. Território com zero ocupação no histórico precisa ser considerado
 explicitamente; se for recusado, escreva o motivo.
 
-ROTAÇÃO DE TEMA — regra própria, independente da de território: tema que apareceu em
+ROTAÇÃO DE TEMA: regra própria, independente da de território: tema que apareceu em
 dois meses consecutivos NÃO pode ser o assunto principal de nenhuma pauta no terceiro.
 Pode seguir presente como elemento de apoio. Se for obrigatoriedade que atravessa o ano,
 diga isso e proponha um ÂNGULO novo, nunca o mesmo recorte.
 
-JUSTIFICATIVA — toda pauta precisa citar ao menos uma ÂNCORA NOMEADA: um trecho do
+JUSTIFICATIVA: toda pauta precisa citar ao menos uma ÂNCORA NOMEADA: um trecho do
 posicionamento, um campo da base, uma obrigatoriedade, uma persona ou um item do
 histórico. Cite pelo nome. Justificativa sem âncora será rejeitada.
 
-EXPRESSÕES PROIBIDAS — as declaradas na base, mais qualquer sinônimo próximo. Verifique
+EXPRESSÕES PROIBIDAS: as declaradas na base, mais qualquer sinônimo próximo. Verifique
 título, descrição e tema antes de devolver. Se a base não declarar nenhuma, registre
 isso em "alertas".
 
+TRAVESSÃO: não use travessão (—) em nenhum texto que o cliente ou o público vão ler: título,
+conceito, descrição, CTA, legenda. É uma das marcas mais evidentes de texto escrito por IA.
+Use vírgula, ponto, dois-pontos ou parênteses.
+
 MEMÓRIA É CONTEXTO, NÃO LEI. Uma ideia forte pode contrariar o padrão histórico se a
-justificativa sustentar — e nesse caso diga na justificativa que está contrariando.
+justificativa sustentar. Nesse caso, diga na justificativa que está contrariando.
 
 COMECE PELA TENSÃO. Antes das pautas, escreva a leitura do mês: qual é o problema ou a
 oportunidade real deste mês para esta marca. Um mês sem tensão identificada vira uma
@@ -409,20 +413,20 @@ ${contextoDaMarca(e.marca, e.base)}${e.estilo ? '\n\n' + e.estilo : ''}
 # CONTEXTO DO MÊS
 ${MESES[e.mes - 1]} de ${e.ano}.
 ${e.leitura ? 'Leitura do mês: ' + e.leitura : ''}
-Territórios: ${(e.territorios ?? []).map((t) => `${t.nome} (${t.peso}%)`).join(', ') || '—'}
+Territórios: ${(e.territorios ?? []).map((t) => `${t.nome} (${t.peso}%)`).join(', ') || 'não informado'}
 
 # PAUTA ATUAL
-Dia: ${p.dia ?? '—'}
-Linha: ${p.linha ?? '—'}
-Formato: ${p.formato ?? '—'}
-Objetivo: ${p.objetivo ?? '—'}
-Pilar: ${p.pilar ?? '—'}
-Tema: ${p.tema ?? '—'}
+Dia: ${p.dia ?? 'não informado'}
+Linha: ${p.linha ?? 'não informado'}
+Formato: ${p.formato ?? 'não informado'}
+Objetivo: ${p.objetivo ?? 'não informado'}
+Pilar: ${p.pilar ?? 'não informado'}
+Tema: ${p.tema ?? 'não informado'}
 Título: ${p.titulo}
-Conceito: ${p.conceito ?? '—'}
-Descrição: ${p.descricao ?? '—'}
-CTA: ${p.cta ?? '—'}
-Justificativa: ${p.justificativa ?? '—'}
+Conceito: ${p.conceito ?? 'não informado'}
+Descrição: ${p.descricao ?? 'não informado'}
+CTA: ${p.cta ?? 'não informado'}
+Justificativa: ${p.justificativa ?? 'não informado'}
 
 # O QUE A EQUIPE PEDIU
 ${e.comando}
@@ -431,6 +435,7 @@ ${e.comando}
 Mantenha a linha de produto e o dia, a menos que o pedido diga o contrário.
 Respeite as expressões proibidas e os recursos indisponíveis declarados na base.
 A justificativa precisa citar uma âncora nomeada da base ou do contexto do mês.
+Não use travessão (—) no título, conceito, descrição ou CTA: é marca de texto de IA. Use vírgula, ponto ou dois-pontos.
 
 # SAÍDA
 Responda SOMENTE com JSON:
@@ -526,44 +531,48 @@ ${contextoDaMarca(e.marca, e.base)}${e.estilo ? '\n\n' + e.estilo : ''}
 ${MESES[e.mes - 1]} de ${e.ano}.${e.leitura ? '\nLeitura do mês: ' + e.leitura : ''}
 
 # A PAUTA
-Data: ${p.dia ?? '—'}/${e.mes}/${e.ano}
-Linha: ${p.linha ?? '—'}
-Formato: ${p.formato ?? '—'}
-Objetivo: ${p.objetivo ?? '—'}
-Pilar: ${p.pilar ?? '—'}
-Tema: ${p.tema ?? '—'}
+Data: ${p.dia ?? 'não informado'}/${e.mes}/${e.ano}
+Linha: ${p.linha ?? 'não informado'}
+Formato: ${p.formato ?? 'não informado'}
+Objetivo: ${p.objetivo ?? 'não informado'}
+Pilar: ${p.pilar ?? 'não informado'}
+Tema: ${p.tema ?? 'não informado'}
 Título: ${p.titulo}
-Conceito: ${p.conceito ?? '—'}
-Descrição: ${p.descricao ?? '—'}
-CTA sugerido: ${p.cta ?? '—'}
+Conceito: ${p.conceito ?? 'não informado'}
+Descrição: ${p.descricao ?? 'não informado'}
+CTA sugerido: ${p.cta ?? 'não informado'}
 
 # REGRAS
 
-VOZ — a legenda precisa soar como a marca, não como uma agência falando dela. Quando
+VOZ: a legenda precisa soar como a marca, não como uma agência falando dela. Quando
 houver exemplos reais desta marca acima, eles mandam mais que a descrição de tom de voz:
 imite o ritmo, o tamanho das frases e o vocabulário deles. Nenhuma expressão proibida,
 nem sinônimo próximo. Se a base declarar restrição legal ou regulatória, obedeça.
 
-RECURSOS — restrição dura. Não descreva imagem que dependa de recurso marcado como
+RECURSOS: restrição dura. Não descreva imagem que dependa de recurso marcado como
 indisponível na base.
 
-LEGENDA — escreva para ler no celular. Primeira linha é o gancho e precisa funcionar
+LEGENDA: escreva para ler no celular. Primeira linha é o gancho e precisa funcionar
 sozinha, porque é o que aparece antes do "mais". Sem emoji, a menos que a base mostre que
 a marca usa. Sem frase de efeito genérica de publicidade.
 
-HASHTAGS — de seis a dez, misturando marca, categoria e alcance. Só as que fazem sentido
+TRAVESSÃO: não use travessão (—) em nenhum texto que o cliente ou o público vão ler: título,
+conceito, descrição, CTA, legenda. É uma das marcas mais evidentes de texto escrito por IA.
+Use vírgula, ponto, dois-pontos ou parênteses.
+
+HASHTAGS: de seis a dez, misturando marca, categoria e alcance. Só as que fazem sentido
 para esta marca e este tema.
 
-PROMPT DE IMAGEM — escreva em inglês, descritivo e concreto: assunto, enquadramento,
+PROMPT DE IMAGEM: escreva em inglês, descritivo e concreto: assunto, enquadramento,
 lente, luz, paleta, textura, clima. NÃO inclua nome de marca, logotipo, embalagem com
-rótulo legível, nem texto na imagem — geradores erram tudo isso, e o texto entra na arte
+rótulo legível, nem texto na imagem: geradores erram tudo isso, e o texto entra na arte
 depois. Diga também o que NÃO deve aparecer.
 
-MOCKUP — é o layout da peça, não a foto. Devolva as cores em hexadecimal de 6 dígitos,
+MOCKUP: é o layout da peça, não a foto. Devolva as cores em hexadecimal de 6 dígitos,
 coerentes com a marca, e o texto que vai SOBRE a arte: curto, de leitura imediata. O
-título do mockup não é o título da pauta — é a frase que aparece na peça.
+título do mockup não é o título da pauta: é a frase que aparece na peça.
 ${v ? `
-DECUPAGEM — esta peça é audiovisual. Quebre em quatro a seis cenas com marcação de tempo.
+DECUPAGEM: esta peça é audiovisual. Quebre em quatro a seis cenas com marcação de tempo.
 Marque UMA delas como cena-chave ("chave": true): a que melhor representa o filme num
 frame parado. O prompt de imagem deve descrever exatamente essa cena.` : ''}
 
@@ -747,12 +756,12 @@ export function montarPromptCritica(e: {
     .map(
       (p) =>
         `--- id: ${p.id}\n` +
-        `Dia ${p.dia ?? '—'} · ${p.linha ?? 'sem linha'} · ${p.formato ?? 'sem formato'}\n` +
-        `Pilar: ${p.pilar ?? '—'} · Tema: ${p.tema ?? '—'}\n` +
+        `Dia ${p.dia ?? 'não informado'} · ${p.linha ?? 'sem linha'} · ${p.formato ?? 'sem formato'}\n` +
+        `Pilar: ${p.pilar ?? 'não informado'} · Tema: ${p.tema ?? 'não informado'}\n` +
         `Título: ${p.titulo}\n` +
-        `Conceito: ${p.conceito ?? '—'}\n` +
-        `Descrição: ${p.descricao ?? '—'}\n` +
-        `CTA: ${p.cta ?? '—'}`,
+        `Conceito: ${p.conceito ?? 'não informado'}\n` +
+        `Descrição: ${p.descricao ?? 'não informado'}\n` +
+        `CTA: ${p.cta ?? 'não informado'}`,
     )
     .join('\n\n')
 
@@ -764,8 +773,8 @@ ${contextoDaMarca(e.marca, e.base)}${e.estilo ? '\n\n' + e.estilo : ''}${e.conco
 ${e.escopo.map((l) => `${l.label}: ${l.quota} peça(s)/mês`).join('\n')}
 
 # LEITURA DO MÊS, FEITA POR QUEM PLANEJOU
-${e.leitura ?? '—'}
-Territórios: ${(e.territorios ?? []).map((t) => `${t.nome} (${t.peso}%)`).join(', ') || '—'}
+${e.leitura ?? 'não informado'}
+Territórios: ${(e.territorios ?? []).map((t) => `${t.nome} (${t.peso}%)`).join(', ') || 'não informado'}
 
 # AS PAUTAS
 ${lista}
@@ -777,16 +786,16 @@ igual para qualquer concorrente dela? Pauta que serve para qualquer um é pauta 
 mesmo escrita sem erro.
 
 Dê nota FRACA (0 a 4) quando:
-— a pauta poderia ser de qualquer marca do mesmo segmento, sem trocar uma palavra;
-— o conceito é uma categoria, não uma ideia ("falar sobre qualidade", "mostrar o produto");
-— promete recurso que a base declara indisponível, ou contraria uma obrigatoriedade;
-— repete, com outras palavras, uma pauta do mesmo mês.
+- a pauta poderia ser de qualquer marca do mesmo segmento, sem trocar uma palavra;
+- o conceito é uma categoria, não uma ideia ("falar sobre qualidade", "mostrar o produto");
+- promete recurso que a base declara indisponível, ou contraria uma obrigatoriedade;
+- repete, com outras palavras, uma pauta do mesmo mês.
 
 Dê REVISAR (5 a 7) quando a ideia existe mas está morna: o título não segura, o conceito
 depende de uma execução que a descrição não explica, ou o CTA é genérico.
 
-Dê BOA (8 a 10) quando a pauta se apoia em algo que só esta marca tem — um produto, uma
-história, um jeito de falar — e a descrição explica o que aparece na peça.
+Dê BOA (8 a 10) quando a pauta se apoia em algo que só esta marca tem (um produto, uma
+história, um jeito de falar) e a descrição explica o que aparece na peça.
 
 Ao criticar, CITE o trecho. "O título é genérico" não ajuda ninguém; "o título 'Sabor que
 conquista' serve para qualquer geleia do mercado" ajuda.

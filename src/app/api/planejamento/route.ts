@@ -196,7 +196,7 @@ export async function POST(req: Request) {
 
     if (tocadas.length > 0) {
       return erro(
-        `${MESES[mes - 1]} de ${ano} já está em revisão — ${tocadas.length} pauta(s) saíram do estado original. Gerar de novo apagaria esse trabalho. Se é isso mesmo que você quer, mova ou apague o mês primeiro.`,
+        `${MESES[mes - 1]} de ${ano} já está em revisão: ${tocadas.length} pauta(s) saíram do estado original. Gerar de novo apagaria esse trabalho. Se é isso mesmo que você quer, mova ou apague o mês primeiro.`,
         409,
       )
     }

@@ -63,3 +63,56 @@ export async function decidir(
   revalidatePath(`/cliente/${slug}/${ano}/${mes}`)
   return { ok: true }
 }
+
+/**
+ * Grava (ou corrige) o feedback geral do cliente sobre o mês.
+ *
+ * A marca e o mês são descobertos aqui, pelo que a sessão enxerga — o
+ * navegador só manda o endereço da página e o texto. Quem pode gravar
+ * é decidido pelo banco (0021): o cliente da marca, sobre um mês que
+ * já recebeu, em nome dele mesmo.
+ */
+export async function salvarFeedback(
+  slug: string,
+  ano: number,
+  mes: number,
+  destaques: string,
+  atencao: string,
+): Promise<Resultado> {
+  const supabase = await clienteServidor()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, erro: 'Sua sessão expirou. Entre de novo.' }
+
+  const d = (destaques ?? '').trim().slice(0, 3000)
+  const a = (atencao ?? '').trim().slice(0, 3000)
+  if (!d && !a) return { ok: false, erro: 'Escreva pelo menos um dos dois campos.' }
+
+  const { data: marca } = await supabase.from('brands').select('id').eq('slug', slug).maybeSingle()
+  const { data: plano } = marca
+    ? await supabase
+        .from('plans')
+        .select('id')
+        .eq('brand_id', marca.id)
+        .eq('year', ano)
+        .eq('month', mes)
+        .maybeSingle()
+    : { data: null }
+  if (!marca || !plano) return { ok: false, erro: 'Não encontrei este mês. Atualize a página.' }
+
+  const { error } = await supabase.from('feedback_mes').upsert(
+    {
+      brand_id: marca.id,
+      plan_id: plano.id,
+      author_id: user.id,
+      destaques: d || null,
+      atencao: a || null,
+    },
+    { onConflict: 'plan_id,author_id' },
+  )
+  if (error) return { ok: false, erro: 'Não consegui salvar: ' + error.message }
+
+  revalidatePath(`/cliente/${slug}/${ano}/${mes}`)
+  return { ok: true }
+}

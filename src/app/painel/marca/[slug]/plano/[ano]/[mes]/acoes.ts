@@ -47,3 +47,43 @@ export async function apagarPlano(
   revalidatePath('/painel')
   return { ok: true, pautas: Number(data ?? 0) }
 }
+
+/**
+ * Publica (ou apaga) a estratégia do mês que o cliente lê.
+ *
+ * Quem pode é decidido pelo banco: a política de alteração de `plans`
+ * só deixa responsável e quem edita a marca. Se ela recusar, o update
+ * volta sem linha nenhuma — e a tela diz isso em vez de fingir que
+ * salvou.
+ */
+export async function salvarEstrategia(
+  slug: string,
+  planoId: string,
+  texto: string,
+): Promise<{ ok: boolean; erro?: string }> {
+  const supabase = await clienteServidor()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, erro: 'Sua sessão expirou. Entre de novo.' }
+
+  const limpo = (texto ?? '').trim().slice(0, 3000)
+  const { data, error } = await supabase
+    .from('plans')
+    .update({
+      estrategia_cliente: limpo === '' ? null : limpo,
+      estrategia_atualizada_em: limpo === '' ? null : new Date().toISOString(),
+    })
+    .eq('id', planoId)
+    .select('id, month, year')
+
+  if (error) return { ok: false, erro: 'Não consegui salvar: ' + error.message }
+  if (!data || data.length === 0) {
+    return { ok: false, erro: 'Só quem edita esta marca pode escrever a estratégia do mês.' }
+  }
+
+  const p = data[0]
+  revalidatePath(`/painel/marca/${slug}/plano/${p.year}/${p.month}`)
+  revalidatePath(`/cliente/${slug}/${p.year}/${p.month}`)
+  return { ok: true }
+}

@@ -47,7 +47,7 @@ export async function carregarMesDoCliente(slug: string, anoTexto: string, mesTe
 
   const { data: plano } = await supabase
     .from('plans')
-    .select('id, client_released_at, approved_at')
+    .select('id, client_released_at, approved_at, estrategia_cliente')
     .eq('brand_id', marca.id)
     .eq('year', ano)
     .eq('month', mes)
@@ -214,9 +214,26 @@ export async function carregarMesDoCliente(slug: string, anoTexto: string, mesTe
     })
     .sort((a, b) => String(a.data ?? '9999').localeCompare(String(b.data ?? '9999')))
 
+  // A ficha de feedback que esta pessoa já escreveu para o mês, para o
+  // formulário abrir preenchido.
+  const { data: minhaFicha } = await supabase
+    .from('feedback_mes')
+    .select('destaques, atencao, updated_at')
+    .eq('plan_id', plano.id)
+    .eq('author_id', user.id)
+    .maybeSingle()
+
   return {
     ano,
     mes,
+    estrategia: ((plano.estrategia_cliente as string | null) ?? '').trim() || null,
+    meuFeedback: minhaFicha
+      ? {
+          destaques: (minhaFicha.destaques as string | null) ?? '',
+          atencao: (minhaFicha.atencao as string | null) ?? '',
+          em: (minhaFicha.updated_at as string | null) ?? null,
+        }
+      : null,
     marca: {
       id: marca.id as string,
       nome: (marca.name as string) ?? '',
