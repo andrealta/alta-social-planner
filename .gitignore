@@ -30,6 +30,7 @@ cadastro.txt
 carga.txt
 instagram.txt
 concorrentes.txt
+restaurar.txt
 
 # O backup tem dado de cliente e nao entra no Git de jeito nenhum.
 backup/

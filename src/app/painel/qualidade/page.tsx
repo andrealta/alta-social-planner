@@ -10,6 +10,7 @@ import {
   horasMedias,
   porcentoIntocadas,
   somarCusto,
+  somarTudo,
   somarPorPlano,
   usdPorPautaAprovada,
   type Conta,
@@ -20,7 +21,7 @@ import {
 } from '@/lib/medidas'
 
 /**
- * Qualidade: o antes e o depois.
+ * Precisão: o antes e o depois.
  *
  * Existe porque, sem medida, toda conversa sobre "a IA melhorou" é
  * troca de impressão. Estes números já estavam no banco desde o
@@ -35,7 +36,7 @@ import {
  * equipe, refino pedido à IA, ou pedido do cliente. Quando a base de
  * uma marca melhora, a coluna do cliente cai primeiro.
  */
-export default async function Qualidade() {
+export default async function Precisao() {
   const supabase = await clienteServidor()
 
   const {
@@ -61,7 +62,15 @@ export default async function Qualidade() {
 
   const idsPlano = (planos ?? []).map((p) => p.id as string)
 
-  const [{ data: pautas }, { data: versoes }, { data: decisoes }, { data: corridas }] = idsPlano.length
+  // O custo vem SEMPRE, com ou sem planejamento vivo: marca que teve
+  // todos os meses excluídos continua tendo gasto com IA, e é
+  // exatamente o gasto que mais precisa aparecer.
+  const { data: corridas } = await supabase
+    .from('ai_runs')
+    .select('brand_id, agent, cost_usd, status, plano_excluido_em, plano_mes, plano_ano')
+    .limit(10000)
+
+  const [{ data: pautas }, { data: versoes }, { data: decisoes }] = idsPlano.length
     ? await Promise.all([
         supabase
           .from('content_ideas')
@@ -72,11 +81,8 @@ export default async function Qualidade() {
           .from('approvals')
           .select('idea_id, decision, actor_kind, seconds_to_decide')
           .limit(4000),
-        // O que cada chamada de IA custou. Está gravado desde o
-        // primeiro mês e nunca foi somado.
-        supabase.from('ai_runs').select('brand_id, agent, cost_usd, status').limit(5000),
       ])
-    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }]
+    : [{ data: [] }, { data: [] }, { data: [] }]
 
   const conta = somarPorPlano({
     pautas: (pautas ?? []).map(
@@ -107,9 +113,13 @@ export default async function Qualidade() {
         agent: (c.agent as string) ?? '',
         cost_usd: Number(c.cost_usd ?? 0),
         status: (c.status as string) ?? '',
+        planoExcluido: c.plano_excluido_em
+          ? `${c.plano_ano}-${String(c.plano_mes).padStart(2, '0')}`
+          : null,
       }),
     ),
   )
+  const custoTotal = somarTudo(custoPorMarca)
 
   const porMarca = new Map<string, { id: string; mes: number; ano: number; conta: Conta }[]>()
   for (const p of planos ?? []) {
@@ -123,7 +133,13 @@ export default async function Qualidade() {
     porMarca.set(p.brand_id as string, lista)
   }
 
-  const comDados = (marcas ?? []).filter((m) => (porMarca.get(m.id as string) ?? []).length > 0)
+  // Entra na página toda marca que tem mês planejado OU custo de IA —
+  // inclusive a que teve todos os meses excluídos.
+  const comDados = (marcas ?? []).filter(
+    (m) =>
+      (porMarca.get(m.id as string) ?? []).length > 0 ||
+      (custoPorMarca.get(m.id as string)?.chamadas ?? 0) > 0,
+  )
 
   return (
     <main className="pagina" style={{ maxWidth: 1080 }}>
@@ -143,7 +159,7 @@ export default async function Qualidade() {
             marginBottom: 6,
           }}
         >
-          Qualidade
+          Precisão
         </div>
         <h1
           style={{
@@ -157,9 +173,9 @@ export default async function Qualidade() {
           Quanto a IA acerta de primeira
         </h1>
         <p style={{ color: 'var(--muted)', fontSize: 14.5, marginTop: 8, lineHeight: 1.65 }}>
-          De cada dez pautas geradas, quantas foram aprovadas sem ninguém reescrever. É a
-          medida mais crua que existe, e serve para uma coisa só: comparar o mês que vem com
-          o mês passado depois de mexer na base ou no prompt.
+          De cada dez pautas geradas, quantas passaram direto, sem ninguém precisar colocar a
+          mão? Esse é o termômetro mais simples da qualidade: ajuda a entender se as mudanças
+          na base ou no prompt fizeram o próximo mês ficar melhor que o anterior.
         </p>
       </header>
 
@@ -227,9 +243,17 @@ export default async function Qualidade() {
                 </Link>
               </div>
 
+              {meses.length === 0 && (
+                <p style={{ fontSize: 13.5, color: 'var(--muted)', marginBottom: 4 }}>
+                  Nenhum planejamento desta marca existe hoje — os que foram gerados foram
+                  excluídos. O custo deles continua abaixo.
+                </p>
+              )}
+
               {/* Sete colunas não cabem num telefone. Em vez de
                   encolher a fonte até ninguém ler, a tabela rola de
                   lado — e a primeira coluna, o mês, é a que orienta. */}
+              {meses.length > 0 && (
               <div
                 className="rolar-lado"
                 style={{
@@ -329,6 +353,7 @@ export default async function Qualidade() {
                   </tbody>
                 </table>
               </div>
+              )}
 
               {/* O custo fica ao lado da qualidade de propósito. Custo
                   sozinho empurra para economizar chamada; qualidade
@@ -364,6 +389,20 @@ export default async function Qualidade() {
                         </span>
                       )}
                     </div>
+                    {custo.excluido.chamadas > 0 && (
+                      <div style={{ color: 'var(--muted)', fontSize: 12.5, marginTop: 2 }}>
+                        Inclui <b style={{ color: 'var(--text)' }}>{dolar(custo.excluido.usd)}</b> de{' '}
+                        {custo.excluido.meses.length} planejamento(s) excluído(s) —{' '}
+                        {custo.excluido.meses
+                          .sort()
+                          .map((am) => {
+                            const [a, mm] = am.split('-').map(Number)
+                            return `${mesTitulado(mm).toLowerCase()} de ${a}`
+                          })
+                          .join(', ')}
+                        . Foram gerados e pagos, mesmo sem ter ficado.
+                      </div>
+                    )}
                     <div
                       style={{
                         display: 'flex',
@@ -389,6 +428,31 @@ export default async function Qualidade() {
         })
       )}
 
+      {custoTotal.chamadas > 0 && (
+        <section
+          style={{
+            marginTop: 34,
+            padding: '16px 20px',
+            borderRadius: 'var(--r)',
+            background: 'var(--surface)',
+            boxShadow: 'var(--shadow)',
+            fontSize: 14,
+            lineHeight: 1.6,
+            display: 'flex',
+            gap: 12,
+            flexWrap: 'wrap',
+            alignItems: 'baseline',
+          }}
+        >
+          <b>Custo total de IA, todas as marcas: {dolar(custoTotal.usd)}</b>
+          <span style={{ color: 'var(--muted)', fontSize: 13 }}>
+            em {custoTotal.chamadas} chamada(s)
+            {custoTotal.excluido.usd > 0 &&
+              ` · ${dolar(custoTotal.excluido.usd)} vieram de planejamentos excluídos`}
+          </span>
+        </section>
+      )}
+
       <section
         style={{
           marginTop: 34,
@@ -412,7 +476,9 @@ export default async function Qualidade() {
         pauta aprovada — o total diz pouco. Marca com trinta refinos e quatro pautas aprovadas
         custa caro por peça mesmo com total pequeno, e isso não é problema de preço: é sinal de
         base incompleta. Chamada que falhou entra na conta, porque token gasto em erro é token
-        cobrado. Os valores são em dólar, que é como a API cobra.
+        cobrado. Planejamento excluído também entra: a geração aconteceu e foi paga, e sumir com
+        o custo dele faria o mês refeito parecer mais barato do que foi. Os valores são em
+        dólar, que é como a API cobra.
       </section>
     </main>
   )

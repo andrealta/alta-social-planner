@@ -102,7 +102,7 @@ export default async function Painel() {
               whiteSpace: 'nowrap',
             }}
           >
-            Qualidade
+            Precisão
           </Link>
           {papel === 'admin' && (
             <Link

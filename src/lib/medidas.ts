@@ -130,6 +130,11 @@ export type CorridaMedida = {
   agent: string
   cost_usd: number
   status: string
+  /**
+   * Quando a chamada pertencia a um mês que foi excluído, qual era o
+   * mês ("2026-11"). Nulo para tudo o mais. Ver migração 0019.
+   */
+  planoExcluido?: string | null
 }
 
 export type Custo = {
@@ -137,9 +142,20 @@ export type Custo = {
   falhas: number
   usd: number
   porEtapa: Record<string, { chamadas: number; usd: number }>
+  /**
+   * A parte do custo que veio de meses excluídos. Já está DENTRO de
+   * `usd` e `chamadas` — isto é só o recorte, para a tela poder dizer.
+   */
+  excluido: { chamadas: number; usd: number; meses: string[] }
 }
 
-export const custoVazio = (): Custo => ({ chamadas: 0, falhas: 0, usd: 0, porEtapa: {} })
+export const custoVazio = (): Custo => ({
+  chamadas: 0,
+  falhas: 0,
+  usd: 0,
+  porEtapa: {},
+  excluido: { chamadas: 0, usd: 0, meses: [] },
+})
 
 /** Como cada etapa se chama na tela. O banco fala em inglês. */
 export const ETAPA: Record<string, string> = {
@@ -175,6 +191,15 @@ export function somarCusto(corridas: CorridaMedida[]): Map<string, Custo> {
     etapa.usd += usd
     atual.porEtapa[c.agent] = etapa
 
+    // Mês excluído continua custando: a geração aconteceu e foi paga.
+    if (c.planoExcluido) {
+      atual.excluido.chamadas++
+      atual.excluido.usd += usd
+      if (!atual.excluido.meses.includes(c.planoExcluido)) {
+        atual.excluido.meses.push(c.planoExcluido)
+      }
+    }
+
     porMarca.set(c.brand_id, atual)
   }
 
@@ -190,6 +215,26 @@ export function somarCusto(corridas: CorridaMedida[]): Map<string, Custo> {
 export function usdPorPautaAprovada(custo: Custo, aprovadas: number): number | null {
   if (aprovadas <= 0) return null
   return custo.usd / aprovadas
+}
+
+/** Soma o custo de todas as marcas numa conta só, para o rodapé da página. */
+export function somarTudo(porMarca: Map<string, Custo>): Custo {
+  const t = custoVazio()
+  for (const c of porMarca.values()) {
+    t.chamadas += c.chamadas
+    t.falhas += c.falhas
+    t.usd += c.usd
+    t.excluido.chamadas += c.excluido.chamadas
+    t.excluido.usd += c.excluido.usd
+    t.excluido.meses.push(...c.excluido.meses)
+    for (const [k, e] of Object.entries(c.porEtapa)) {
+      const x = t.porEtapa[k] ?? { chamadas: 0, usd: 0 }
+      x.chamadas += e.chamadas
+      x.usd += e.usd
+      t.porEtapa[k] = x
+    }
+  }
+  return t
 }
 
 /** Dólar com duas ou três casas, conforme o tamanho — centavo importa aqui. */
