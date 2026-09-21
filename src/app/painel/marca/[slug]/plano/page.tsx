@@ -112,7 +112,7 @@ export default async function Planos({ params }: { params: Promise<{ slug: strin
           {marca.name as string}
         </div>
         <h1 style={{ fontFamily: 'var(--disp)', fontSize: 34, fontWeight: 600, lineHeight: 1.08 }}>
-          Planejamento
+          Alta Social Planner
         </h1>
       </header>
 

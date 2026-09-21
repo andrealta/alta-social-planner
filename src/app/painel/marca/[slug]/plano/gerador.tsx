@@ -141,13 +141,21 @@ export function Gerador({
         padding: 20,
       }}
     >
-      <h2 style={{ fontFamily: 'var(--disp)', fontSize: 19, fontWeight: 600 }}>Gerar um mês</h2>
-      <p style={{ color: 'var(--muted)', fontSize: 13.5, marginTop: 3, marginBottom: 16 }}>
-        São {pecas} peças por mês, conforme o contrato. O modelo raciocina
-        vários minutos antes de escrever a primeira letra — o contador fica
-        parado nessa fase e isso é normal. Conte de <b>quatro a oito minutos</b> no
-        total, e não feche a aba.
-      </p>
+      <h2 style={{ fontFamily: 'var(--disp)', fontSize: 19, fontWeight: 600 }}>Gerar planejamento</h2>
+      <div style={{ color: 'var(--muted)', fontSize: 13.5, lineHeight: 1.6, marginTop: 3, marginBottom: 16 }}>
+        <p>
+          São {pecas} peças por mês, conforme previsto em contrato. Antes de começar a
+          escrever, o modelo pode passar alguns minutos pensando, cruzando informações e
+          organizando as ideias. Nessa etapa, é normal o contador parecer parado.
+        </p>
+        <p style={{ marginTop: 6 }}>
+          O processo completo costuma levar de <b>4 a 8 minutos</b>.
+        </p>
+        <p style={{ marginTop: 6 }}>
+          Tempo suficiente para pegar um café, esticar as pernas e voltar com tudo pronto.
+          Só não feche a aba enquanto isso. ☕
+        </p>
+      </div>
 
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
         <select
