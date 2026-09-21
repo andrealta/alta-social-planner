@@ -107,11 +107,49 @@ export function porcentoIntocadas(contas: Conta[]): { pct: number; intocadas: nu
   return { pct: pautas ? Math.round((intocadas / pautas) * 100) : 0, intocadas, pautas }
 }
 
-/** A média de horas que o cliente leva para responder. */
-export function horasMedias(c: Conta): number | null {
+/** A média de segundos que o cliente leva para responder. Nulo sem decisões medidas. */
+export function segundosMedios(c: Conta): number | null {
   if (c.segundos.length === 0) return null
-  const media = c.segundos.reduce((s, v) => s + v, 0) / c.segundos.length
-  return Math.round(media / 3600)
+  return c.segundos.reduce((s, v) => s + v, 0) / c.segundos.length
+}
+
+/** Média de várias contas juntas — para a linha da marca. */
+export function segundosMediosDe(contas: Conta[]): number | null {
+  const todos = contas.flatMap((c) => c.segundos)
+  if (todos.length === 0) return null
+  return todos.reduce((s, v) => s + v, 0) / todos.length
+}
+
+/**
+ * Tempo em português de gente: "25 min", "2h 15min", "3 dias e 4h".
+ *
+ * Existe porque "~0h" (o que a tela mostrava antes) não diz nada a
+ * ninguém — era meia hora arredondada para zero.
+ */
+export function duracao(segundos: number | null | undefined): string | null {
+  if (segundos === null || segundos === undefined || !Number.isFinite(segundos) || segundos < 0) {
+    return null
+  }
+  if (segundos < 60) return 'menos de 1 min'
+  if (segundos < 3600) return `${Math.round(segundos / 60)} min`
+  if (segundos < 86400) {
+    let h = Math.floor(segundos / 3600)
+    let m = Math.round((segundos % 3600) / 60)
+    if (m === 60) {
+      h++
+      m = 0
+    }
+    if (h === 24) return '1 dia'
+    return m ? `${h}h ${String(m).padStart(2, '0')}min` : `${h}h`
+  }
+  let d = Math.floor(segundos / 86400)
+  let h = Math.round((segundos % 86400) / 3600)
+  if (h === 24) {
+    d++
+    h = 0
+  }
+  const dias = d === 1 ? '1 dia' : `${d} dias`
+  return h ? `${dias} e ${h}h` : dias
 }
 
 // =============================================================

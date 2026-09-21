@@ -7,7 +7,9 @@ import {
   contaVazia,
   custoVazio,
   dolar,
-  horasMedias,
+  duracao,
+  segundosMedios,
+  segundosMediosDe,
   porcentoIntocadas,
   somarCusto,
   somarTudo,
@@ -54,7 +56,7 @@ export default async function Precisao() {
     supabase.from('brands').select('id, name, slug, color').order('name'),
     supabase
       .from('plans')
-      .select('id, brand_id, month, year, client_released_at')
+      .select('id, brand_id, month, year, client_released_at, approved_at')
       .order('year', { ascending: false })
       .order('month', { ascending: false })
       .limit(72),
@@ -121,7 +123,15 @@ export default async function Precisao() {
   )
   const custoTotal = somarTudo(custoPorMarca)
 
-  const porMarca = new Map<string, { id: string; mes: number; ano: number; conta: Conta }[]>()
+  type MesDaMarca = {
+    id: string
+    mes: number
+    ano: number
+    conta: Conta
+    /** Quanto tempo do envio até o cliente aprovar a última peça. Nulo: não concluído. */
+    segundosAteConcluir: number | null
+  }
+  const porMarca = new Map<string, MesDaMarca[]>()
   for (const p of planos ?? []) {
     const lista = porMarca.get(p.brand_id as string) ?? []
     lista.push({
@@ -129,6 +139,15 @@ export default async function Precisao() {
       mes: Number(p.month),
       ano: Number(p.year),
       conta: conta.get(p.id as string) ?? contaVazia(),
+      segundosAteConcluir:
+        p.approved_at && p.client_released_at
+          ? Math.max(
+              0,
+              (new Date(p.approved_at as string).getTime() -
+                new Date(p.client_released_at as string).getTime()) /
+                1000,
+            )
+          : null,
     })
     porMarca.set(p.brand_id as string, lista)
   }
@@ -202,6 +221,8 @@ export default async function Precisao() {
           const somaPautas = recente.pautas
           const pctRecente = recente.pct
           const cor = (m.color as string | null) ?? 'var(--accent)'
+          const concluidos = meses.filter((x) => x.segundosAteConcluir !== null)
+          const respostaMarca = duracao(segundosMediosDe(concluidos.map((x) => x.conta)))
 
           return (
             <section key={m.id as string} style={{ marginTop: 30 }}>
@@ -229,6 +250,12 @@ export default async function Precisao() {
                     ? `${pctRecente}% sem edição nos últimos ${tresUltimos.length} mês(es)`
                     : 'sem pautas ainda'}
                 </span>
+                {respostaMarca && (
+                  <span style={{ fontSize: 13.5, color: 'var(--muted)' }}>
+                    · o cliente responde em média em {respostaMarca}
+                    {concluidos.length > 0 && ` (${concluidos.length} mês(es) concluído(s))`}
+                  </span>
+                )}
                 <Link
                   href={`/painel/marca/${m.slug as string}`}
                   style={{
@@ -290,7 +317,12 @@ export default async function Precisao() {
                     {meses.map((x) => {
                       const c = x.conta
                       const pct = c.pautas ? Math.round((c.intocadas / c.pautas) * 100) : 0
-                      const horas = horasMedias(c)
+                      // A média só aparece com o mês 100% aprovado: antes
+                      // disso ela mudaria a cada clique do cliente, e um
+                      // número que ainda está andando engana mais do que
+                      // informa.
+                      const concluido = x.segundosAteConcluir !== null
+                      const media = concluido ? duracao(segundosMedios(c)) : null
                       return (
                         <tr key={x.id} style={{ borderTop: '1px solid var(--line)' }}>
                           <td style={{ padding: '12px 16px', fontWeight: 600, whiteSpace: 'nowrap' }}>
@@ -343,9 +375,19 @@ export default async function Precisao() {
                             {c.pedidosCliente}
                           </td>
                           <td style={{ padding: '12px 16px', textAlign: 'right', color: 'var(--muted)', whiteSpace: 'nowrap' }}>
-                            {c.decisoesCliente === 0
-                              ? '—'
-                              : `${c.decisoesCliente} decisões${horas !== null ? ` · ~${horas}h` : ''}`}
+                            {c.decisoesCliente === 0 ? (
+                              '—'
+                            ) : (
+                              <>
+                                {c.decisoesCliente} decisões
+                                {concluido ? (media ? ` · média de ${media}` : '') : ' · em andamento'}
+                                {concluido && (
+                                  <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 2 }}>
+                                    mês aprovado em {duracao(x.segundosAteConcluir)}
+                                  </div>
+                                )}
+                              </>
+                            )}
                           </td>
                         </tr>
                       )

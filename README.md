@@ -197,15 +197,15 @@ Rode `10-seguranca.cmd` depois de qualquer mudança no banco.
 
 ## Testes
 
-Em `asp/` (fora deste repositório, com quem escreveu) há **159 casos em
+Em `asp/` (fora deste repositório, com quem escreveu) há **166 casos em
 SQL** que rodam contra um PostgreSQL local recriado do zero: isolamento
 entre marcas, versionamento de pauta, ciclo completo com o cliente,
 permissões de pessoas, os níveis de acesso à marca e a exclusão de
 planejamento, a varredura de concorrentes e a resposta à pergunta que
 mais importa nela: o cliente não vê o que pesquisamos sobre o mercado
-dele, a exclusão de pessoa e quem pode ver o nome de quem avaliou. Mais **95 casos em TypeScript** sobre as bibliotecas que não
-tocam o banco: `src/lib/estilo.ts` (21), `src/lib/medidas.ts` (33) e
-`src/lib/concorrencia.ts` (28) e a regra de exclusão da tela (13). Total: 254.
+dele, a exclusão de pessoa e quem pode ver o nome de quem avaliou. Mais **108 casos em TypeScript** sobre as bibliotecas que não
+tocam o banco: `src/lib/estilo.ts` (21), `src/lib/medidas.ts` (46) e
+`src/lib/concorrencia.ts` (28) e a regra de exclusão da tela (13). Total: 274.
 
 Eles provam que as regras **funcionam**; `10-seguranca.cmd` prova que
 elas **estão lá** em produção. As duas perguntas são diferentes.

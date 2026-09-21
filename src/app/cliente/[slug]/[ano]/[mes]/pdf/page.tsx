@@ -1,5 +1,6 @@
 import { mesTitulado } from '@/lib/prompt'
 import { DIAS_CURTOS, ICONE_PECA, semanasDoMes, tipoDaPeca } from '@/lib/visual'
+import { duracao } from '@/lib/medidas'
 import { carregarMesDoCliente } from '../dados'
 import type { PautaCliente } from '../avaliacao'
 import { Imprimir } from './imprimir'
@@ -301,7 +302,8 @@ export default async function PdfDoMes({
                   <div className="decisao" style={{ color: 'var(--meio)' }}>
                     {ultima.decisao === 'approved' ? 'Aprovada' : 'Alteração pedida'} por{' '}
                     <b style={{ color: 'var(--tinta)' }}>{ultima.autor ?? 'cliente'}</b> em{' '}
-                    {quando(ultima.created_at)}.
+                    {quando(ultima.created_at)}
+                    {duracao(ultima.segundos) && ` · respondeu em ${duracao(ultima.segundos)}`}.
                   </div>
                 )}
               </div>

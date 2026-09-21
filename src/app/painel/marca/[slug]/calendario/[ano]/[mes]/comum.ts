@@ -85,6 +85,8 @@ export type Decisao = {
   created_at: string
   version: number
   lado: string
+  /** Quanto tempo depois do envio ao cliente a decisão veio. Nulo: não medido. */
+  segundos: number | null
 }
 
 export type Recado = {

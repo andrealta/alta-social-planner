@@ -24,6 +24,7 @@ import {
   type JuizoDaPauta,
   type Pauta,
 } from './comum'
+import { duracao } from '@/lib/medidas'
 
 type Aba = 'ideia' | 'conteudo' | 'versoes'
 
@@ -378,6 +379,9 @@ export function Painel({
                           hour: '2-digit',
                           minute: '2-digit',
                         })}
+                        {d.lado === 'client' &&
+                          duracao(d.segundos) &&
+                          ` · respondeu em ${duracao(d.segundos)}`}
                       </span>
                     </div>
                   )

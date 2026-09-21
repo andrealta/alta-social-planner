@@ -92,7 +92,7 @@ export default async function CalendarioDoMes({
       .order('created_at', { ascending: false }),
     supabase
       .from('approvals')
-      .select('id, idea_id, decision, actor_id, actor_kind, version, created_at')
+      .select('id, idea_id, decision, actor_id, actor_kind, version, created_at, seconds_to_decide')
       .eq('brand_id', marca.id)
       .order('created_at', { ascending: false }),
   ])
@@ -193,6 +193,9 @@ export default async function CalendarioDoMes({
       created_at: d.created_at as string,
       version: Number(d.version ?? 1),
       lado: (d.actor_kind as string) ?? 'client',
+      segundos: d.seconds_to_decide === null || d.seconds_to_decide === undefined
+        ? null
+        : Number(d.seconds_to_decide),
     })
     decisoesDe.set(id, lista)
   }

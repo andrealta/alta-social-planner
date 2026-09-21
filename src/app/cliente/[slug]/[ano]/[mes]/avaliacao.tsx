@@ -14,6 +14,7 @@ import {
   tipoDaPeca,
 } from '@/lib/visual'
 import { decidir } from './acoes'
+import { duracao } from '@/lib/medidas'
 
 export type PautaCliente = {
   id: string
@@ -41,7 +42,11 @@ export type PautaCliente = {
     created_at: string
     /** Foi quem está olhando a tela que decidiu. */
     meu: boolean
+    /** Quanto tempo depois do envio a decisão veio. Nulo: não medido. */
+    segundos: number | null
   }[]
+  /** Quando a publicação chegou ao cliente pela última vez. */
+  enviadaEm: string | null
 }
 
 const SITUACAO: Record<string, { rotulo: string; curto: string; cor: string; wash: string }> = {
@@ -169,6 +174,11 @@ export function Avaliacao({
                   autor: euNome,
                   created_at: new Date().toISOString(),
                   meu: true,
+                  // O banco mede o mesmo intervalo; aqui é só para a
+                  // tela mostrar na hora, sem esperar recarregar.
+                  segundos: x.enviadaEm
+                    ? Math.max(0, (Date.now() - new Date(x.enviadaEm).getTime()) / 1000)
+                    : null,
                 },
                 ...x.decisoes,
               ],
@@ -774,6 +784,7 @@ function Gaveta({
                   hour: '2-digit',
                   minute: '2-digit',
                 })}
+                {duracao(d.segundos) && ` · respondeu em ${duracao(d.segundos)}`}
               </div>
             ))}
           </Bloco>
@@ -906,7 +917,7 @@ function Gaveta({
                         hour: '2-digit',
                         minute: '2-digit',
                       })}
-                      .
+                      {duracao(a.segundos) && `, ${duracao(a.segundos)} depois do envio`}.
                     </div>
                   )}
                 </>

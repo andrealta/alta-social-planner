@@ -65,7 +65,9 @@ export async function carregarMesDoCliente(slug: string, anoTexto: string, mesTe
   ] = await Promise.all([
     supabase
       .from('content_ideas')
-      .select('id, title, concept, description, editorial_line, cta, status, scope_id, position')
+      .select(
+        'id, title, concept, description, editorial_line, cta, status, scope_id, position, enviada_ao_cliente_em',
+      )
       .eq('plan_id', plano.id)
       .order('position'),
     supabase
@@ -89,7 +91,7 @@ export async function carregarMesDoCliente(slug: string, anoTexto: string, mesTe
       .order('created_at', { ascending: false }),
     supabase
       .from('approvals')
-      .select('id, idea_id, decision, actor_id, created_at')
+      .select('id, idea_id, decision, actor_id, created_at, seconds_to_decide')
       .eq('brand_id', marca.id)
       .order('created_at', { ascending: false }),
     // Os nomes vêm por uma função, não pela tabela `profiles`: a
@@ -118,6 +120,9 @@ export async function carregarMesDoCliente(slug: string, anoTexto: string, mesTe
       autor: d.actor_id ? (nomeDe.get(d.actor_id as string) || null) : null,
       created_at: d.created_at as string,
       meu: d.actor_id === user.id,
+      segundos: d.seconds_to_decide === null || d.seconds_to_decide === undefined
+        ? null
+        : Number(d.seconds_to_decide),
     })
     decisoesDe.set(id, lista)
   }
@@ -204,6 +209,7 @@ export async function carregarMesDoCliente(slug: string, anoTexto: string, mesTe
         cenas,
         recados: recadosDe.get(p.id as string) ?? [],
         decisoes: decisoesDe.get(p.id as string) ?? [],
+        enviadaEm: (p.enviada_ao_cliente_em as string | null) ?? null,
       }
     })
     .sort((a, b) => String(a.data ?? '9999').localeCompare(String(b.data ?? '9999')))
