@@ -114,8 +114,9 @@ export function Apagar({
           </p>
           {comCliente && (
             <p style={{ fontSize: 13.3, lineHeight: 1.65, marginBottom: 4 }}>
-              <b>Atenção:</b> este mês já foi enviado ao cliente. Se ele já tiver aprovado
-              ou comentado alguma peça, o banco vai recusar — e é melhor assim.
+              <b>Atenção:</b> este mês já foi enviado ao cliente e deixa de aparecer no portal
+              dele. Se ele já aprovou ou pediu alteração em alguma peça, esses registros saem
+              junto. Para guardar uma cópia, rode o <b>17-exportar.cmd</b> antes.
             </p>
           )}
           <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', marginTop: 12 }}>

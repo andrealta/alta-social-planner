@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import { clienteServidor } from '@/lib/supabase/server'
 import { MESES, mesTitulado } from '@/lib/prompt'
 import { Apagar } from './apagar'
+import { exclusaoDoPlano } from '../../regra'
 
 type Achado = { gravidade: 'erro' | 'aviso'; texto: string }
 type Territorio = { nome: string; peso: number; cobre?: string; posts?: number; novo?: boolean }
@@ -49,10 +50,18 @@ export default async function Plano({
     .maybeSingle()
   if (!plano) notFound()
 
-  // Apagar é do responsável pela marca e da administração. Quem manda
-  // é o banco; isto aqui só decide se o botão aparece.
-  const { data: nivel } = await supabase.rpc('nivel_na_marca', { b: marca.id })
-  const podeApagar = nivel === 'owner'
+  // Quem exclui: administração sempre; a equipe que edita a marca, só
+  // até o envio ao cliente (0018). Quem manda é o banco; isto aqui só
+  // decide se o botão aparece.
+  const [{ data: nivel }, { data: perfil }] = await Promise.all([
+    supabase.rpc('nivel_na_marca', { b: marca.id }),
+    supabase.from('profiles').select('role').eq('id', user.id).single(),
+  ])
+  const exclusao = exclusaoDoPlano(
+    (perfil?.role as string) ?? null,
+    nivel as string | null,
+    plano.client_released_at !== null,
+  )
 
   const [{ data: pautas }, { data: canais }, { data: linhas }] = await Promise.all([
     supabase
@@ -374,7 +383,7 @@ export default async function Plano({
         </section>
       ) : null}
 
-      {podeApagar && (
+      {exclusao.pode && (
         <Apagar
           slug={slug}
           planoId={plano.id as string}
@@ -383,6 +392,19 @@ export default async function Plano({
           pautas={(pautas ?? []).length}
           comCliente={plano.client_released_at !== null}
         />
+      )}
+      {!exclusao.pode && exclusao.motivo && (
+        <p
+          style={{
+            marginTop: 40,
+            paddingTop: 22,
+            borderTop: '1px solid var(--line)',
+            fontSize: 12.8,
+            color: 'var(--faint)',
+          }}
+        >
+          {exclusao.motivo}
+        </p>
       )}
     </main>
   )

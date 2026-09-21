@@ -9,9 +9,10 @@ export type ResultadoApagar = { ok: boolean; erro?: string; pautas?: number }
  * Apaga um planejamento inteiro.
  *
  * Toda a decisão de quem pode mora no banco, na função `apagar_plano`
- * e no gatilho `plans_apagar_guard`: responsável ou administração, e
- * nunca um mês em que o cliente já decidiu alguma coisa. Aqui só
- * traduzimos a recusa para uma frase que a pessoa entenda.
+ * e no gatilho `plans_apagar_guard` (regra da 0018): a administração
+ * exclui sempre; a equipe que edita a marca, só até o envio ao
+ * cliente. As recusas do banco já saem em português; aqui só
+ * repassamos.
  *
  * Não existe desfazer. As pautas, o conteúdo escrito e o histórico de
  * versões saem junto, por cascata — e é assim que tem de ser: pauta
@@ -32,14 +33,13 @@ export async function apagarPlano(
   const { data, error } = await supabase.rpc('apagar_plano', { p_plan_id: planoId })
 
   if (error) {
+    const nossa =
+      error.message.startsWith('Este mês') ||
+      error.message.startsWith('Você não tem') ||
+      error.message.startsWith('Planejamento não encontrado')
     return {
       ok: false,
-      erro:
-        error.message.includes('decisão') || error.message.includes('decisao')
-          ? error.message
-          : error.message.includes('responsável') || error.code === '42501'
-            ? 'Só quem é responsável por esta marca pode apagar um planejamento.'
-            : 'Não consegui apagar: ' + error.message,
+      erro: nossa ? error.message : 'Não consegui apagar: ' + error.message,
     }
   }
 

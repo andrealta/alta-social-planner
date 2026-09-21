@@ -4,6 +4,7 @@ import { clienteServidor } from '@/lib/supabase/server'
 import { mesTitulado } from '@/lib/prompt'
 import { Gerador } from './gerador'
 import { MesesPlanejados, type MesPlanejado } from './meses'
+import { exclusaoDoPlano } from './regra'
 
 const SITUACAO: Record<string, { rotulo: string; cor: string }> = {
   draft: { rotulo: 'rascunho', cor: 'faint' },
@@ -38,7 +39,7 @@ export default async function Planos({ params }: { params: Promise<{ slug: strin
       .eq('active', true),
     supabase
       .from('plans')
-      .select('id, month, year, status, created_at')
+      .select('id, month, year, status, created_at, client_released_at')
       .eq('brand_id', marca.id)
       .order('year', { ascending: false })
       .order('month', { ascending: false }),
@@ -49,8 +50,9 @@ export default async function Planos({ params }: { params: Promise<{ slug: strin
   // Quem pode excluir, quantas pautas cada mês tem, e em quais o
   // cliente já decidiu alguma coisa. O banco é quem manda nas três
   // coisas; a tela só pergunta para não oferecer o que vai ser recusado.
-  const [{ data: nivel }, { data: ideias }, { data: decisoesCliente }] = await Promise.all([
+  const [{ data: nivel }, { data: perfil }, { data: ideias }, { data: decisoesCliente }] = await Promise.all([
     supabase.rpc('nivel_na_marca', { b: marca.id }),
+    supabase.from('profiles').select('role').eq('id', user.id).single(),
     supabase.from('content_ideas').select('id, plan_id').eq('brand_id', marca.id),
     supabase
       .from('approvals')
@@ -65,11 +67,12 @@ export default async function Planos({ params }: { params: Promise<{ slug: strin
     planoDaIdeia.set(i.id as string, i.plan_id as string)
     pautasDoPlano.set(i.plan_id as string, (pautasDoPlano.get(i.plan_id as string) ?? 0) + 1)
   }
-  const planosDecididos = new Set<string>()
+  const decisoesDoPlano = new Map<string, number>()
   for (const d of decisoesCliente ?? []) {
     const plano = planoDaIdeia.get(d.idea_id as string)
-    if (plano) planosDecididos.add(plano)
+    if (plano) decisoesDoPlano.set(plano, (decisoesDoPlano.get(plano) ?? 0) + 1)
   }
+  const papel = (perfil?.role as string) ?? null
 
   // "Novembro de 2026". Antes a lista usava text-transform: capitalize,
   // que põe maiúscula em TODA palavra — e o "de" virava "De".
@@ -80,8 +83,9 @@ export default async function Planos({ params }: { params: Promise<{ slug: strin
     nome: `${mesTitulado(Number(p.month))} de ${p.year}`,
     situacao: SITUACAO[p.status as string] ?? { rotulo: p.status as string, cor: 'faint' },
     pautas: pautasDoPlano.get(p.id as string) ?? 0,
-    clienteDecidiu: planosDecididos.has(p.id as string),
-    comCliente: p.status === 'sent_to_client' || p.status === 'approved',
+    decisoesCliente: decisoesDoPlano.get(p.id as string) ?? 0,
+    comCliente: p.client_released_at !== null,
+    exclusao: exclusaoDoPlano(papel, nivel as string | null, p.client_released_at !== null),
   }))
 
   const agora = new Date()
@@ -152,7 +156,7 @@ export default async function Planos({ params }: { params: Promise<{ slug: strin
           Meses já planejados
         </h2>
 
-        <MesesPlanejados slug={slug} meses={meses} podeApagar={nivel === 'owner'} />
+        <MesesPlanejados slug={slug} meses={meses} />
       </section>
     </main>
   )

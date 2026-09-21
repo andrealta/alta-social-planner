@@ -143,9 +143,19 @@ lia. Vale registrar o tipo de erro: um controle que parece existir e não
 existe é pior do que não ter controle nenhum, porque alguém confia
 nele.
 
-Apagar planejamento (migração 0014) é de `owner` e de `admin`, e passa
-por `apagar_plano()`. Um gatilho recusa apagar mês que o cliente já
-avaliou: o que ele aprovou é registro, não rascunho.
+Apagar planejamento passa por `apagar_plano()`, e a regra vale no banco
+(migração 0018): a **administração** exclui qualquer mês, em qualquer
+estado — inclusive depois que o cliente avaliou; a **equipe que edita a
+marca** exclui só até o envio ao cliente. Quem só lê não exclui. A tela
+repete a regra em `plano/regra.ts` apenas para decidir se o botão
+aparece.
+
+Um defeito que a 0018 corrigiu, e que vale lembrar: `content_versions` e
+`approvals` são append-only, e a exclusão de um mês apaga as duas em
+cascata. Até a 0018, qualquer mês com uma única pauta editada era
+impossível de excluir. Agora o histórico cede **só** à cascata do
+`apagar_plano` (uma marca na transação + `pg_trigger_depth() > 1`);
+um DELETE direto continua recusado, mesmo para a administração.
 
 Apagar pessoa (migração 0016) é só de `admin`, e com duas travas de
 gatilho: ninguém apaga a própria conta, e o último administrador não
@@ -180,15 +190,15 @@ Rode `10-seguranca.cmd` depois de qualquer mudança no banco.
 
 ## Testes
 
-Em `asp/` (fora deste repositório, com quem escreveu) há **145 casos em
+Em `asp/` (fora deste repositório, com quem escreveu) há **147 casos em
 SQL** que rodam contra um PostgreSQL local recriado do zero: isolamento
 entre marcas, versionamento de pauta, ciclo completo com o cliente,
 permissões de pessoas, os níveis de acesso à marca e a exclusão de
 planejamento, a varredura de concorrentes e a resposta à pergunta que
 mais importa nela: o cliente não vê o que pesquisamos sobre o mercado
-dele, a exclusão de pessoa e quem pode ver o nome de quem avaliou. Mais **73 casos em TypeScript** sobre as bibliotecas que não
+dele, a exclusão de pessoa e quem pode ver o nome de quem avaliou. Mais **86 casos em TypeScript** sobre as bibliotecas que não
 tocam o banco: `src/lib/estilo.ts` (21), `src/lib/medidas.ts` (24) e
-`src/lib/concorrencia.ts` (28). Total: 218.
+`src/lib/concorrencia.ts` (28) e a regra de exclusão da tela (13). Total: 233.
 
 Eles provam que as regras **funcionam**; `10-seguranca.cmd` prova que
 elas **estão lá** em produção. As duas perguntas são diferentes.

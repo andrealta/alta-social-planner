@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { botao } from '@/lib/visual'
 import { apagarPlano } from './[ano]/[mes]/acoes'
+import type { Exclusao } from './regra'
 
 export type MesPlanejado = {
   id: string
@@ -14,9 +15,11 @@ export type MesPlanejado = {
   nome: string
   situacao: { rotulo: string; cor: string }
   pautas: number
-  /** O cliente já aprovou ou pediu alteração em alguma peça. */
-  clienteDecidiu: boolean
+  /** Quantas aprovações e pedidos de alteração do cliente o mês tem. */
+  decisoesCliente: number
   comCliente: boolean
+  /** Se quem está olhando pode excluir este mês — e, se não, por quê. */
+  exclusao: Exclusao
 }
 
 /**
@@ -26,19 +29,18 @@ export type MesPlanejado = {
  * onde a pessoa procura — na lista. Em dois passos, como lá: o
  * primeiro clique não apaga, só mostra o que vai embora.
  *
- * Mês em que o cliente já decidiu alguma coisa aparece sem o botão e
- * com o motivo. O banco recusaria de qualquer jeito (gatilho
- * `plans_apagar_guard`, migração 0014); mostrar o botão para depois
- * dar erro seria convidar a pessoa a tentar.
+ * Quem pode, e quando, vem pronto do servidor (`regra.ts`, espelho da
+ * regra do banco na migração 0018): administração sempre; a equipe que
+ * edita a marca, só até o envio ao cliente. Depois do envio, para a
+ * equipe, o botão aparece apagado e diz o motivo — melhor que sumir e
+ * deixar a pessoa procurando.
  */
 export function MesesPlanejados({
   slug,
   meses: iniciais,
-  podeApagar,
 }: {
   slug: string
   meses: MesPlanejado[]
-  podeApagar: boolean
 }) {
   const router = useRouter()
   const [meses, setMeses] = useState(iniciais)
@@ -123,19 +125,15 @@ export function MesesPlanejados({
                 </span>
               </Link>
 
-              {podeApagar && confirmando !== m.id && (
+              {(m.exclusao.pode || m.exclusao.motivo) && confirmando !== m.id && (
                 <button
                   onClick={() => {
                     setConfirmando(m.id)
                     setErro(null)
                     setFeito(null)
                   }}
-                  disabled={m.clienteDecidiu}
-                  title={
-                    m.clienteDecidiu
-                      ? 'O cliente já avaliou peças deste mês — o que ele decidiu é registro, e não pode ser apagado.'
-                      : `Excluir o planejamento de ${m.nome.toLowerCase()}`
-                  }
+                  disabled={!m.exclusao.pode}
+                  title={m.exclusao.motivo ?? `Excluir o planejamento de ${m.nome.toLowerCase()}`}
                   aria-label={`Excluir o planejamento de ${m.nome.toLowerCase()}`}
                   style={{
                     fontFamily: 'inherit',
@@ -143,10 +141,10 @@ export function MesesPlanejados({
                     padding: '6px 4px',
                     border: 'none',
                     background: 'none',
-                    color: m.clienteDecidiu ? 'var(--line-2)' : 'var(--faint)',
-                    textDecoration: m.clienteDecidiu ? 'none' : 'underline',
+                    color: m.exclusao.pode ? 'var(--faint)' : 'var(--line-2)',
+                    textDecoration: m.exclusao.pode ? 'underline' : 'none',
                     textUnderlineOffset: 3,
-                    cursor: m.clienteDecidiu ? 'not-allowed' : 'pointer',
+                    cursor: m.exclusao.pode ? 'pointer' : 'not-allowed',
                     whiteSpace: 'nowrap',
                   }}
                 >
@@ -189,6 +187,15 @@ export function MesesPlanejados({
                   {m.comCliente &&
                     ' Este mês já foi enviado ao cliente: ele deixa de aparecer no portal dele.'}
                 </p>
+                {m.decisoesCliente > 0 && (
+                  <p style={{ fontSize: 13.3, lineHeight: 1.65, marginTop: 8 }}>
+                    <b>
+                      O cliente já registrou {m.decisoesCliente} decisão(ões) neste mês.
+                    </b>{' '}
+                    As aprovações e os pedidos de alteração saem junto — é o registro de que ele viu
+                    e respondeu. Se quiser guardar uma cópia, rode o <b>17-exportar.cmd</b> antes.
+                  </p>
+                )}
                 <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', marginTop: 12 }}>
                   <button
                     onClick={() => apagar(m)}
