@@ -46,7 +46,7 @@ export default async function GerenciarPessoas() {
   }))
 
   return (
-    <main style={{ maxWidth: 800, margin: '0 auto', padding: '40px 24px 70px' }}>
+    <main className="pagina-equipe">
       <Link href="/painel" style={{ fontSize: 13, color: 'var(--muted)', textDecoration: 'none' }}>
         ← Painel
       </Link>

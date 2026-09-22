@@ -148,7 +148,7 @@ export default async function BaseDaMarca({
     : null
 
   return (
-    <main style={{ maxWidth: 980, margin: '0 auto', padding: '40px 24px 60px' }}>
+    <main className="pagina-equipe">
       <Link
         href="/painel"
         style={{ fontSize: 13, color: 'var(--muted)', textDecoration: 'none' }}

@@ -154,7 +154,7 @@ export default async function Agenda({ searchParams }: { searchParams: Promise<B
   }
 
   return (
-    <main className="pagina" style={{ maxWidth: 1180 }}>
+    <main className="pagina-equipe">
       <Link href="/painel" style={{ fontSize: 13, color: 'var(--muted)', textDecoration: 'none' }}>
         ← Painel
       </Link>

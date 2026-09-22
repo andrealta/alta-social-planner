@@ -321,3 +321,175 @@ code {
     display: inline;
   }
 }
+
+/* =========================================================
+   Telas da equipe: a moldura e a largura
+   ---------------------------------------------------------
+   Todas as telas internas usam a mesma largura. Larga o bastante
+   para o calendário caber sem rolagem lateral num notebook comum, e
+   limitada para não esticar linhas de texto num monitor grande.
+   ========================================================= */
+
+.pagina-equipe {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 30px 40px 72px;
+}
+
+/* Texto corrido lê melhor em linha curta, mesmo dentro da tela larga. */
+.pagina-equipe .texto-legivel {
+  max-width: 760px;
+}
+
+/* A tela inicial: fila à esquerda, marcas à direita. */
+.painel-colunas {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+
+/* Célula de grade não pode ser mais larga que a coluna: sem isto, um
+   título comprido empurra a grade para fora da tela e aparece a barra
+   de rolagem lateral. Vale para o calendário da equipe, a agenda e o
+   portal do cliente. */
+.grade-mes > * {
+  min-width: 0;
+}
+
+.topo-equipe {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: saturate(1.4) blur(10px);
+  -webkit-backdrop-filter: saturate(1.4) blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+
+.topo-equipe-dentro {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0 40px;
+  min-height: 62px;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.topo-marca {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--disp);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.topo-selo {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  box-shadow: var(--shadow-botao);
+}
+
+.topo-menu {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.topo-link {
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 8px 13px;
+  border-radius: 9px;
+  color: var(--muted);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s;
+}
+
+.topo-link:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.topo-link.ativo {
+  color: var(--accent);
+  background: var(--accent-wash);
+}
+
+.topo-conta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.topo-pessoa {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.topo-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 99px;
+  display: grid;
+  place-items: center;
+  background: var(--surface-3);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+@media (max-width: 1000px) {
+  .painel-colunas {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .pagina-equipe {
+    padding: 18px 16px 52px;
+  }
+
+  /* No celular a barra vira duas linhas: marca e conta em cima, menu
+     embaixo, com os itens quebrando linha em vez de rolar. */
+  .topo-equipe-dentro {
+    padding: 10px 16px;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+  }
+
+  .topo-marca > span:last-child,
+  .topo-nome {
+    display: none;
+  }
+
+  .topo-conta {
+    margin-left: auto;
+  }
+
+  .topo-menu {
+    order: 3;
+    flex: 1 0 100%;
+    flex-wrap: wrap;
+  }
+}

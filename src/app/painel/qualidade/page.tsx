@@ -162,7 +162,7 @@ export default async function Precisao() {
   )
 
   return (
-    <main className="pagina" style={{ maxWidth: 1080 }}>
+    <main className="pagina-equipe">
       <Link href="/painel" style={{ fontSize: 13, color: 'var(--muted)', textDecoration: 'none' }}>
         ← Painel
       </Link>
@@ -564,7 +564,7 @@ export default async function Precisao() {
 
         <b style={{ color: 'var(--text)', display: 'block', marginTop: 16 }}>Sobre o custo</b>
         <p style={{ marginTop: 4 }}>
-          Aqui, o número que mais importa não é quanto foi gasto no total, mas o 
+          Aqui, o número que mais importa não é quanto foi gasto no total, mas o{' '}
           <b style={{ color: 'var(--text)' }}>custo por pauta aprovada</b>.
         </p>
         <p style={{ marginTop: 6 }}>

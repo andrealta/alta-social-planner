@@ -108,7 +108,7 @@ export default async function Planos({ params }: { params: Promise<{ slug: strin
   const proximo = new Date(agora.getFullYear(), agora.getMonth() + 1, 1)
 
   return (
-    <main style={{ maxWidth: 780, margin: '0 auto', padding: '40px 24px 60px' }}>
+    <main className="pagina-equipe">
       <Link href={`/painel/marca/${slug}`} style={{ fontSize: 13, color: 'var(--muted)', textDecoration: 'none' }}>
         ← {marca.name as string}
       </Link>
@@ -132,10 +132,27 @@ export default async function Planos({ params }: { params: Promise<{ slug: strin
         </h1>
       </header>
 
+      {/* Duas colunas: gerar à esquerda, os meses à direita. Em tela
+          estreita, uma embaixo da outra. */}
+      <div className="painel-colunas" style={{ marginTop: 22 }}>
+      <div>
+      <h2
+        style={{
+          fontFamily: 'var(--disp)',
+          fontSize: 13,
+          fontWeight: 500,
+          letterSpacing: '.16em',
+          textTransform: 'uppercase',
+          color: 'var(--faint)',
+          marginBottom: 14,
+        }}
+      >
+        Novo planejamento
+      </h2>
       {pecas === 0 ? (
         <div
           style={{
-            marginTop: 22,
+            marginTop: 0,
             padding: '16px 20px',
             border: '1px solid var(--line)',
             borderLeft: '3px solid var(--warn)',
@@ -156,8 +173,9 @@ export default async function Planos({ params }: { params: Promise<{ slug: strin
           pecas={pecas}
         />
       )}
+      </div>
 
-      <section style={{ marginTop: 32 }}>
+      <section>
         <h2
           style={{
             fontFamily: 'var(--disp)',
@@ -174,6 +192,7 @@ export default async function Planos({ params }: { params: Promise<{ slug: strin
 
         <MesesPlanejados slug={slug} meses={meses} />
       </section>
+      </div>
     </main>
   )
 }

@@ -638,8 +638,10 @@ export function Calendario({
                     )}
 
                     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
-                      <div style={pilula(e.wash, true)}>
-                        <i aria-hidden style={ponto(e.cor)} />
+                      {/* Na célula estreita o rótulo quebra linha em vez de
+                          vazar para fora do cartão. */}
+                      <div style={{ ...pilula(e.wash, true), whiteSpace: 'normal', maxWidth: '100%' }}>
+                        <i aria-hidden style={{ ...ponto(e.cor), flexShrink: 0 }} />
                         {e.curto}
                       </div>
                       {(() => {

@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { clienteServidor } from '@/lib/supabase/server'
-import { Sair } from './sair'
 import { calcularStatusEquipe, type Fila } from '@/lib/status'
 import { duracao } from '@/lib/medidas'
 import { Quadro, Icone, type Numero } from '@/lib/quadro'
@@ -156,99 +155,64 @@ export default async function Painel() {
     },
   ]
 
+  // Saudação e data no fuso de Ribeirão Preto, não no do servidor.
+  const agora = new Date()
+  const hora = Number(
+    agora.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo', hour: 'numeric', hour12: false }),
+  )
+  const saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite'
+  const hojeTexto = agora.toLocaleDateString('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  })
+  const primeiroNome = ((perfil?.name as string | null) ?? '').trim().split(' ')[0] || null
+
   return (
-    <main className="pagina" style={{ maxWidth: 720 }}>
-      <header
-        style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: 16,
-          paddingBottom: 22,
-          borderBottom: '2px solid var(--text)',
-          flexWrap: 'wrap',
-        }}
-      >
-        <div style={{ flex: 1, minWidth: 220 }}>
-          <div
-            style={{
-              fontFamily: 'var(--disp)',
-              fontSize: 11,
-              fontWeight: 500,
-              letterSpacing: '.2em',
-              textTransform: 'uppercase',
-              color: 'var(--accent)',
-              marginBottom: 8,
-            }}
-          >
-            Alta Social Planner
-          </div>
-          <h1 style={{ fontFamily: 'var(--disp)', fontSize: 32, fontWeight: 600, lineHeight: 1.1 }}>
-            {perfil?.name ?? user.email}
-          </h1>
-          <p style={{ color: 'var(--muted)', fontSize: 14, marginTop: 4 }}>
-            {perfil?.email ?? user.email} · {PAPEL[papel] ?? papel}
-          </p>
+    <main className="pagina-equipe">
+      <header>
+        <div
+          style={{
+            fontFamily: 'var(--disp)',
+            fontSize: 11,
+            fontWeight: 500,
+            letterSpacing: '.18em',
+            textTransform: 'uppercase',
+            color: 'var(--accent)',
+            marginBottom: 8,
+          }}
+        >
+          {hojeTexto}
         </div>
-        <div style={{ display: 'flex', gap: 9, alignItems: 'center', flexWrap: 'wrap' }}>
-          <Link
-            href="/painel/agenda"
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              padding: '8px 14px',
-              border: '1px solid var(--line-2)',
-              borderRadius: 8,
-              background: 'var(--surface)',
-              color: 'var(--text)',
-              textDecoration: 'none',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            Agenda
-          </Link>
-          <Link
-            href="/painel/qualidade"
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              padding: '8px 14px',
-              border: '1px solid var(--line-2)',
-              borderRadius: 8,
-              background: 'var(--surface)',
-              color: 'var(--text)',
-              textDecoration: 'none',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            Precisão
-          </Link>
-          {papel === 'admin' && (
-            <Link
-              href="/painel/pessoas"
-              style={{
-                fontSize: 13,
-                fontWeight: 600,
-                padding: '8px 14px',
-                border: '1px solid var(--line-2)',
-                borderRadius: 8,
-                background: 'var(--surface)',
-                color: 'var(--text)',
-                textDecoration: 'none',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              Pessoas
-            </Link>
-          )}
-          <Sair />
-        </div>
+        <h1
+          style={{
+            fontFamily: 'var(--disp)',
+            fontSize: 32,
+            fontWeight: 600,
+            lineHeight: 1.1,
+            letterSpacing: '-.02em',
+          }}
+        >
+          {saudacao}
+          {primeiroNome ? `, ${primeiroNome}` : ''}
+        </h1>
+        <p style={{ color: 'var(--muted)', fontSize: 14.5, marginTop: 6 }}>
+          {fila.length === 0
+            ? 'Nada esperando pela equipe agora.'
+            : fila.length === 1
+              ? '1 item esperando pela equipe.'
+              : `${fila.length} itens esperando pela equipe.`}{' '}
+          <span style={{ color: 'var(--faint)' }}>· {PAPEL[papel] ?? papel}</span>
+        </p>
       </header>
 
-      <FilaDeTrabalho itens={fila} />
+      <Quadro titulo="Status geral" numeros={numeros} marginTop={24} />
 
-      <Quadro titulo="Status geral" numeros={numeros} marginTop={28} />
+      <div className="painel-colunas" style={{ marginTop: 30 }}>
+      <FilaDeTrabalho itens={fila} marginTop={0} />
 
-      <section style={{ marginTop: 32 }}>
+      <section>
         <h2
           style={{
             fontFamily: 'var(--disp)',
@@ -301,24 +265,16 @@ export default async function Painel() {
                       <div style={{ fontWeight: 700, fontSize: 15 }}>{m.name as string}</div>
                       <div style={{ color: 'var(--muted)', fontSize: 13 }}>
                         {(m.segment as string) ?? 'sem segmento'}
+                        <span style={{ color: 'var(--faint)' }}>
+                          {' · '}
+                          {ACESSO[acessoPorMarca.get(m.id as string) ?? ''] ??
+                            (papel === 'admin' ? 'administração' : 'sem vínculo')}
+                        </span>
                       </div>
                       <Selos fila={status.porMarca.get(m.id as string)} />
                     </div>
                   </div>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 10, whiteSpace: 'nowrap' }}>
-                    <span
-                      style={{
-                        fontSize: 11.5,
-                        fontWeight: 600,
-                        padding: '3px 10px',
-                        borderRadius: 99,
-                        background: 'var(--surface-3)',
-                        color: 'var(--muted)',
-                      }}
-                    >
-                      {ACESSO[acessoPorMarca.get(m.id as string) ?? ''] ??
-                        (papel === 'admin' ? 'administração' : 'sem vínculo')}
-                    </span>
                     <span style={{ color: 'var(--faint)', fontSize: 16 }} aria-hidden>
                       &rsaquo;
                     </span>
@@ -348,6 +304,8 @@ export default async function Painel() {
           </div>
         )}
       </section>
+
+      </div>
 
       <section
         style={{

@@ -132,7 +132,7 @@ export default async function Plano({
   const avisos = (analise.achados ?? []).filter((a) => a.gravidade === 'aviso')
 
   return (
-    <main style={{ maxWidth: 820, margin: '0 auto', padding: '40px 24px 70px' }}>
+    <main className="pagina-equipe">
       <Link
         href={`/painel/marca/${slug}/plano`}
         style={{ fontSize: 13, color: 'var(--muted)', textDecoration: 'none' }}
@@ -353,7 +353,17 @@ export default async function Plano({
 
       <section style={{ marginTop: 28 }}>
         <Rotulo>As pautas</Rotulo>
-        <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 12 }}>
+        <ol
+          style={{
+            listStyle: 'none',
+            margin: 0,
+            padding: 0,
+            display: 'grid',
+            // Duas pautas por linha na tela larga; uma no celular.
+            gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 460px), 1fr))',
+            gap: 12,
+          }}
+        >
           {ordenadas.map((p) => {
             const canal = canalDaPauta.get(p.id as string)
             const data = canal?.scheduled_date

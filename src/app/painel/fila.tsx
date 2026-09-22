@@ -145,7 +145,7 @@ function Item({ i, ultimo }: { i: ItemFila; ultimo: boolean }) {
   )
 }
 
-export function Fila({ itens }: { itens: ItemFila[] }) {
+export function Fila({ itens, marginTop = 28 }: { itens: ItemFila[]; marginTop?: number }) {
   const visiveis = itens.slice(0, VISIVEIS)
   const resto = itens.slice(VISIVEIS)
 
@@ -162,7 +162,7 @@ export function Fila({ itens }: { itens: ItemFila[] }) {
   )
 
   return (
-    <section style={{ marginTop: 28 }}>
+    <section style={{ marginTop }}>
       <h2
         style={{
           display: 'flex',

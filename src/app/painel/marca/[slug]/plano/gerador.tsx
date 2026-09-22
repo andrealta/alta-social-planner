@@ -133,7 +133,7 @@ export function Gerador({
   return (
     <div
       style={{
-        marginTop: 22,
+        marginTop: 0,
         border: '1px solid var(--line)',
         borderRadius: 'var(--r-lg)',
         background: 'var(--surface)',

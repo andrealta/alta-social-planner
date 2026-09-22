@@ -244,7 +244,7 @@ export function Quadro({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: `repeat(auto-fill, minmax(${minimo}px, 1fr))`,
+          gridTemplateColumns: `repeat(auto-fit, minmax(${minimo}px, 1fr))`,
           gap: '18px 20px',
         }}
       >
