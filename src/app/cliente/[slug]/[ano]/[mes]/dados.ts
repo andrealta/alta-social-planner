@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation'
 import { clienteServidor } from '@/lib/supabase/server'
 import type { PautaCliente } from './avaliacao'
+import { carregarLayouts } from '@/lib/layouts'
 
 /**
  * Tudo o que o cliente vê de um mês, num lugar só.
@@ -183,6 +184,13 @@ export async function carregarMesDoCliente(slug: string, anoTexto: string, mesTe
     pinterest: 'Pinterest',
   }
 
+  // O layout de cada publicação, com link assinado. O banco só entrega
+  // o das publicações que este cliente já pode ver (0023).
+  const layoutsDe = await carregarLayouts(
+    supabase,
+    (pautasBrutas ?? []).map((p) => p.id as string),
+  )
+
   const pautas: PautaCliente[] = (pautasBrutas ?? [])
     .map((p) => {
       const c = canalDa.get(p.id as string)
@@ -210,6 +218,9 @@ export async function carregarMesDoCliente(slug: string, anoTexto: string, mesTe
         recados: recadosDe.get(p.id as string) ?? [],
         decisoes: decisoesDe.get(p.id as string) ?? [],
         enviadaEm: (p.enviada_ao_cliente_em as string | null) ?? null,
+        layouts: (layoutsDe.get(p.id as string) ?? [])
+          .filter((l) => l.url)
+          .map((l) => ({ url: l.url as string, largura: l.largura, altura: l.altura })),
       }
     })
     .sort((a, b) => String(a.data ?? '9999').localeCompare(String(b.data ?? '9999')))

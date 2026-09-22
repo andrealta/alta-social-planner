@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { type ConteudoPauta, type Pauta, botao } from './comum'
+import { Layouts } from './layouts'
+import type { Layout } from '@/lib/layouts'
 
 function Copiar({ texto, rotulo = 'Copiar' }: { texto: string; rotulo?: string }) {
   const [copiado, setCopiado] = useState(false)
@@ -164,10 +166,15 @@ export function AbaConteudo({
   pauta,
   conteudo,
   podeEditar,
+  admin,
   aoGerar,
+  aoMudarLayouts,
 }: {
   pauta: Pauta
   conteudo: ConteudoPauta | null
+  /** Administração troca layout mesmo depois de o cliente aprovar. */
+  admin: boolean
+  aoMudarLayouts: (layouts: Layout[]) => void
   /** Falso para quem só lê: o texto aparece, o botão de escrever não. */
   podeEditar: boolean
   aoGerar: (c: ConteudoPauta) => void
@@ -330,6 +337,20 @@ export function AbaConteudo({
           O conteúdo desta pauta ainda não foi escrito. Escrever é de quem edita a
           marca.
         </p>
+      )}
+
+      {conteudo && (
+        <Layouts
+          key={pauta.id}
+          ideaId={pauta.id}
+          status={pauta.status}
+          temConteudo={!!conteudo}
+          podeEditar={podeEditar}
+          admin={admin}
+          proporcao={conteudo.aspect_ratio}
+          iniciais={pauta.layouts}
+          aoMudar={aoMudarLayouts}
+        />
       )}
 
       {conteudo && (

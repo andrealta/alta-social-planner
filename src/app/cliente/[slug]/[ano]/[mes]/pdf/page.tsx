@@ -115,6 +115,8 @@ const CSS = `
   .pauta .cena { display: flex; gap: 10px; }
   .pauta .cena span:first-child { color: var(--claro); min-width: 42px; font-weight: 600; }
   .pauta .decisao { margin-top: 10px; font-size: 11.5px; }
+  .pauta .layouts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+  .pauta .layouts img { height: 150px; width: auto; max-width: 100%; border-radius: 6px; border: 1px solid var(--fio); object-fit: contain; background: var(--fundo); }
 
   .rodape { margin-top: 26px; padding-top: 10px; border-top: 1px solid var(--fio); font-size: 10.5px; color: var(--claro); }
 
@@ -270,6 +272,19 @@ export default async function PdfDoMes({
                 <h3>{p.title}</h3>
                 {p.concept && <p className="conceito">{p.concept}</p>}
                 {p.description && <p className="descricao">{p.description}</p>}
+
+                {p.layouts.length > 0 && (
+                  <div className="bloco">
+                    <div className="rot">
+                      Layout{p.layouts.length > 1 ? ` · ${p.layouts.length} imagens, na ordem` : ''}
+                    </div>
+                    <div className="layouts">
+                      {p.layouts.map((l, i) => (
+                        <img key={i} src={l.url} alt={`${p.title}, imagem ${i + 1}`} />
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {p.caption && (
                   <div className="bloco">

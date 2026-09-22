@@ -6,6 +6,7 @@ import { Calendario } from './calendario'
 import type { ConteudoPauta, Decisao, JuizoDaPauta, Pauta, Recado, Versao } from './comum'
 import { Estrategia } from '../../../plano/[ano]/[mes]/estrategia'
 import { lerInterno } from '@/lib/interno'
+import { carregarLayouts } from '@/lib/layouts'
 
 export default async function CalendarioDoMes({
   params,
@@ -260,6 +261,12 @@ export default async function CalendarioDoMes({
     ]),
   )
 
+  // As imagens do layout, com link assinado para ver (ver lib/layouts.ts).
+  const layoutsDe = await carregarLayouts(
+    supabase,
+    (pautasBrutas ?? []).map((p) => p.id as string),
+  )
+
   const pautas: Pauta[] = (pautasBrutas ?? []).map((p) => {
     const c = canalDa.get(p.id as string)
     return {
@@ -280,6 +287,7 @@ export default async function CalendarioDoMes({
       plataforma: c?.platform ?? null,
       data: c?.scheduled_date ?? null,
       conteudo: conteudoDe.get(p.id as string) ?? null,
+      layouts: layoutsDe.get(p.id as string) ?? [],
       historico: historicoDe.get(p.id as string) ?? [],
       recados: recadosDe.get(p.id as string) ?? [],
       decisoes: decisoesDe.get(p.id as string) ?? [],
@@ -355,6 +363,7 @@ export default async function CalendarioDoMes({
         nivel={nivel}
         critica={critica}
         abrir={typeof abrir === 'string' ? abrir : null}
+        admin={papel === 'admin'}
       />
     </main>
   )

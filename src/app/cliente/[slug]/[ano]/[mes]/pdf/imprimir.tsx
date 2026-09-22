@@ -23,8 +23,23 @@ export function Imprimir({ titulo, voltar }: { titulo: string; voltar: string })
     jaAbriu.current = true
     // Espera as fontes: imprimir antes delas carregarem gera um PDF com
     // a fonte do sistema no lugar da Poppins.
-    const pronto = document.fonts?.ready ?? Promise.resolve()
-    pronto.then(() => setTimeout(() => window.print(), 350))
+    // E espera as imagens do layout: imprimir antes delas chegarem gera
+    // um PDF com o espaço da imagem em branco. Nenhuma espera passa de
+    // 15 segundos, para uma imagem que não carrega não travar tudo.
+    const fontes = document.fonts?.ready ?? Promise.resolve()
+    const imagens = Array.from(document.images)
+      .filter((img) => !img.complete)
+      .map(
+        (img) =>
+          new Promise<void>((ok) => {
+            img.addEventListener('load', () => ok(), { once: true })
+            img.addEventListener('error', () => ok(), { once: true })
+          }),
+      )
+    const limite = new Promise<void>((ok) => setTimeout(ok, 15000))
+    Promise.race([Promise.all([fontes, ...imagens]), limite]).then(() =>
+      setTimeout(() => window.print(), 350),
+    )
   }, [titulo])
 
   return (

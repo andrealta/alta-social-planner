@@ -47,6 +47,8 @@ export type PautaCliente = {
   }[]
   /** Quando a publicação chegou ao cliente pela última vez. */
   enviadaEm: string | null
+  /** As imagens do layout, em ordem. A primeira é a capa. */
+  layouts: { url: string; largura: number | null; altura: number | null }[]
 }
 
 const SITUACAO: Record<string, { rotulo: string; curto: string; cor: string; wash: string }> = {
@@ -708,6 +710,12 @@ function Gaveta({
           </p>
         )}
 
+        {p.layouts.length > 0 && (
+          <Bloco titulo={p.layouts.length === 1 ? 'Layout' : `Layout · ${p.layouts.length} imagens`}>
+            <Galeria key={p.id} imagens={p.layouts} titulo={p.title} />
+          </Bloco>
+        )}
+
         {p.caption && (
           <Bloco titulo="Legenda">
             <div
@@ -960,4 +968,111 @@ const etiqueta: React.CSSProperties = {
   borderRadius: 99,
   background: 'var(--surface-2)',
   color: 'var(--muted)',
+}
+
+/**
+ * O layout como o cliente vai ver no feed: uma imagem por vez, com
+ * setas e a contagem, como um carrossel. Clicar abre em tamanho real.
+ */
+function Galeria({
+  imagens,
+  titulo,
+}: {
+  imagens: { url: string; largura: number | null; altura: number | null }[]
+  titulo: string
+}) {
+  const [i, setI] = useState(0)
+  const atual = imagens[Math.min(i, imagens.length - 1)]
+  const razao =
+    atual.largura && atual.altura ? `${atual.largura} / ${atual.altura}` : '4 / 5'
+  const seta = (lado: 'esq' | 'dir'): React.CSSProperties => ({
+    position: 'absolute',
+    top: '50%',
+    [lado === 'esq' ? 'left' : 'right']: 8,
+    transform: 'translateY(-50%)',
+    width: 34,
+    height: 34,
+    borderRadius: 99,
+    border: 'none',
+    background: 'rgba(255,255,255,.92)',
+    boxShadow: '0 2px 8px rgba(0,0,0,.18)',
+    fontSize: 17,
+    fontWeight: 700,
+    cursor: 'pointer',
+    color: '#1D2530',
+  })
+
+  return (
+    <div>
+      <div
+        style={{
+          position: 'relative',
+          borderRadius: 'var(--r-sm)',
+          overflow: 'hidden',
+          background: 'var(--surface-3)',
+          aspectRatio: razao,
+          maxHeight: 560,
+          marginInline: 'auto',
+        }}
+      >
+        <a href={atual.url} target="_blank" rel="noopener" title="abrir em tamanho real">
+          <img
+            src={atual.url}
+            alt={`${titulo}, imagem ${i + 1} de ${imagens.length}`}
+            style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+          />
+        </a>
+        {imagens.length > 1 && (
+          <>
+            {i > 0 && (
+              <button aria-label="imagem anterior" onClick={() => setI(i - 1)} style={seta('esq')}>
+                ‹
+              </button>
+            )}
+            {i < imagens.length - 1 && (
+              <button aria-label="próxima imagem" onClick={() => setI(i + 1)} style={seta('dir')}>
+                ›
+              </button>
+            )}
+            <span
+              style={{
+                position: 'absolute',
+                top: 8,
+                right: 8,
+                fontSize: 11.5,
+                fontWeight: 700,
+                padding: '2px 9px',
+                borderRadius: 99,
+                background: 'rgba(0,0,0,.6)',
+                color: '#fff',
+              }}
+            >
+              {i + 1} / {imagens.length}
+            </span>
+          </>
+        )}
+      </div>
+      {imagens.length > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 10 }}>
+          {imagens.map((_, k) => (
+            <button
+              key={k}
+              aria-label={`ver imagem ${k + 1}`}
+              onClick={() => setI(k)}
+              style={{
+                width: k === i ? 18 : 7,
+                height: 7,
+                borderRadius: 99,
+                border: 'none',
+                padding: 0,
+                background: k === i ? 'var(--accent)' : 'var(--line-2)',
+                cursor: 'pointer',
+                transition: 'width .15s',
+              }}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }

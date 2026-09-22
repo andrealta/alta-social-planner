@@ -38,6 +38,7 @@ export function Calendario({
   nivel,
   critica,
   abrir = null,
+  admin = false,
 }: {
   slug: string
   planoId: string
@@ -50,6 +51,8 @@ export function Calendario({
   critica: Critica | null
   /** Pauta para abrir assim que a tela carrega (link da fila de trabalho). */
   abrir?: string | null
+  /** Administração: troca o layout mesmo com a publicação aprovada. */
+  admin?: boolean
 }) {
   // Esconder botão não é segurança: quem tem a sessão aberta consegue
   // montar a requisição na mão. A trava de verdade está no banco. Isto
@@ -160,6 +163,18 @@ export function Calendario({
         tipo: 'erro',
         texto: `${pendentes} pauta(s) ainda não foram aprovadas. Aprove todas antes de enviar ao cliente.`,
       })
+      return
+    }
+    // Layout é opcional, mas quase sempre esquecimento: avisa antes.
+    const semLayout = pautas.filter((p) => p.status === 'internally_approved' && p.layouts.length === 0).length
+    if (
+      semLayout > 0 &&
+      !window.confirm(
+        semLayout === 1
+          ? '1 publicação vai sem layout: o cliente verá só a legenda. Enviar assim mesmo?'
+          : `${semLayout} publicações vão sem layout: o cliente verá só a legenda. Enviar assim mesmo?`,
+      )
+    ) {
       return
     }
     comecar(async () => {
@@ -752,6 +767,8 @@ export function Calendario({
             atualizar(pautaAberta.id, { ...campos, current_version: versao })
           }
           aoGerarConteudo={(c: ConteudoPauta) => atualizar(pautaAberta.id, { conteudo: c })}
+          admin={admin}
+          aoMudarLayouts={(layouts) => atualizar(pautaAberta.id, { layouts })}
         />
       )}
     </div>

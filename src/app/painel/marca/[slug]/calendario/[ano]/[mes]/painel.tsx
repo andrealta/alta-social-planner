@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { COMANDOS } from '@/lib/prompt'
 import { salvarPauta } from './acoes'
 import { AbaConteudo } from './conteudo'
+import type { Layout } from '@/lib/layouts'
 import {
   ACOES,
   CAMPOS,
@@ -39,6 +40,8 @@ export function Painel({
   aoTrocarEstado,
   aoSalvar,
   aoGerarConteudo,
+  admin,
+  aoMudarLayouts,
 }: {
   slug: string
   ano: number
@@ -52,6 +55,8 @@ export function Painel({
   aoTrocarEstado: (para: string) => void
   aoSalvar: (campos: Editaveis, versao: number) => void
   aoGerarConteudo: (c: ConteudoPauta) => void
+  admin: boolean
+  aoMudarLayouts: (layouts: Layout[]) => void
 }) {
   const [aba, setAba] = useState<Aba>('ideia')
   const [campos, setCampos] = useState<Editaveis>(() => paraEditaveis(pauta))
@@ -653,7 +658,9 @@ export function Painel({
             pauta={pauta}
             conteudo={pauta.conteudo}
             podeEditar={podeEditar}
+            admin={admin}
             aoGerar={aoGerarConteudo}
+            aoMudarLayouts={aoMudarLayouts}
           />
         )}
 

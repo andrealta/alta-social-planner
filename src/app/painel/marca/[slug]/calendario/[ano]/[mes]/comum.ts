@@ -1,3 +1,5 @@
+import type { Layout } from '@/lib/layouts'
+
 /**
  * O que o calendário e o painel da pauta compartilham.
  *
@@ -49,6 +51,8 @@ export type Pauta = {
   plataforma: string | null
   data: string | null
   conteudo: ConteudoPauta | null
+  /** As imagens do layout, em ordem. A primeira é a capa. */
+  layouts: Layout[]
   historico: Versao[]
   /** O que o cliente escreveu sobre esta pauta, do mais novo ao mais velho. */
   recados: Recado[]
