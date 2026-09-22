@@ -141,9 +141,10 @@ export default async function MesDoCliente({
         </div>
       ) : (
         <p style={{ color: 'var(--muted)', fontSize: 14, marginTop: 18, lineHeight: 1.65, maxWidth: 760 }}>
-          Leia cada publicação e responda. <b>Aprovar</b> libera a peça para produção;{' '}
-          <b>Pedir alteração</b> devolve à equipe com o que você escrever. Pode responder aos
-          poucos: o que você já decidiu fica salvo.
+          Cada publicação vem com a legenda final e, quando já existe, o layout. Leia e
+          responda: <b>Aprovar</b> libera a peça para produção; <b>Pedir alteração</b> devolve à
+          equipe com o que você escrever. Pode responder aos poucos: o que você já decidiu fica
+          salvo.
         </p>
       )}
 

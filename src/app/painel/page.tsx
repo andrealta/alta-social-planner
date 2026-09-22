@@ -60,17 +60,25 @@ export default async function Painel() {
 
   // A fila de trabalho: onde está cada pauta agora. Mesmas políticas
   // do banco, então cada pessoa vê a fila das marcas que alcança.
-  const [{ data: planos }, { data: pautas }, { data: decisoes }] = await Promise.all([
+  const [{ data: planos }, { data: pautas }, { data: conteudos }, { data: decisoes }] = await Promise.all([
     supabase
       .from('plans')
       .select('id, brand_id, month, year, client_released_at, estrategia_cliente'),
     supabase.from('content_ideas').select('id, plan_id, title, status').limit(10000),
+    supabase.from('idea_content').select('idea_id, caption').limit(10000),
     supabase
       .from('approvals')
       .select('idea_id, decision, actor_kind, comment_id, seconds_to_decide, created_at')
       .eq('actor_kind', 'client')
       .limit(10000),
   ])
+
+  // Quem já tem legenda escrita: o cliente recebe a peça pronta (0025).
+  const comConteudo = new Set(
+    (conteudos ?? [])
+      .filter((c) => ((c.caption as string | null) ?? '').trim())
+      .map((c) => c.idea_id as string),
+  )
 
   const status = calcularStatusEquipe({
     planos: (planos ?? []).map((p) => ({ id: p.id as string, brand_id: p.brand_id as string })),
@@ -119,6 +127,7 @@ export default async function Painel() {
       plan_id: p.plan_id as string,
       title: (p.title as string) ?? '',
       status: (p.status as string) ?? '',
+      temConteudo: comConteudo.has(p.id as string),
     })),
     decisoes: (decisoes ?? []).map((d) => ({
       idea_id: d.idea_id as string,

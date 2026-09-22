@@ -165,6 +165,21 @@ export function Calendario({
       })
       return
     }
+    // Desde a 0025, o cliente recebe a peça com a legenda final. Sem
+    // conteúdo escrito, o banco recusa o envio; a tela diz antes.
+    const semConteudo = pautas.filter(
+      (p) => p.status === 'internally_approved' && !(p.conteudo?.caption ?? '').trim(),
+    ).length
+    if (semConteudo > 0) {
+      setAviso({
+        tipo: 'erro',
+        texto:
+          semConteudo === 1
+            ? '1 publicação ainda está sem conteúdo escrito. O cliente recebe a peça com a legenda final: abra a pauta, aba Conteúdo, e escreva antes de enviar.'
+            : `${semConteudo} publicações ainda estão sem conteúdo escrito. O cliente recebe a peça com a legenda final: escreva o conteúdo delas antes de enviar.`,
+      })
+      return
+    }
     // Layout é opcional, mas quase sempre esquecimento: avisa antes.
     const semLayout = pautas.filter((p) => p.status === 'internally_approved' && p.layouts.length === 0).length
     if (
@@ -595,15 +610,18 @@ export function Calendario({
                         {ICONE_PECA[tipo]}
                       </span>
                       <span>{tipo}</span>
-                      {p.conteudo && (
+                      {/* Ponto verde: conteúdo escrito. Amarelo: a pauta
+                          está aprovada mas ainda sem legenda, e o cliente
+                          recebe a peça com a legenda final. */}
+                      {(p.conteudo || p.status === 'internally_approved') && (
                         <span
-                          title="conteúdo escrito"
+                          title={p.conteudo ? 'conteúdo escrito' : 'falta escrever o conteúdo'}
                           style={{
                             marginLeft: 'auto',
                             width: 5,
                             height: 5,
                             borderRadius: '50%',
-                            background: 'var(--st-aprovado)',
+                            background: p.conteudo ? 'var(--st-aprovado)' : 'var(--st-avaliacao)',
                           }}
                         />
                       )}

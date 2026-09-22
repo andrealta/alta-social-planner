@@ -7,9 +7,12 @@
  *   1. ajuste: o cliente pediu alteração numa pauta. Ele está
  *      esperando, então vem primeiro, do pedido mais antigo para o
  *      mais novo, com o texto que ele escreveu.
- *   2. enviar: um mês com todas as pautas aprovadas pela equipe e
- *      ainda não enviado. Falta um clique, e às vezes a estratégia.
- *   3. revisar: um mês com pautas geradas ou em correção interna.
+ *   2. conteudo: um mês com tudo aprovado, mas com pautas sem legenda
+ *      escrita. Desde a 0025 o cliente recebe a peça pronta, então
+ *      isso é o que falta para o mês sair.
+ *   3. enviar: um mês com todas as pautas aprovadas e escritas, ainda
+ *      não enviado. Falta um clique, e às vezes a estratégia.
+ *   4. revisar: um mês com pautas geradas ou em correção interna.
  *
  * Meses em ordem do mais próximo para o mais distante, como no resto
  * do sistema. Conta pura, sem banco: a página busca, isto organiza.
@@ -24,7 +27,14 @@ export type PlanoFila = {
   client_released_at: string | null
   estrategia_cliente: string | null
 }
-export type PautaFila = { id: string; plan_id: string; title: string; status: string }
+export type PautaFila = {
+  id: string
+  plan_id: string
+  title: string
+  status: string
+  /** Já tem legenda escrita? O cliente recebe a peça pronta (0025). */
+  temConteudo: boolean
+}
 export type DecisaoFila = {
   idea_id: string
   decision: string
@@ -38,6 +48,7 @@ type Base = { marca: MarcaFila; mes: number; ano: number }
 
 export type ItemFila =
   | (Base & { tipo: 'ajuste'; pautaId: string; titulo: string; pedido: string | null; desde: string | null })
+  | (Base & { tipo: 'conteudo'; total: number })
   | (Base & { tipo: 'enviar'; total: number; semEstrategia: boolean })
   | (Base & { tipo: 'revisar'; total: number; emCorrecao: number })
 
@@ -90,19 +101,28 @@ export function montarFila(d: {
   }
 
   const enviar: ItemFila[] = []
+  const conteudo: ItemFila[] = []
   const revisar: ItemFila[] = []
   for (const [planoId, pautas] of porPlano) {
     const plano = planoPorId.get(planoId) as PlanoFila
     const marca = marcaPorId.get(plano.brand_id) as MarcaFila
     const base = { marca, mes: plano.month, ano: plano.year }
 
-    if (!plano.client_released_at && pautas.every((p) => p.status === 'internally_approved')) {
-      enviar.push({
-        ...base,
-        tipo: 'enviar',
-        total: pautas.length,
-        semEstrategia: !(plano.estrategia_cliente ?? '').trim(),
-      })
+    // O mês só está pronto para enviar quando toda pauta aprovada já
+    // tem a legenda escrita: o cliente recebe a peça pronta (0025).
+    const aprovadas = pautas.filter((p) => p.status === 'internally_approved')
+    const semTexto = aprovadas.filter((p) => !p.temConteudo)
+    if (!plano.client_released_at && aprovadas.length === pautas.length && pautas.length > 0) {
+      if (semTexto.length > 0) {
+        conteudo.push({ ...base, tipo: 'conteudo', total: semTexto.length })
+      } else {
+        enviar.push({
+          ...base,
+          tipo: 'enviar',
+          total: pautas.length,
+          semEstrategia: !(plano.estrategia_cliente ?? '').trim(),
+        })
+      }
     }
 
     const emRevisao = pautas.filter((p) => EM_REVISAO.has(p.status))
@@ -123,8 +143,9 @@ export function montarFila(d: {
   })
   const porMes = (a: ItemFila, b: ItemFila) =>
     chaveMes(a.ano, a.mes) - chaveMes(b.ano, b.mes) || a.marca.name.localeCompare(b.marca.name)
+  conteudo.sort(porMes)
   enviar.sort(porMes)
   revisar.sort(porMes)
 
-  return [...ajustes, ...enviar, ...revisar]
+  return [...ajustes, ...conteudo, ...enviar, ...revisar]
 }

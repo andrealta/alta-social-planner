@@ -31,6 +31,7 @@ function destino(i: ItemFila): string {
 
 const TIPO = {
   ajuste: { icone: 'ajuste', selo: 'pediu ajuste', cor: 'var(--laranja-tinta)', fundo: 'var(--laranja-wash)' },
+  conteudo: { icone: 'conteudo', selo: 'falta conteúdo', cor: 'var(--linha-1)', fundo: 'color-mix(in srgb, var(--linha-1) 12%, transparent)' },
   enviar: { icone: 'cliente', selo: 'pronto para enviar', cor: 'var(--accent)', fundo: 'var(--accent-wash)' },
   revisar: { icone: 'equipe', selo: 'para revisar', cor: 'var(--amarelo-tinta)', fundo: 'var(--amarelo-wash)' },
 } as const
@@ -40,11 +41,15 @@ function Item({ i, ultimo }: { i: ItemFila; ultimo: boolean }) {
   const titulo =
     i.tipo === 'ajuste'
       ? i.titulo
-      : i.tipo === 'enviar'
-        ? 'Mês pronto para enviar ao cliente'
-        : i.total === 1
-          ? '1 pauta para revisar'
-          : `${i.total} pautas para revisar`
+      : i.tipo === 'conteudo'
+        ? i.total === 1
+          ? '1 publicação sem conteúdo escrito'
+          : `${i.total} publicações sem conteúdo escrito`
+        : i.tipo === 'enviar'
+          ? 'Mês pronto para enviar ao cliente'
+          : i.total === 1
+            ? '1 pauta para revisar'
+            : `${i.total} pautas para revisar`
 
   return (
     <li style={{ borderBottom: ultimo ? 'none' : '1px solid var(--line)' }}>
@@ -104,6 +109,13 @@ function Item({ i, ultimo }: { i: ItemFila; ultimo: boolean }) {
               {haQuanto(i.desde) && (
                 <span style={{ fontSize: 12, color: 'var(--faint)' }}>pedido {haQuanto(i.desde)}</span>
               )}
+            </div>
+          )}
+
+          {i.tipo === 'conteudo' && (
+            <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 3, lineHeight: 1.5 }}>
+              O cliente recebe a peça com a legenda final. Escreva o conteúdo para o mês poder
+              ser enviado.
             </div>
           )}
 
