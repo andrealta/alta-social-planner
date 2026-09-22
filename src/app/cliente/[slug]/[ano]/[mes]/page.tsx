@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import { mesTitulado } from '@/lib/prompt'
 import { botao } from '@/lib/visual'
-import { Sair } from '@/app/painel/sair'
 import { Avaliacao } from './avaliacao'
 import { carregarMesDoCliente } from './dados'
 import { FeedbackDoMes } from './feedback'
@@ -22,7 +21,7 @@ export default async function MesDoCliente({
   const inicial = (marca.nome || '?').trim().charAt(0).toUpperCase()
 
   return (
-    <main className="pagina" style={{ maxWidth: 1280 }}>
+    <main className="pagina-larga">
       <Link href="/cliente" style={{ fontSize: 13, color: 'var(--muted)', textDecoration: 'none' }}>
         ← Todos os meses
       </Link>
@@ -94,7 +93,6 @@ export default async function MesDoCliente({
         >
           Baixar PDF do mês
         </a>
-        <Sair />
       </header>
 
       {estrategia && (

@@ -2,8 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { clienteServidor } from '@/lib/supabase/server'
 import { mesTitulado } from '@/lib/prompt'
-import { pilula, ponto } from '@/lib/visual'
-import { Sair } from '@/app/painel/sair'
+import { ICONE_PECA, pilula, ponto, tipoDaPeca } from '@/lib/visual'
 import { ordenarMeses } from '@/lib/ordem'
 import { calcularStatus } from '@/lib/status'
 import { duracao } from '@/lib/medidas'
@@ -47,12 +46,12 @@ export default async function PortalDoCliente() {
 
   const { data: planos } = await supabase
     .from('plans')
-    .select('id, brand_id, month, year, approved_at, client_released_at')
+    .select('id, brand_id, month, year, approved_at, client_released_at, estrategia_cliente')
     .order('year', { ascending: false })
     .order('month', { ascending: false })
 
-  const [{ data: pautas }, { data: decisoes }, { data: comentarios }] = await Promise.all([
-    supabase.from('content_ideas').select('id, plan_id, status'),
+  const [{ data: pautas }, { data: decisoes }, { data: comentarios }, { data: canais }] = await Promise.all([
+    supabase.from('content_ideas').select('id, plan_id, title, status'),
     // Para o status geral: o que o cliente decidiu e o que escreveu ao
     // pedir alteração. As políticas do banco só devolvem o da marca dele.
     supabase
@@ -60,6 +59,8 @@ export default async function PortalDoCliente() {
       .select('idea_id, decision, actor_kind, seconds_to_decide, comment_id')
       .eq('actor_kind', 'client'),
     supabase.from('comments').select('id, body').eq('author_kind', 'client'),
+    // As datas das publicações, para o bloco "Próximas publicações".
+    supabase.from('content_channels').select('idea_id, format, scheduled_date'),
   ])
 
   const conta = new Map<string, { total: number; aguardando: number; aprovadas: number }>()
@@ -114,65 +115,216 @@ export default async function PortalDoCliente() {
   )
   const primeiroNome = (perfil?.name as string | null)?.trim().split(' ')[0] ?? null
 
-  return (
-    <main className="pagina" style={{ maxWidth: 1180 }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 16,
-          flexWrap: 'wrap',
-          marginBottom: 26,
-        }}
-      >
-        <div
-          style={{
-            fontFamily: 'var(--disp)',
-            fontSize: 10.5,
-            fontWeight: 500,
-            letterSpacing: '.22em',
-            textTransform: 'uppercase',
-            color: 'var(--faint)',
-            flex: 1,
-          }}
-        >
-          Alta Comunicazione
-        </div>
-        <Sair />
-      </div>
+  // ---------- o que a tela inicial precisa além dos meses ----------
+  const agora = new Date()
+  const hoje = agora.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+  const hojeTexto = agora.toLocaleDateString('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  })
+  const mesHoje = Number(hoje.slice(5, 7))
+  const anoHoje = Number(hoje.slice(0, 4))
 
-      {/* A saudação existe para dar nome a quem entrou — o cliente
-          pode ter três pessoas avaliando, e cada uma precisa saber
-          que está na própria conta. */}
-      <div style={{ marginBottom: 34, maxWidth: 720 }}>
-        <h1
-          style={{
-            fontFamily: 'var(--disp)',
-            fontSize: 30,
-            fontWeight: 600,
-            lineHeight: 1.15,
-            letterSpacing: '-.025em',
-          }}
-        >
-          {primeiroNome ? `Olá, ${primeiroNome}.` : 'Seu planejamento de conteúdo'}
-        </h1>
-        <p style={{ color: 'var(--muted)', fontSize: 15, marginTop: 6, lineHeight: 1.6 }}>
-          {aguardandoTotal > 0 ? (
-            <>
-              <b style={{ color: 'var(--text)' }}>
-                {aguardandoTotal} publicaç{aguardandoTotal === 1 ? 'ão' : 'ões'} aguardando você.
-              </b>{' '}
-              Abra o mês e avance nas respostas. Tudo o que você avaliar será salvo automaticamente.
-            </>
-          ) : (
-            'Nada aguardando você no momento. Quando a equipe enviar um mês novo, ele aparece aqui.'
-          )}
-        </p>
+  // O próximo passo: o mês pendente mais próximo, de qualquer marca.
+  const pendentes = comPlano
+    .flatMap((m) =>
+      (porMarca.get(m.id as string) ?? [])
+        .filter((p) => p.aguardando > 0)
+        .map((p) => ({ ...p, slug: m.slug as string, marca: m.name as string })),
+    )
+    .sort((a, b) => a.ano * 12 + a.mes - (b.ano * 12 + b.mes))
+  const proximo = pendentes[0] ?? null
+
+  const planoPorId = new Map<string, Record<string, unknown>>((planos ?? []).map((p) => [p.id as string, p]))
+  const pautaPorId = new Map<string, Record<string, unknown>>((pautas ?? []).map((p) => [p.id as string, p]))
+
+  /** As próximas publicações de uma marca, a partir de hoje. */
+  function proximasDa(marcaId: string) {
+    const vistas = new Set<string>()
+    const itens: { id: string; data: string; titulo: string; status: string; formato: string | null; link: string }[] = []
+    for (const c of canais ?? []) {
+      const data = String(c.scheduled_date ?? '').slice(0, 10)
+      if (!data || data < hoje) continue
+      const pauta = pautaPorId.get(c.idea_id as string)
+      const plano = pauta && planoPorId.get(pauta.plan_id as string)
+      if (!pauta || !plano || plano.brand_id !== marcaId || !plano.client_released_at) continue
+      if (vistas.has(pauta.id as string)) continue
+      vistas.add(pauta.id as string)
+      const marca = comPlano.find((m) => m.id === marcaId)
+      itens.push({
+        id: pauta.id as string,
+        data,
+        titulo: (pauta.title as string) ?? '',
+        status: (pauta.status as string) ?? '',
+        formato: (c.format as string | null) ?? null,
+        link: `/cliente/${marca?.slug as string}/${plano.year}/${plano.month}`,
+      })
+    }
+    return itens.sort((a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : 0)).slice(0, 5)
+  }
+
+  /** A estratégia do mês corrente, ou do mês enviado mais próximo. */
+  function estrategiaDa(marcaId: string) {
+    const com = (planos ?? [])
+      .filter((p) => p.brand_id === marcaId && p.client_released_at && ((p.estrategia_cliente as string | null) ?? '').trim())
+      .map((p) => ({
+        mes: Number(p.month),
+        ano: Number(p.year),
+        texto: (p.estrategia_cliente as string).trim(),
+        distancia: Math.abs(Number(p.year) * 12 + Number(p.month) - (anoHoje * 12 + mesHoje)),
+      }))
+      .sort((a, b) => a.distancia - b.distancia)
+    return com[0] ?? null
+  }
+
+  const SITUACAO: Record<string, { texto: string; cor: string; wash: string }> = {
+    sent_to_client: { texto: 'aguardando você', cor: 'var(--st-cliente)', wash: 'var(--st-cliente-wash)' },
+    client_changes_requested: { texto: 'alteração pedida', cor: 'var(--st-ajuste)', wash: 'var(--st-ajuste-wash)' },
+    client_approved: { texto: 'aprovada', cor: 'var(--st-aprovado)', wash: 'var(--st-aprovado-wash)' },
+  }
+
+  const rotulo = {
+    fontFamily: 'var(--disp)',
+    fontSize: 12,
+    fontWeight: 500,
+    letterSpacing: '.16em',
+    textTransform: 'uppercase' as const,
+    color: 'var(--faint)',
+    marginBottom: 12,
+  }
+
+  return (
+    <main className="pagina-larga">
+      {/* A saudação dá nome a quem entrou: o cliente pode ter três
+          pessoas avaliando, e cada uma precisa saber que está na
+          própria conta. Ao lado, o próximo passo, que é o motivo de a
+          pessoa ter entrado. */}
+      <div className="painel-colunas" style={{ alignItems: 'stretch' }}>
+        <div style={{ alignSelf: 'center' }}>
+          <div
+            style={{
+              fontFamily: 'var(--disp)',
+              fontSize: 11,
+              fontWeight: 500,
+              letterSpacing: '.18em',
+              textTransform: 'uppercase',
+              color: 'var(--accent)',
+              marginBottom: 8,
+            }}
+          >
+            {hojeTexto}
+          </div>
+          <h1
+            style={{
+              fontFamily: 'var(--disp)',
+              fontSize: 34,
+              fontWeight: 600,
+              lineHeight: 1.1,
+              letterSpacing: '-.025em',
+            }}
+          >
+            {primeiroNome ? `Olá, ${primeiroNome}.` : 'Seu planejamento de conteúdo'}
+          </h1>
+          <p style={{ color: 'var(--muted)', fontSize: 15, marginTop: 8, lineHeight: 1.6, maxWidth: 620 }}>
+            Aqui ficam os planejamentos de conteúdo que a Alta prepara para você. Abra o mês e
+            avance nas respostas. Tudo o que você avaliar será salvo automaticamente.
+          </p>
+        </div>
+
+        {proximo ? (
+          <Link
+            href={`/cliente/${proximo.slug}/${proximo.ano}/${proximo.mes}`}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              gap: 18,
+              padding: '22px 24px',
+              borderRadius: 'var(--r-lg)',
+              background: 'var(--accent)',
+              color: '#fff',
+              textDecoration: 'none',
+              boxShadow: 'var(--shadow-botao)',
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, opacity: 0.8, letterSpacing: '.04em' }}>
+                Próximo passo
+              </div>
+              <div
+                style={{
+                  fontFamily: 'var(--disp)',
+                  fontSize: 23,
+                  fontWeight: 600,
+                  lineHeight: 1.2,
+                  marginTop: 6,
+                }}
+              >
+                {aguardandoTotal} {aguardandoTotal === 1 ? 'publicação aguardando' : 'publicações aguardando'} você
+              </div>
+              <div style={{ fontSize: 14, opacity: 0.85, marginTop: 4 }}>
+                {comPlano.length > 1 ? `${proximo.marca} · ` : ''}
+                {mesTitulado(proximo.mes)} de {proximo.ano}
+              </div>
+            </div>
+            <span
+              style={{
+                alignSelf: 'flex-start',
+                fontSize: 14,
+                fontWeight: 700,
+                padding: '9px 16px',
+                borderRadius: 99,
+                background: '#fff',
+                color: 'var(--accent)',
+              }}
+            >
+              Avaliar agora →
+            </span>
+          </Link>
+        ) : (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 14,
+              padding: '22px 24px',
+              borderRadius: 'var(--r-lg)',
+              background: 'var(--st-aprovado-wash)',
+            }}
+          >
+            <span
+              aria-hidden
+              style={{
+                width: 42,
+                height: 42,
+                borderRadius: 12,
+                display: 'grid',
+                placeItems: 'center',
+                background: 'var(--st-aprovado)',
+                color: '#fff',
+                fontSize: 20,
+                fontWeight: 700,
+                flexShrink: 0,
+              }}
+            >
+              ✓
+            </span>
+            <div>
+              <div style={{ fontFamily: 'var(--disp)', fontSize: 19, fontWeight: 600 }}>Tudo em dia</div>
+              <div style={{ fontSize: 14, color: 'var(--muted)', marginTop: 2, lineHeight: 1.5 }}>
+                Nada aguardando você no momento. Quando a equipe enviar um mês novo, ele aparece aqui.
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {comPlano.length === 0 ? (
         <div
           style={{
+            marginTop: 28,
             padding: '44px 28px',
             borderRadius: 'var(--r-lg)',
             background: 'var(--surface)',
@@ -195,6 +347,8 @@ export default async function PortalDoCliente() {
           const inicial = nome.trim().charAt(0).toUpperCase()
           const lista = porMarca.get(m.id as string) ?? []
           const esperando = lista.reduce((s, p) => s + p.aguardando, 0)
+          const proximas = proximasDa(m.id as string)
+          const estrategia = estrategiaDa(m.id as string)
 
           const planosDaMarca = (planos ?? []).filter((p) => p.brand_id === m.id)
           const idsPlanos = new Set(planosDaMarca.map((p) => p.id as string))
@@ -227,8 +381,8 @@ export default async function PortalDoCliente() {
           })
 
           return (
-            <section key={m.id as string} style={{ marginBottom: 42 }}>
-              {/* O nome da marca é o maior elemento da tela, e o selo
+            <section key={m.id as string} style={{ marginTop: 30 }}>
+              {/* O nome da marca é o maior elemento do bloco, e o selo
                   usa a cor dela. É a marca do cliente que manda aqui. */}
               <header
                 style={{
@@ -241,7 +395,7 @@ export default async function PortalDoCliente() {
                   background: 'var(--surface)',
                   boxShadow: 'var(--shadow)',
                   borderTop: `4px solid ${cor}`,
-                  marginBottom: 18,
+                  marginBottom: 22,
                 }}
               >
                 <div
@@ -281,118 +435,156 @@ export default async function PortalDoCliente() {
                 </div>
               </header>
 
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(272px, 1fr))',
-                  gap: 14,
-                }}
-              >
-                {lista.map((p) => {
-                  const pct = p.total ? Math.round((p.aprovadas / p.total) * 100) : 0
-                  const etiqueta = p.fechado
-                    ? { texto: 'Aprovado', cor: 'var(--st-aprovado)', wash: 'var(--surface)' }
-                    : p.aguardando > 0
-                      ? {
-                          texto: `${p.aguardando} aguardando`,
-                          cor: 'var(--st-cliente)',
-                          wash: 'var(--st-cliente-wash)',
-                        }
-                      : { texto: 'Em andamento', cor: 'var(--faint)', wash: 'var(--surface-2)' }
+              <div className="painel-colunas">
+                <div>
+                  <h2 style={rotulo}>Meses</h2>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 250px), 1fr))',
+                      gap: 14,
+                    }}
+                  >
+                    {lista.map((p) => (
+                      <CartaoMes key={p.id} p={p} slug={m.slug as string} cor={cor} />
+                    ))}
+                  </div>
+                </div>
 
-                  return (
-                    <Link
-                      key={p.id}
-                      href={`/cliente/${m.slug as string}/${p.ano}/${p.mes}`}
+                <aside style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 18 }}>
+                  {estrategia && (
+                    <div>
+                      <h2 style={rotulo}>
+                        A estratégia de {mesTitulado(estrategia.mes).toLowerCase()}
+                      </h2>
+                      <div
+                        style={{
+                          padding: '18px 20px',
+                          borderRadius: 'var(--r-lg)',
+                          background: 'var(--surface)',
+                          boxShadow: 'var(--shadow)',
+                          borderLeft: `3px solid ${cor}`,
+                          fontSize: 14.5,
+                          lineHeight: 1.65,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: '-webkit-box',
+                            WebkitLineClamp: 5,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                            whiteSpace: 'pre-wrap',
+                          }}
+                        >
+                          {estrategia.texto}
+                        </div>
+                        <Link
+                          href={`/cliente/${m.slug as string}/${estrategia.ano}/${estrategia.mes}`}
+                          style={{
+                            display: 'inline-block',
+                            marginTop: 10,
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: 'var(--accent)',
+                            textDecoration: 'none',
+                          }}
+                        >
+                          Abrir o mês →
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <h2 style={rotulo}>Próximas publicações</h2>
+                    <div
                       style={{
-                        display: 'block',
-                        textDecoration: 'none',
-                        color: 'inherit',
-                        padding: '20px 22px 18px',
                         borderRadius: 'var(--r-lg)',
-                        // Mês aprovado por inteiro: verde claro, e sem a
-                        // sombra — está resolvido, não pede o olho.
-                        background: p.fechado ? 'var(--st-aprovado-wash)' : 'var(--surface)',
-                        boxShadow: p.fechado ? 'none' : 'var(--shadow)',
-                        border: p.fechado ? '1px solid var(--st-aprovado-wash)' : 'none',
+                        background: 'var(--surface)',
+                        boxShadow: 'var(--shadow)',
+                        overflow: 'hidden',
                       }}
                     >
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          justifyContent: 'space-between',
-                          gap: 10,
-                        }}
-                      >
-                        <div>
-                          <div
-                            style={{
-                              fontFamily: 'var(--disp)',
-                              fontSize: 21,
-                              fontWeight: 600,
-                              lineHeight: 1.1,
-                              letterSpacing: '-.02em',
-                            }}
-                          >
-                            {mesTitulado(p.mes)}
-                          </div>
-                          <div style={{ color: 'var(--faint)', fontSize: 13, marginTop: 1 }}>
-                            {p.ano}
-                          </div>
+                      {proximas.length === 0 ? (
+                        <div style={{ padding: '18px 20px', fontSize: 14, color: 'var(--muted)', lineHeight: 1.6 }}>
+                          Nenhuma publicação marcada daqui para a frente nos meses enviados.
                         </div>
-                        <span style={pilula(etiqueta.wash, true)}>
-                          <i aria-hidden style={ponto(etiqueta.cor)} />
-                          {etiqueta.texto}
-                        </span>
-                      </div>
-
-                      <div style={{ marginTop: 18 }}>
-                        <div
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            fontSize: 12.5,
-                            color: 'var(--muted)',
-                            marginBottom: 6,
-                          }}
-                        >
-                          <span>
-                            {p.aprovadas} de {p.total} aprovadas
-                          </span>
-                          <span>{pct}%</span>
-                        </div>
-                        <div
-                          style={{
-                            height: 5,
-                            borderRadius: 99,
-                            background: p.fechado ? 'var(--surface)' : 'var(--surface-3)',
-                            overflow: 'hidden',
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: `${pct}%`,
-                              height: '100%',
-                              background: p.fechado ? 'var(--st-aprovado)' : cor,
-                            }}
-                          />
-                        </div>
-                      </div>
-
-                      <div
-                        style={{
-                          marginTop: 16,
-                          fontSize: 13,
-                          fontWeight: 600,
-                          color: 'var(--accent)',
-                        }}
-                      >
-                        {p.aguardando > 0 ? 'Avaliar' : 'Ver planejamento'} →
-                      </div>
-                    </Link>
-                  )
-                })}
+                      ) : (
+                        proximas.map((x, i) => {
+                          const sit = SITUACAO[x.status] ?? SITUACAO.sent_to_client
+                          const tipo = tipoDaPeca(x.formato)
+                          const dia = Number(x.data.slice(8, 10))
+                          const mesCurto = mesTitulado(Number(x.data.slice(5, 7))).slice(0, 3).toLowerCase()
+                          return (
+                            <Link
+                              key={x.id}
+                              href={x.link}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 14,
+                                padding: '12px 18px',
+                                borderTop: i === 0 ? 'none' : '1px solid var(--line)',
+                                textDecoration: 'none',
+                                color: 'inherit',
+                              }}
+                            >
+                              <div
+                                style={{
+                                  width: 44,
+                                  flexShrink: 0,
+                                  textAlign: 'center',
+                                  padding: '5px 0',
+                                  borderRadius: 10,
+                                  background: 'var(--surface-2)',
+                                }}
+                              >
+                                <div style={{ fontFamily: 'var(--disp)', fontSize: 18, fontWeight: 600, lineHeight: 1.1 }}>
+                                  {dia}
+                                </div>
+                                <div style={{ fontSize: 10.5, color: 'var(--faint)', textTransform: 'uppercase' }}>
+                                  {mesCurto}
+                                </div>
+                              </div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div
+                                  style={{
+                                    fontWeight: 600,
+                                    fontSize: 14,
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                  }}
+                                >
+                                  {x.titulo}
+                                </div>
+                                <div
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                    marginTop: 3,
+                                    fontSize: 12,
+                                    color: 'var(--muted)',
+                                  }}
+                                >
+                                  <span>
+                                    <span aria-hidden>{ICONE_PECA[tipo]}</span> {tipo}
+                                  </span>
+                                  <span style={{ ...pilula(sit.wash, true), whiteSpace: 'nowrap' }}>
+                                    <i aria-hidden style={ponto(sit.cor)} />
+                                    {sit.texto}
+                                  </span>
+                                </div>
+                              </div>
+                            </Link>
+                          )
+                        })
+                      )}
+                    </div>
+                  </div>
+                </aside>
               </div>
 
               {status.conteudos > 0 && <StatusGeral status={status} />}
@@ -404,6 +596,95 @@ export default async function PortalDoCliente() {
   )
 }
 
+type CartaoDoMes = {
+  id: string
+  mes: number
+  ano: number
+  fechado: boolean
+  total: number
+  aguardando: number
+  aprovadas: number
+}
+
+/** O cartão de um mês: situação, progresso e o que fazer. */
+function CartaoMes({ p, slug, cor }: { p: CartaoDoMes; slug: string; cor: string }) {
+  const pct = p.total ? Math.round((p.aprovadas / p.total) * 100) : 0
+  const etiqueta = p.fechado
+    ? { texto: 'Aprovado', cor: 'var(--st-aprovado)', wash: 'var(--surface)' }
+    : p.aguardando > 0
+      ? { texto: `${p.aguardando} aguardando`, cor: 'var(--st-cliente)', wash: 'var(--st-cliente-wash)' }
+      : { texto: 'Em andamento', cor: 'var(--faint)', wash: 'var(--surface-2)' }
+
+  return (
+    <Link
+      href={`/cliente/${slug}/${p.ano}/${p.mes}`}
+      style={{
+        display: 'block',
+        textDecoration: 'none',
+        color: 'inherit',
+        padding: '20px 22px 18px',
+        borderRadius: 'var(--r-lg)',
+        // Mês aprovado por inteiro: verde claro, e sem a sombra. Está
+        // resolvido, não pede o olho.
+        background: p.fechado ? 'var(--st-aprovado-wash)' : 'var(--surface)',
+        boxShadow: p.fechado ? 'none' : 'var(--shadow)',
+        border: p.fechado ? '1px solid var(--st-aprovado-wash)' : 'none',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+        <div>
+          <div
+            style={{
+              fontFamily: 'var(--disp)',
+              fontSize: 21,
+              fontWeight: 600,
+              lineHeight: 1.1,
+              letterSpacing: '-.02em',
+            }}
+          >
+            {mesTitulado(p.mes)}
+          </div>
+          <div style={{ color: 'var(--faint)', fontSize: 13, marginTop: 1 }}>{p.ano}</div>
+        </div>
+        <span style={pilula(etiqueta.wash, true)}>
+          <i aria-hidden style={ponto(etiqueta.cor)} />
+          {etiqueta.texto}
+        </span>
+      </div>
+
+      <div style={{ marginTop: 18 }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            fontSize: 12.5,
+            color: 'var(--muted)',
+            marginBottom: 6,
+          }}
+        >
+          <span>
+            {p.aprovadas} de {p.total} aprovadas
+          </span>
+          <span>{pct}%</span>
+        </div>
+        <div
+          style={{
+            height: 5,
+            borderRadius: 99,
+            background: p.fechado ? 'var(--surface)' : 'var(--surface-3)',
+            overflow: 'hidden',
+          }}
+        >
+          <div style={{ width: `${pct}%`, height: '100%', background: p.fechado ? 'var(--st-aprovado)' : cor }} />
+        </div>
+      </div>
+
+      <div style={{ marginTop: 16, fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>
+        {p.aguardando > 0 ? 'Avaliar' : 'Ver planejamento'} →
+      </div>
+    </Link>
+  )
+}
 /**
  * O status geral da parceria, abaixo dos meses.
  *

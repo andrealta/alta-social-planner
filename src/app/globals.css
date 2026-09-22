@@ -330,14 +330,16 @@ code {
    limitada para não esticar linhas de texto num monitor grande.
    ========================================================= */
 
-.pagina-equipe {
+.pagina-equipe,
+.pagina-larga {
   max-width: 1440px;
   margin: 0 auto;
   padding: 30px 40px 72px;
 }
 
 /* Texto corrido lê melhor em linha curta, mesmo dentro da tela larga. */
-.pagina-equipe .texto-legivel {
+.pagina-equipe .texto-legivel,
+.pagina-larga .texto-legivel {
   max-width: 760px;
 }
 
@@ -466,7 +468,8 @@ code {
 }
 
 @media (max-width: 760px) {
-  .pagina-equipe {
+  .pagina-equipe,
+  .pagina-larga {
     padding: 18px 16px 52px;
   }
 
@@ -491,5 +494,12 @@ code {
     order: 3;
     flex: 1 0 100%;
     flex-wrap: wrap;
+  }
+}
+
+/* O PDF do mês sai sem a barra do topo. */
+@media print {
+  .topo-equipe {
+    display: none !important;
   }
 }
