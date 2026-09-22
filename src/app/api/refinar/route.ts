@@ -19,6 +19,7 @@ import {
   VERSAO_PROMPT,
   type Refino,
 } from '@/lib/prompt'
+import { lerInterno } from '@/lib/interno'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -86,10 +87,10 @@ export async function POST(req: Request) {
     )
   }
 
-  const [{ data: marca }, { data: plano }, { data: secoes }, { data: canal }, { data: linha }] =
+  const [{ data: marca }, { data: plano }, { data: secoes }, { data: canal }, { data: linha }, interno] =
     await Promise.all([
       supabase.from('brands').select('name, segment').eq('id', pauta.brand_id).single(),
-      supabase.from('plans').select('month, year, analysis').eq('id', pauta.plan_id).single(),
+      supabase.from('plans').select('month, year').eq('id', pauta.plan_id).single(),
       supabase.from('brand_knowledge').select('section, content').eq('brand_id', pauta.brand_id),
       supabase
         .from('content_channels')
@@ -99,6 +100,8 @@ export async function POST(req: Request) {
       pauta.scope_id
         ? supabase.from('brand_scope').select('label').eq('id', pauta.scope_id).maybeSingle()
         : Promise.resolve({ data: null }),
+      // A leitura do mês mora em plano_interno, fora do alcance do cliente.
+      lerInterno(supabase, pauta.plan_id as string),
     ])
 
   if (!marca || !plano) return json({ erro: 'Não consegui carregar o contexto da pauta.' }, 500)
@@ -111,7 +114,7 @@ export async function POST(req: Request) {
     base[s.section as string] = limpo
   }
 
-  const analise = (plano.analysis ?? {}) as {
+  const analise = interno.analysis as {
     leitura?: string
     territorios?: { nome: string; peso: number }[]
   }

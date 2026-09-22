@@ -6,7 +6,7 @@
  * alguém vai sentar para revisar — não às três da manhã, quando o mês
  * nasceu.
  *
- * O resultado fica em `plans.analysis.critica`, com a versão de cada
+ * O resultado fica em `plano_interno.analysis.critica`, com a versão de cada
  * pauta no momento da avaliação. Pauta editada depois disso tem a
  * crítica marcada como vencida na tela, em vez de fingir que ainda
  * vale.
@@ -24,6 +24,7 @@ import {
   type Critica,
   type PautaParaCritica,
 } from '@/lib/prompt'
+import { lerInterno, gravarInterno } from '@/lib/interno'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -61,7 +62,7 @@ export async function POST(req: Request) {
   // O planejamento só aparece aqui se as políticas deixarem.
   const { data: plano } = await supabase
     .from('plans')
-    .select('id, brand_id, month, year, analysis')
+    .select('id, brand_id, month, year')
     .eq('id', planoId)
     .maybeSingle()
   if (!plano) return json({ erro: 'Não achei este planejamento, ou você não tem acesso a ele.' }, 404)
@@ -136,7 +137,8 @@ export async function POST(req: Request) {
     }
   })
 
-  const analise = (plano.analysis ?? {}) as {
+  // A análise mora em plano_interno, que o cliente não alcança.
+  const analise = (await lerInterno(supabase, planoId)).analysis as {
     leitura?: string
     territorios?: { nome: string; peso: number }[]
   }
@@ -213,13 +215,12 @@ export async function POST(req: Request) {
       itens: itens.map((i) => ({ ...i, versao: versaoDe.get(i.id) ?? 1 })),
     }
 
-    const { error: erroGravar } = await supabase
-      .from('plans')
-      .update({ analysis: { ...analise, critica } })
-      .eq('id', planoId)
+    const erroGravar = await gravarInterno(supabase, planoId, marcaId, {
+      analysis: { ...analise, critica },
+    })
 
     if (erroGravar) {
-      return json({ erro: 'A avaliação saiu, mas não consegui gravar: ' + erroGravar.message }, 500)
+      return json({ erro: 'A avaliação saiu, mas não consegui gravar: ' + erroGravar }, 500)
     }
 
     if (corridaId) {

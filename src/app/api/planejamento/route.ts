@@ -26,6 +26,7 @@ import {
   type Entrada,
   type Linha,
 } from '@/lib/prompt'
+import { lerAnalises, gravarInterno } from '@/lib/interno'
 
 export const dynamic = 'force-dynamic'
 /**
@@ -223,7 +224,7 @@ export async function POST(req: Request) {
   // ---------- histórico ----------
   const { data: anteriores } = await supabase
     .from('plans')
-    .select('id, month, year, analysis')
+    .select('id, month, year')
     .eq('brand_id', marcaId)
     .or(`year.lt.${ano},and(year.eq.${ano},month.lt.${mes})`)
     .order('year', { ascending: false })
@@ -255,8 +256,12 @@ export async function POST(req: Request) {
   // estava nos meses anteriores é novo. No primeiro mês da marca nada
   // é novo, porque não existe "antes" com o que comparar.
   const territoriosDeAntes = new Set<string>()
+  const analisesDeAntes = await lerAnalises(
+    supabase,
+    (anteriores ?? []).map((p) => p.id as string),
+  )
   for (const p of anteriores ?? []) {
-    const a = (p.analysis ?? {}) as { territorios?: { nome?: string }[] }
+    const a = (analisesDeAntes.get(p.id as string) ?? {}) as { territorios?: { nome?: string }[] }
     for (const t of a.territorios ?? []) {
       const n = (t.nome ?? '').trim().toLowerCase()
       if (n) territoriosDeAntes.add(n)
@@ -310,15 +315,16 @@ export async function POST(req: Request) {
         year: ano,
         status: 'generating',
         created_by: user.id,
-        briefing,
       })
       .select('id')
       .single()
     if (erroPlano || !novo) return erro('Não consegui criar o planejamento: ' + (erroPlano?.message ?? ''), 500)
     planoId = novo.id as string
   } else {
-    await supabase.from('plans').update({ status: 'generating', briefing }).eq('id', planoId)
+    await supabase.from('plans').update({ status: 'generating' }).eq('id', planoId)
   }
+  // O briefing é da equipe: mora em plano_interno, onde o cliente não chega.
+  await gravarInterno(supabase, planoId, marcaId, { briefing })
 
   const { data: corrida } = await supabase
     .from('ai_runs')
@@ -507,27 +513,30 @@ export async function POST(req: Request) {
           }
         }
 
-        await supabase
-          .from('plans')
-          .update({
-            status: 'internal_review',
-            briefing,
-            analysis: {
-              leitura: plano.leitura ?? null,
-              territorios: (plano.territorios ?? []).map((t) => ({
-                ...t,
-                novo: temPassado && !territoriosDeAntes.has((t.nome ?? '').trim().toLowerCase()),
-              })),
-              conferencia: plano.conferencia ?? {},
-              nao_fazer: plano.nao_fazer ?? [],
-              alertas: plano.alertas ?? [],
-              achados,
-              gerado_em: new Date().toISOString(),
-              modelo: r.modelo,
-              versao_prompt: VERSAO_PROMPT,
-            },
-          })
-          .eq('id', planoId)
+        await supabase.from('plans').update({ status: 'internal_review' }).eq('id', planoId)
+
+        // A análise vai para plano_interno: o cliente lê `plans`, e a
+        // leitura do mês é raciocínio da agência, não entrega.
+        const erroAnalise = await gravarInterno(supabase, planoId as string, marcaId, {
+          briefing,
+          analysis: {
+            leitura: plano.leitura ?? null,
+            territorios: (plano.territorios ?? []).map((t) => ({
+              ...t,
+              novo: temPassado && !territoriosDeAntes.has((t.nome ?? '').trim().toLowerCase()),
+            })),
+            conferencia: plano.conferencia ?? {},
+            nao_fazer: plano.nao_fazer ?? [],
+            alertas: plano.alertas ?? [],
+            achados,
+            gerado_em: new Date().toISOString(),
+            modelo: r.modelo,
+            versao_prompt: VERSAO_PROMPT,
+          },
+        })
+        if (erroAnalise) {
+          enviar({ tipo: 'aviso', mensagem: 'As pautas gravaram, mas a leitura do mês não: ' + erroAnalise })
+        }
 
         if (corridaId) {
           await supabase

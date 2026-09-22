@@ -23,6 +23,7 @@ import {
   VERSAO_PROMPT,
   type Conteudo,
 } from '@/lib/prompt'
+import { lerInterno } from '@/lib/interno'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 600
@@ -80,10 +81,10 @@ export async function POST(req: Request) {
     return json({ erro: 'Você tem acesso de leitura nesta marca. Escrever o conteúdo é de quem edita.' }, 403)
   }
 
-  const [{ data: marca }, { data: plano }, { data: secoes }, { data: canal }, { data: linha }] =
+  const [{ data: marca }, { data: plano }, { data: secoes }, { data: canal }, { data: linha }, interno] =
     await Promise.all([
       supabase.from('brands').select('name, segment').eq('id', pauta.brand_id).single(),
-      supabase.from('plans').select('month, year, analysis').eq('id', pauta.plan_id).single(),
+      supabase.from('plans').select('month, year').eq('id', pauta.plan_id).single(),
       supabase.from('brand_knowledge').select('section, content').eq('brand_id', pauta.brand_id),
       supabase
         .from('content_channels')
@@ -93,6 +94,8 @@ export async function POST(req: Request) {
       pauta.scope_id
         ? supabase.from('brand_scope').select('label').eq('id', pauta.scope_id).maybeSingle()
         : Promise.resolve({ data: null }),
+      // A leitura do mês mora em plano_interno, fora do alcance do cliente.
+      lerInterno(supabase, pauta.plan_id as string),
     ])
 
   if (!marca || !plano) return json({ erro: 'Não consegui carregar o contexto da pauta.' }, 500)
@@ -109,7 +112,7 @@ export async function POST(req: Request) {
   // público lê. O bloco vai inteiro.
   const estilo = blocoDeEstilo(await coletarEstilo(supabase, pauta.brand_id as string, base))
 
-  const analise = (plano.analysis ?? {}) as { leitura?: string }
+  const analise = interno.analysis as { leitura?: string }
   const data = canal?.scheduled_date as string | undefined
   const formato = (canal?.format as string) ?? null
   const video = ehVideo(formato)

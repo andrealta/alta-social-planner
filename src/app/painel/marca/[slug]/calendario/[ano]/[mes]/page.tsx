@@ -5,6 +5,7 @@ import { mesTitulado } from '@/lib/prompt'
 import { Calendario } from './calendario'
 import type { ConteudoPauta, Decisao, JuizoDaPauta, Pauta, Recado, Versao } from './comum'
 import { Estrategia } from '../../../plano/[ano]/[mes]/estrategia'
+import { lerInterno } from '@/lib/interno'
 
 export default async function CalendarioDoMes({
   params,
@@ -42,12 +43,14 @@ export default async function CalendarioDoMes({
 
   const { data: plano } = await supabase
     .from('plans')
-    .select('id, status, analysis, client_released_at, estrategia_cliente, estrategia_atualizada_em')
+    .select('id, status, client_released_at, estrategia_cliente, estrategia_atualizada_em')
     .eq('brand_id', marca.id)
     .eq('year', ano)
     .eq('month', mes)
     .maybeSingle()
   if (!plano) notFound()
+  // Leitura e crítica moram em plano_interno, fora do alcance do cliente.
+  const interno = await lerInterno(supabase, plano.id as string)
 
   const [
     { data: pautasBrutas },
@@ -103,7 +106,7 @@ export default async function CalendarioDoMes({
   // editada depois disso tem a crítica marcada como vencida: crítica
   // velha apresentada como atual é pior que nenhuma, porque a equipe
   // passa a revisar o que já foi consertado.
-  const analisePlano = (plano.analysis ?? {}) as {
+  const analisePlano = interno.analysis as {
     critica?: {
       veredito_do_mes?: string
       gerada_em?: string
@@ -334,7 +337,7 @@ export default async function CalendarioDoMes({
         planoId={plano.id as string}
         inicial={(plano.estrategia_cliente as string | null) ?? null}
         atualizadaEm={(plano.estrategia_atualizada_em as string | null) ?? null}
-        leitura={((plano.analysis ?? {}) as { leitura?: string }).leitura ?? null}
+        leitura={(interno.analysis as { leitura?: string }).leitura ?? null}
         podeEditar={nivel === 'owner' || nivel === 'editor'}
         lembrete={!(plano.estrategia_cliente as string | null)?.trim()}
       />

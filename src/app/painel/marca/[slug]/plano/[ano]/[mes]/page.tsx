@@ -5,6 +5,7 @@ import { MESES, mesTitulado } from '@/lib/prompt'
 import { Apagar } from './apagar'
 import { Estrategia } from './estrategia'
 import { exclusaoDoPlano } from '../../regra'
+import { lerInterno } from '@/lib/interno'
 
 type Achado = { gravidade: 'erro' | 'aviso'; texto: string }
 type Territorio = { nome: string; peso: number; cobre?: string; posts?: number; novo?: boolean }
@@ -45,13 +46,15 @@ export default async function Plano({
   const { data: plano } = await supabase
     .from('plans')
     .select(
-      'id, status, briefing, analysis, created_at, client_released_at, estrategia_cliente, estrategia_atualizada_em',
+      'id, status, created_at, client_released_at, estrategia_cliente, estrategia_atualizada_em',
     )
     .eq('brand_id', marca.id)
     .eq('year', ano)
     .eq('month', mes)
     .maybeSingle()
   if (!plano) notFound()
+  // Briefing e análise moram em plano_interno, fora do alcance do cliente.
+  const interno = await lerInterno(supabase, plano.id as string)
 
   // Quem exclui: administração sempre; a equipe que edita a marca, só
   // até o envio ao cliente (0018). Quem manda é o banco; isto aqui só
@@ -110,7 +113,7 @@ export default async function Plano({
     ]),
   )
 
-  const analise = (plano.analysis ?? {}) as {
+  const analise = interno.analysis as {
     leitura?: string
     territorios?: Territorio[]
     nao_fazer?: string[]
@@ -448,11 +451,11 @@ export default async function Plano({
         </section>
       )}
 
-      {plano.briefing ? (
+      {interno.briefing ? (
         <section style={{ marginTop: 24 }}>
           <Rotulo>Obrigatoriedades informadas</Rotulo>
           <p style={{ fontSize: 13.8, color: 'var(--muted)', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
-            {plano.briefing as string}
+            {interno.briefing}
           </p>
         </section>
       ) : null}
