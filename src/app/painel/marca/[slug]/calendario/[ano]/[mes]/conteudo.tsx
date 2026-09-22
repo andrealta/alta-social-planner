@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { type ConteudoPauta, type Pauta, botao, caixaTexto } from './comum'
 import { salvarConteudo } from './acoes'
+import { COMANDOS_CONTEUDO } from '@/lib/prompt'
 import { Layouts } from './layouts'
 import type { Layout } from '@/lib/layouts'
 
@@ -520,56 +521,79 @@ export function AbaConteudo({
                 </span>
               </div>
 
-              {/* Pedir à IA: mesma conversa da aba Ideia, em linguagem
-                  de gente. Ela reescreve só o que foi pedido. */}
-              <div
+              {/* Alterar com a IA: os mesmos atalhos da aba Ideia, no
+                  vocabulário de quem mexe em legenda e arte. O texto do
+                  botão vai inteiro como pedido. */}
+              <section
                 style={{
-                  padding: '13px 15px',
+                  margin: '4px 0 20px',
+                  padding: '15px 17px',
                   borderRadius: 'var(--r)',
-                  border: '1px solid var(--line)',
                   background: 'var(--surface-2)',
-                  marginBottom: 18,
                 }}
               >
-                <h4
-                  style={{
-                    fontFamily: 'var(--disp)',
-                    fontSize: 11,
-                    fontWeight: 500,
-                    letterSpacing: '.14em',
-                    textTransform: 'uppercase',
-                    color: 'var(--faint)',
-                    margin: '0 0 6px',
-                  }}
-                >
-                  Pedir uma alteração à IA
-                </h4>
+                <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 2 }}>Alterar IA</div>
+                <p style={{ color: 'var(--muted)', fontSize: 12.3, marginBottom: 9, lineHeight: 1.5 }}>
+                  Ela reescreve só o que você pedir e mantém o resto. O conteúdo não guarda
+                  histórico, então grave o que você editou antes de pedir. Leva de um a três
+                  minutos.
+                </p>
+
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                  {COMANDOS_CONTEUDO.map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => criar(c)}
+                      disabled={criando || salvando}
+                      style={{
+                        fontFamily: 'inherit',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        padding: '6px 12px',
+                        border: 'none',
+                        borderRadius: 99,
+                        background: pedindo === c ? 'var(--accent)' : 'var(--surface)',
+                        color: pedindo === c ? '#fff' : 'var(--text)',
+                        boxShadow: pedindo === c ? 'none' : '0 1px 2px rgba(29,37,48,.07)',
+                        cursor: criando || salvando ? 'not-allowed' : 'pointer',
+                        opacity: criando && pedindo !== c ? 0.45 : 1,
+                      }}
+                    >
+                      {pedindo === c ? `${c} · ${segundos}s` : c}
+                    </button>
+                  ))}
+                </div>
+
                 <textarea
+                  rows={2}
                   value={pedido}
                   onChange={(e) => setPedido(e.target.value)}
-                  rows={2}
                   disabled={criando || salvando}
-                  placeholder="Ex.: legenda mais curta, sem pergunta no começo; troque o CTA por um convite para visitar a loja."
-                  style={{ ...caixaTexto, border: '1px solid var(--line)' }}
+                  placeholder="Ou explique com suas palavras: encurte a legenda, tire a pergunta do começo e troque o CTA por um convite para visitar a loja."
+                  style={{ ...caixaTexto, fontSize: 13 }}
                 />
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 8 }}>
-                  <button
-                    onClick={() => criar(pedido.trim())}
-                    disabled={criando || salvando || pedido.trim().length < 3}
-                    style={botao(false, criando || salvando || pedido.trim().length < 3)}
-                  >
-                    {criando && pedindo !== null ? `Alterando… ${segundos}s` : 'Alterar com a IA'}
-                  </button>
-                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-                    Ela muda só o que você pedir e mantém o resto. Leva de um a três minutos.
-                  </span>
-                </div>
+                <button
+                  onClick={() => criar(pedido.trim())}
+                  disabled={pedido.trim().length < 3 || criando || salvando}
+                  style={{
+                    ...botao(false, pedido.trim().length < 3 || criando || salvando),
+                    marginTop: 8,
+                    width: '100%',
+                    color: 'var(--accent)',
+                  }}
+                >
+                  {criando && pedindo !== null && !COMANDOS_CONTEUDO.includes(pedindo)
+                    ? `Pedindo à IA… ${segundos}s`
+                    : 'Enviar à IA'}
+                </button>
+
                 {sujo && (
-                  <p style={{ fontSize: 12, color: 'var(--laranja-tinta)', margin: '8px 0 0', lineHeight: 1.5 }}>
-                    Você tem alterações não gravadas. Grave antes de pedir à IA, senão elas se perdem.
+                  <p style={{ fontSize: 12, color: 'var(--laranja-tinta)', margin: '9px 0 0', lineHeight: 1.5 }}>
+                    Você tem alterações não gravadas. Grave antes de pedir à IA, senão elas se
+                    perdem.
                   </p>
                 )}
-              </div>
+              </section>
             </>
           ) : (
             <>

@@ -361,6 +361,29 @@ export const COMANDOS = [
   'Evitar repetir o histórico',
 ]
 
+// -------------------------------------------------------------
+// Alteração do conteúdo já escrito
+//
+// Os mesmos atalhos da pauta, no vocabulário de quem mexe em legenda
+// e direção de arte. O texto do botão vai inteiro para a IA como
+// pedido, então ele precisa dizer o que fazer, não o que a tela chama.
+// -------------------------------------------------------------
+
+export const COMANDOS_CONTEUDO = [
+  'Encurtar a legenda',
+  'Alongar a legenda',
+  'Trocar o gancho da primeira linha',
+  'Tornar menos comercial',
+  'Tornar mais próxima e direta',
+  'Tirar as perguntas',
+  'Simplificar as palavras',
+  'Trocar o CTA',
+  'Refazer as hashtags',
+  'Outra direção de arte',
+  'Refazer o prompt da imagem',
+  'Escrever outra versão da legenda',
+]
+
 export type PautaAtual = {
   dia: number | null
   linha: string | null
