@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import { type ConteudoPauta, type Pauta, botao } from './comum'
+import { useEffect, useState } from 'react'
+import { type ConteudoPauta, type Pauta, botao, caixaTexto } from './comum'
+import { salvarConteudo } from './acoes'
 import { Layouts } from './layouts'
 import type { Layout } from '@/lib/layouts'
 
@@ -162,7 +163,50 @@ function Mockup({ layout, proporcao }: { layout: Record<string, string>; proporc
   )
 }
 
+/**
+ * Os campos do conteúdo que a equipe edita à mão.
+ *
+ * Mesma ideia da aba Ideia: o que a IA escreveu é rascunho, e quem
+ * responde pela marca precisa poder mexer sem pedir nada a ninguém.
+ * Só que aqui não há versão arquivada: conteúdo é o que vai publicado,
+ * e guardar rascunho de legenda não ajuda ninguém.
+ */
+type Campos = {
+  caption: string
+  cta: string
+  hashtags: string
+  alt_text: string
+  art_concept: string
+  art_direction: string
+  image_prompt: string
+}
+
+const CAMPOS_CONTEUDO: { id: keyof Campos; rotulo: string; linhas: number; dica?: string; mono?: boolean }[] = [
+  { id: 'caption', rotulo: 'Legenda', linhas: 9, dica: 'A primeira linha é o gancho: ela aparece antes do "mais".' },
+  { id: 'cta', rotulo: 'CTA', linhas: 2 },
+  { id: 'hashtags', rotulo: 'Hashtags', linhas: 2, dica: 'Separadas por espaço. O # entra sozinho se faltar.' },
+  { id: 'alt_text', rotulo: 'Texto alternativo', linhas: 3, dica: 'Descrição da imagem para quem usa leitor de tela.' },
+  { id: 'art_concept', rotulo: 'Conceito de arte', linhas: 3 },
+  { id: 'art_direction', rotulo: 'Direção de arte', linhas: 5 },
+  { id: 'image_prompt', rotulo: 'Prompt da imagem', linhas: 5, mono: true, dica: 'Em inglês e sem marca, logotipo ou texto: o gerador erra tudo isso.' },
+]
+
+function paraCampos(c: ConteudoPauta | null): Campos {
+  return {
+    caption: c?.caption ?? '',
+    cta: c?.cta ?? '',
+    hashtags: (c?.hashtags ?? []).join(' '),
+    alt_text: c?.alt_text ?? '',
+    art_concept: c?.art_concept ?? '',
+    art_direction: c?.art_direction ?? '',
+    image_prompt: c?.image_prompt ?? '',
+  }
+}
+
 export function AbaConteudo({
+  slug,
+  ano,
+  mes,
   pauta,
   conteudo,
   podeEditar,
@@ -170,6 +214,9 @@ export function AbaConteudo({
   aoGerar,
   aoMudarLayouts,
 }: {
+  slug: string
+  ano: number
+  mes: number
   pauta: Pauta
   conteudo: ConteudoPauta | null
   /** Administração troca layout mesmo depois de o cliente aprovar. */
@@ -183,11 +230,66 @@ export function AbaConteudo({
   const [segundos, setSegundos] = useState(0)
   const [erro, setErro] = useState<string | null>(null)
   const [achados, setAchados] = useState<{ gravidade: string; texto: string }[]>([])
+  const [campos, setCampos] = useState<Campos>(() => paraCampos(conteudo))
+  const [salvando, setSalvando] = useState(false)
+  const [aviso, setAviso] = useState<string | null>(null)
+  const [pedido, setPedido] = useState('')
+  /** Nulo quando é criação do zero; com texto, é alteração pedida à IA. */
+  const [pedindo, setPedindo] = useState<string | null>(null)
 
-  async function criar() {
-    if (criando) return
-    setCriando(true)
+  // Conteúdo novo (criado ou alterado pela IA) devolve os campos ao que
+  // está gravado: o que a pessoa tinha digitado já não vale.
+  useEffect(() => {
+    setCampos(paraCampos(conteudo))
+  }, [conteudo])
+
+  const original = paraCampos(conteudo)
+  const sujo = CAMPOS_CONTEUDO.some((c) => campos[c.id] !== original[c.id])
+
+  async function salvar() {
+    if (salvando || !conteudo) return
+    setSalvando(true)
+    setAviso(null)
     setErro(null)
+    const r = await salvarConteudo(slug, pauta.id, campos, ano, mes)
+    setSalvando(false)
+    if (!r.ok) {
+      setErro(r.erro ?? 'Não consegui gravar.')
+      return
+    }
+    const tags = [
+      ...new Set(
+        campos.hashtags
+          .split(/[\s,]+/)
+          .map((h) => h.trim())
+          .filter(Boolean)
+          .map((h) => (h.startsWith('#') ? h : '#' + h)),
+      ),
+    ].slice(0, 30)
+    aoGerar({
+      ...conteudo,
+      caption: campos.caption.trim() || null,
+      cta: campos.cta.trim() || null,
+      hashtags: tags,
+      alt_text: campos.alt_text.trim() || null,
+      art_concept: campos.art_concept.trim() || null,
+      art_direction: campos.art_direction.trim() || null,
+      image_prompt: campos.image_prompt.trim() || null,
+    })
+    setAviso('Alterações gravadas.')
+    setTimeout(() => setAviso(null), 2500)
+  }
+
+  async function criar(pedidoDaVez?: string) {
+    if (criando) return
+    const alterando = !!pedidoDaVez
+    if (!alterando && conteudo && !window.confirm('Refazer joga fora o conteúdo atual, inclusive o que você editou à mão. Continuar?')) {
+      return
+    }
+    setCriando(true)
+    setPedindo(pedidoDaVez ?? null)
+    setErro(null)
+    setAviso(null)
     setAchados([])
     setSegundos(0)
     const t = setInterval(() => setSegundos((x) => x + 1), 1000)
@@ -195,7 +297,7 @@ export function AbaConteudo({
       const r = await fetch('/api/conteudo', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ ideaId: pauta.id }),
+        body: JSON.stringify({ ideaId: pauta.id, pedido: pedidoDaVez ?? '' }),
       })
       const corpo = await r.json()
       if (!r.ok || corpo.erro) {
@@ -205,11 +307,17 @@ export function AbaConteudo({
       }
       setAchados(corpo.achados ?? [])
       aoGerar(corpo.conteudo as ConteudoPauta)
+      if (alterando) {
+        setPedido('')
+        setAviso('Conteúdo alterado pela IA.')
+        setTimeout(() => setAviso(null), 2500)
+      }
     } catch {
-      setErro('A conexão caiu durante a criação. Tente de novo.')
+      setErro('A conexão caiu no meio do caminho. Tente de novo.')
     } finally {
       clearInterval(t)
       setCriando(false)
+      setPedindo(null)
     }
   }
 
@@ -265,13 +373,15 @@ export function AbaConteudo({
       )}
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
-        {podeEditar && <button onClick={criar} disabled={criando} style={botao(!conteudo, criando)}>
-          {criando
-            ? `Escrevendo… ${segundos}s`
-            : conteudo
-              ? 'Refazer o conteúdo'
-              : 'Criar conteúdo'}
-        </button>}
+        {podeEditar && (
+          <button onClick={() => criar()} disabled={criando} style={botao(!conteudo, criando)}>
+            {criando && pedindo === null
+              ? `Escrevendo… ${segundos}s`
+              : conteudo
+                ? 'Refazer do zero'
+                : 'Criar conteúdo'}
+          </button>
+        )}
         {conteudo && !criando && (
           <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>
             {conteudo.piece_kind === 'video' ? 'vídeo' : 'imagem'} · {conteudo.aspect_ratio}
@@ -355,46 +465,190 @@ export function AbaConteudo({
 
       {conteudo && (
         <>
-          <Bloco titulo="Legenda" copiavel={legendaInteira}>
-            <div
-              style={{
-                whiteSpace: 'pre-wrap',
-                fontSize: 14,
-                lineHeight: 1.65,
-                padding: '12px 14px',
-                background: 'var(--surface-2)',
-                borderRadius: 8,
-                border: '1px solid var(--line)',
-              }}
-            >
-              {conteudo.caption}
-            </div>
-            {conteudo.cta && (
-              <p style={{ fontSize: 13.5, marginTop: 8 }}>
-                <b>CTA:</b> {conteudo.cta}
-              </p>
-            )}
-          </Bloco>
-
-          {(conteudo.hashtags ?? []).length > 0 && (
-            <Bloco titulo="Hashtags" copiavel={(conteudo.hashtags ?? []).join(' ')}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                {conteudo.hashtags.map((h) => (
-                  <span
-                    key={h}
+          {podeEditar ? (
+            <>
+              {CAMPOS_CONTEUDO.map((c) => (
+                <Bloco
+                  key={c.id}
+                  titulo={c.rotulo}
+                  copiavel={c.id === 'caption' ? legendaInteira : campos[c.id] || undefined}
+                >
+                  <textarea
+                    value={campos[c.id]}
+                    onChange={(e) => setCampos({ ...campos, [c.id]: e.target.value })}
+                    rows={c.linhas}
+                    disabled={criando || salvando}
                     style={{
+                      ...caixaTexto,
+                      border:
+                        campos[c.id] !== original[c.id]
+                          ? '1px solid var(--accent)'
+                          : '1px solid var(--line)',
+                      fontFamily: c.mono ? 'var(--mono)' : 'inherit',
+                      fontSize: c.mono ? 12 : 13.8,
+                    }}
+                  />
+                  {c.dica && (
+                    <p style={{ color: 'var(--faint)', fontSize: 11.5, marginTop: 4, lineHeight: 1.5 }}>
+                      {c.dica}
+                    </p>
+                  )}
+                </Bloco>
+              ))}
+
+              {/* Gravar e desfazer, logo abaixo dos campos. */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  flexWrap: 'wrap',
+                  padding: '4px 0 14px',
+                  marginBottom: 12,
+                }}
+              >
+                <button onClick={salvar} disabled={!sujo || salvando || criando} style={botao(sujo, !sujo || salvando || criando)}>
+                  {salvando ? 'Gravando…' : 'Salvar alterações'}
+                </button>
+                {sujo && !salvando && (
+                  <button onClick={() => setCampos(original)} style={botao(false, criando)}>
+                    Desfazer
+                  </button>
+                )}
+                <span style={{ fontSize: 12.5, color: aviso ? 'var(--ok)' : 'var(--muted)' }}>
+                  {aviso ?? (sujo ? 'Alterações não gravadas.' : 'Tudo gravado.')}
+                </span>
+              </div>
+
+              {/* Pedir à IA: mesma conversa da aba Ideia, em linguagem
+                  de gente. Ela reescreve só o que foi pedido. */}
+              <div
+                style={{
+                  padding: '13px 15px',
+                  borderRadius: 'var(--r)',
+                  border: '1px solid var(--line)',
+                  background: 'var(--surface-2)',
+                  marginBottom: 18,
+                }}
+              >
+                <h4
+                  style={{
+                    fontFamily: 'var(--disp)',
+                    fontSize: 11,
+                    fontWeight: 500,
+                    letterSpacing: '.14em',
+                    textTransform: 'uppercase',
+                    color: 'var(--faint)',
+                    margin: '0 0 6px',
+                  }}
+                >
+                  Pedir uma alteração à IA
+                </h4>
+                <textarea
+                  value={pedido}
+                  onChange={(e) => setPedido(e.target.value)}
+                  rows={2}
+                  disabled={criando || salvando}
+                  placeholder="Ex.: legenda mais curta, sem pergunta no começo; troque o CTA por um convite para visitar a loja."
+                  style={{ ...caixaTexto, border: '1px solid var(--line)' }}
+                />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 8 }}>
+                  <button
+                    onClick={() => criar(pedido.trim())}
+                    disabled={criando || salvando || pedido.trim().length < 3}
+                    style={botao(false, criando || salvando || pedido.trim().length < 3)}
+                  >
+                    {criando && pedindo !== null ? `Alterando… ${segundos}s` : 'Alterar com a IA'}
+                  </button>
+                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                    Ela muda só o que você pedir e mantém o resto. Leva de um a três minutos.
+                  </span>
+                </div>
+                {sujo && (
+                  <p style={{ fontSize: 12, color: 'var(--laranja-tinta)', margin: '8px 0 0', lineHeight: 1.5 }}>
+                    Você tem alterações não gravadas. Grave antes de pedir à IA, senão elas se perdem.
+                  </p>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <Bloco titulo="Legenda" copiavel={legendaInteira}>
+                <div
+                  style={{
+                    whiteSpace: 'pre-wrap',
+                    fontSize: 14,
+                    lineHeight: 1.65,
+                    padding: '12px 14px',
+                    background: 'var(--surface-2)',
+                    borderRadius: 8,
+                    border: '1px solid var(--line)',
+                  }}
+                >
+                  {conteudo.caption}
+                </div>
+                {conteudo.cta && (
+                  <p style={{ fontSize: 13.5, marginTop: 8 }}>
+                    <b>CTA:</b> {conteudo.cta}
+                  </p>
+                )}
+              </Bloco>
+
+              {(conteudo.hashtags ?? []).length > 0 && (
+                <Bloco titulo="Hashtags" copiavel={(conteudo.hashtags ?? []).join(' ')}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                    {conteudo.hashtags.map((h) => (
+                      <span
+                        key={h}
+                        style={{
+                          fontSize: 12,
+                          padding: '2px 9px',
+                          borderRadius: 99,
+                          background: 'var(--surface-3)',
+                          color: 'var(--muted)',
+                        }}
+                      >
+                        {h}
+                      </span>
+                    ))}
+                  </div>
+                </Bloco>
+              )}
+
+              {(conteudo.art_concept || conteudo.art_direction) && (
+                <Bloco titulo="Direção de arte">
+                  {conteudo.art_concept && (
+                    <p style={{ fontSize: 13.8, fontWeight: 600, marginBottom: 5, lineHeight: 1.55 }}>
+                      {conteudo.art_concept}
+                    </p>
+                  )}
+                  {conteudo.art_direction && (
+                    <p style={{ fontSize: 13.2, color: 'var(--muted)', lineHeight: 1.6 }}>
+                      {conteudo.art_direction}
+                    </p>
+                  )}
+                </Bloco>
+              )}
+
+              {conteudo.image_prompt && (
+                <Bloco titulo="Prompt da imagem" copiavel={conteudo.image_prompt}>
+                  <div
+                    style={{
+                      fontFamily: 'var(--mono)',
                       fontSize: 12,
-                      padding: '2px 9px',
-                      borderRadius: 99,
-                      background: 'var(--surface-3)',
-                      color: 'var(--muted)',
+                      lineHeight: 1.55,
+                      padding: '11px 13px',
+                      background: 'var(--surface-2)',
+                      border: '1px solid var(--line)',
+                      borderRadius: 8,
+                      whiteSpace: 'pre-wrap',
                     }}
                   >
-                    {h}
-                  </span>
-                ))}
-              </div>
-            </Bloco>
+                    {conteudo.image_prompt}
+                  </div>
+                </Bloco>
+              )}
+            </>
           )}
 
           {(conteudo.caption_variants ?? []).length > 0 && (
@@ -456,43 +710,6 @@ export function AbaConteudo({
             </Bloco>
           )}
 
-          {(conteudo.art_concept || conteudo.art_direction) && (
-            <Bloco titulo="Direção de arte">
-              {conteudo.art_concept && (
-                <p style={{ fontSize: 13.8, fontWeight: 600, marginBottom: 5, lineHeight: 1.55 }}>
-                  {conteudo.art_concept}
-                </p>
-              )}
-              {conteudo.art_direction && (
-                <p style={{ fontSize: 13.2, color: 'var(--muted)', lineHeight: 1.6 }}>
-                  {conteudo.art_direction}
-                </p>
-              )}
-            </Bloco>
-          )}
-
-          {conteudo.image_prompt && (
-            <Bloco titulo="Prompt da imagem" copiavel={conteudo.image_prompt}>
-              <div
-                style={{
-                  fontFamily: 'var(--mono)',
-                  fontSize: 12,
-                  lineHeight: 1.55,
-                  padding: '11px 13px',
-                  background: 'var(--surface-2)',
-                  border: '1px solid var(--line)',
-                  borderRadius: 8,
-                  whiteSpace: 'pre-wrap',
-                }}
-              >
-                {conteudo.image_prompt}
-              </div>
-              <p style={{ color: 'var(--faint)', fontSize: 11.5, marginTop: 5, lineHeight: 1.5 }}>
-                Em inglês e sem marca, logotipo ou texto: gerador erra tudo isso, e o
-                texto entra na arte depois.
-              </p>
-            </Bloco>
-          )}
 
           {conteudo.layout && Object.keys(conteudo.layout).length > 0 && (
             <Bloco titulo="A peça">

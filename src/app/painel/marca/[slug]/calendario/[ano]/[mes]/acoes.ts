@@ -226,3 +226,66 @@ export async function enviarAoCliente(
   revalidatePath(caminho(slug, ano, mes))
   return { ok: true, enviadas: Number(data) }
 }
+
+/**
+ * Grava o conteúdo escrito à mão pela equipe.
+ *
+ * Diferente da pauta, o conteúdo não é versionado: o que vale é o que
+ * vai ser publicado, e guardar rascunho de legenda não ajuda ninguém.
+ * A medida de Precisão também não muda com isto, porque ela conta
+ * edição de PAUTA, não de legenda.
+ */
+export async function salvarConteudo(
+  slug: string,
+  ideaId: string,
+  campos: {
+    caption: string
+    cta: string
+    hashtags: string
+    alt_text: string
+    art_concept: string
+    art_direction: string
+    image_prompt: string
+  },
+  ano: number,
+  mes: number,
+): Promise<Resultado> {
+  const ctx = await equipe()
+  if ('erro' in ctx) return { ok: false, erro: ctx.erro }
+
+  const limpo = (t: string) => {
+    const x = (t ?? '').trim()
+    return x === '' ? null : x
+  }
+
+  // As hashtags chegam como texto solto; viram lista, com o # na frente
+  // e sem repetir.
+  const tags = [
+    ...new Set(
+      (campos.hashtags ?? '')
+        .split(/[\s,]+/)
+        .map((h) => h.trim())
+        .filter(Boolean)
+        .map((h) => (h.startsWith('#') ? h : '#' + h)),
+    ),
+  ].slice(0, 30)
+
+  const { error } = await ctx.supabase
+    .from('idea_content')
+    .update({
+      caption: limpo(campos.caption),
+      cta: limpo(campos.cta),
+      hashtags: tags,
+      alt_text: limpo(campos.alt_text),
+      art_concept: limpo(campos.art_concept),
+      art_direction: limpo(campos.art_direction),
+      image_prompt: limpo(campos.image_prompt),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('idea_id', ideaId)
+
+  if (error) return { ok: false, erro: error.message }
+
+  revalidatePath(caminho(slug, ano, mes))
+  return { ok: true }
+}

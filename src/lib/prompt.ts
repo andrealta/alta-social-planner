@@ -614,6 +614,75 @@ precisar mudar de verdade. Se não houver, devolva lista vazia.`
 }
 
 /**
+ * Reescreve o conteúdo a partir de um pedido da equipe.
+ *
+ * Mesmo prompt da criação, mais duas seções no fim: o que existe hoje
+ * e o que a pessoa quer mudar. O pedido vem em linguagem de gente
+ * ("legenda mais curta", "tira a pergunta do começo"), e o que não foi
+ * pedido precisa voltar igual: quem revisou a direção de arte não quer
+ * encontrá-la trocada porque pediu outra coisa na legenda.
+ */
+export function montarPromptRefinoConteudo(e: {
+  marca: Entrada['marca']
+  base: Entrada['base']
+  estilo?: string
+  mes: number
+  ano: number
+  leitura?: string | null
+  pauta: PautaAtual
+  video: boolean
+  atual: {
+    legenda?: string | null
+    cta?: string | null
+    hashtags?: string[]
+    alt?: string | null
+    conceito?: string | null
+    direcao?: string | null
+    prompt?: string | null
+    cenas?: { t?: string; descricao?: string; fala?: string; chave?: boolean }[]
+  }
+  pedido: string
+}): string {
+  const a = e.atual
+  return (
+    montarPromptConteudo(e) +
+    `
+
+# O CONTEÚDO QUE JÁ EXISTE
+
+Legenda:
+${(a.legenda ?? '').trim() || 'não informado'}
+
+CTA: ${(a.cta ?? '').trim() || 'não informado'}
+Hashtags: ${(a.hashtags ?? []).join(' ') || 'não informado'}
+Texto alternativo: ${(a.alt ?? '').trim() || 'não informado'}
+Conceito de arte: ${(a.conceito ?? '').trim() || 'não informado'}
+Direção de arte: ${(a.direcao ?? '').trim() || 'não informado'}
+Prompt da imagem: ${(a.prompt ?? '').trim() || 'não informado'}
+${
+  (a.cenas ?? []).length > 0
+    ? 'Cenas:\n' +
+      (a.cenas ?? [])
+        .map((c) => `${c.t ?? ''} ${c.descricao ?? ''}${c.chave ? ' (chave)' : ''}`)
+        .join('\n')
+    : ''
+}
+
+# O PEDIDO DA EQUIPE
+
+${e.pedido.trim()}
+
+MUDE SÓ O QUE FOI PEDIDO. Todo campo que o pedido não toca volta exatamente como está
+acima, palavra por palavra. Não é para "melhorar" de passagem o que ninguém pediu: quem
+já revisou aquele texto não vai revisar de novo, e a mudança escondida passa direto.
+
+Se o pedido contrariar a base da marca (expressão proibida, restrição legal, recurso
+indisponível), obedeça à base e registre o conflito no campo de conceito de arte, em uma
+frase. Devolva o JSON inteiro, no mesmo formato pedido acima.`
+  )
+}
+
+/**
  * Confere o conteúdo antes de gravar.
  *
  * O mesmo princípio da geração: o prompt PEDE, o código VERIFICA. Aqui

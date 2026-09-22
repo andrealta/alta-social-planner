@@ -657,6 +657,9 @@ export function Painel({
           <AbaConteudo
             pauta={pauta}
             conteudo={pauta.conteudo}
+            slug={slug}
+            ano={ano}
+            mes={mes}
             podeEditar={podeEditar}
             admin={admin}
             aoGerar={aoGerarConteudo}

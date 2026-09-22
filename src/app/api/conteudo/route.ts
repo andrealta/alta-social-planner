@@ -17,6 +17,7 @@ import { registro } from '@/lib/registro'
 import { coletarEstilo, blocoDeEstilo } from '@/lib/estilo'
 import {
   montarPromptConteudo,
+  montarPromptRefinoConteudo,
   conferirConteudo,
   ehVideo,
   SISTEMA_CONTEUDO,
@@ -38,7 +39,7 @@ function json(corpo: unknown, status = 200) {
 const PROPORCOES = ['1:1', '4:5', '9:16', '16:9']
 
 export async function POST(req: Request) {
-  let corpo: { ideaId?: string }
+  let corpo: { ideaId?: string; pedido?: string }
   try {
     corpo = await req.json()
   } catch {
@@ -47,6 +48,11 @@ export async function POST(req: Request) {
 
   const ideaId = String(corpo.ideaId ?? '')
   if (!ideaId) return json({ erro: 'Faltou dizer qual pauta.' }, 400)
+
+  // Com pedido, é alteração do que já existe. Sem pedido, é escrever
+  // do zero. O resto do caminho é o mesmo.
+  const pedido = String(corpo.pedido ?? '').trim()
+  if (pedido.length > 2000) return json({ erro: 'O pedido está longo demais.' }, 400)
 
   const log = registro('conteudo')
   await log.passo('pedido recebido')
@@ -81,7 +87,7 @@ export async function POST(req: Request) {
     return json({ erro: 'Você tem acesso de leitura nesta marca. Escrever o conteúdo é de quem edita.' }, 403)
   }
 
-  const [{ data: marca }, { data: plano }, { data: secoes }, { data: canal }, { data: linha }, interno] =
+  const [{ data: marca }, { data: plano }, { data: secoes }, { data: canal }, { data: linha }, { data: atual }, interno] =
     await Promise.all([
       supabase.from('brands').select('name, segment').eq('id', pauta.brand_id).single(),
       supabase.from('plans').select('month, year').eq('id', pauta.plan_id).single(),
@@ -93,6 +99,13 @@ export async function POST(req: Request) {
         .maybeSingle(),
       pauta.scope_id
         ? supabase.from('brand_scope').select('label').eq('id', pauta.scope_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      pedido
+        ? supabase
+            .from('idea_content')
+            .select('caption, cta, hashtags, alt_text, art_concept, art_direction, image_prompt, scenes')
+            .eq('idea_id', ideaId)
+            .maybeSingle()
         : Promise.resolve({ data: null }),
       // A leitura do mês mora em plano_interno, fora do alcance do cliente.
       lerInterno(supabase, pauta.plan_id as string),
@@ -117,7 +130,7 @@ export async function POST(req: Request) {
   const formato = (canal?.format as string) ?? null
   const video = ehVideo(formato)
 
-  const prompt = montarPromptConteudo({
+  const dadosDoPrompt = {
     marca: { nome: marca.name as string, segmento: marca.segment as string | null },
     base,
     estilo,
@@ -138,7 +151,28 @@ export async function POST(req: Request) {
       justificativa: (pauta.rationale as string) ?? null,
     },
     video,
-  })
+  }
+
+  if (pedido && !atual) {
+    return json({ erro: 'Não achei o conteúdo para alterar. Crie o conteúdo primeiro.' }, 400)
+  }
+
+  const prompt = pedido
+    ? montarPromptRefinoConteudo({
+        ...dadosDoPrompt,
+        pedido,
+        atual: {
+          legenda: (atual?.caption as string | null) ?? null,
+          cta: (atual?.cta as string | null) ?? null,
+          hashtags: (atual?.hashtags as string[]) ?? [],
+          alt: (atual?.alt_text as string | null) ?? null,
+          conceito: (atual?.art_concept as string | null) ?? null,
+          direcao: (atual?.art_direction as string | null) ?? null,
+          prompt: (atual?.image_prompt as string | null) ?? null,
+          cenas: (atual?.scenes as { t?: string; descricao?: string; fala?: string; chave?: boolean }[]) ?? [],
+        },
+      })
+    : montarPromptConteudo(dadosDoPrompt)
 
   const { data: corrida } = await supabase
     .from('ai_runs')
@@ -146,7 +180,7 @@ export async function POST(req: Request) {
       brand_id: pauta.brand_id,
       plan_id: pauta.plan_id,
       idea_id: ideaId,
-      agent: 'content',
+      agent: pedido ? 'content_refine' : 'content',
       model: MODELO_PADRAO,
       prompt_version: VERSAO_PROMPT,
       status: 'running',
@@ -155,7 +189,10 @@ export async function POST(req: Request) {
     .single()
   const corridaId = corrida?.id as string | undefined
 
-  await log.passo('chamando a Anthropic', `${prompt.length} caracteres, video=${video}`)
+  await log.passo(
+    'chamando a Anthropic',
+    `${prompt.length} caracteres, video=${video}${pedido ? ', com pedido de alteração' : ''}`,
+  )
 
   try {
     const r = await chamarClaude(prompt, {

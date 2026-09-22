@@ -200,6 +200,7 @@ export const ETAPA: Record<string, string> = {
   strategy: 'geração do mês',
   research: 'pesquisa',
   content: 'conteúdo',
+  content_refine: 'alterar conteúdo com IA',
   refine: 'alterar IA',
   critique: 'avaliação',
   document_card: 'leitura de documento',
