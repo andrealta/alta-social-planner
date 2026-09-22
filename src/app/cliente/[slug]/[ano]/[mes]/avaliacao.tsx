@@ -701,23 +701,42 @@ function Gaveta({
           {p.editorial_line && <span style={etiqueta}>{p.editorial_line}</span>}
         </div>
 
-        {p.concept && (
-          <p style={{ fontSize: 15, lineHeight: 1.65, marginBottom: 10 }}>{p.concept}</p>
-        )}
-        {p.description && (
-          <p style={{ fontSize: 14, lineHeight: 1.7, color: 'var(--muted)', marginBottom: 16 }}>
-            {p.description}
-          </p>
+        {(p.concept || p.description) && (
+          <Bloco
+            titulo="Contexto e detalhes"
+            ajuda="Do que se trata esta publicação e como ela vai ser produzida."
+          >
+            {p.concept && (
+              <p style={{ fontSize: 15, lineHeight: 1.65, marginBottom: p.description ? 8 : 0 }}>
+                {p.concept}
+              </p>
+            )}
+            {p.description && (
+              <p style={{ fontSize: 14, lineHeight: 1.7, color: 'var(--muted)', margin: 0 }}>
+                {p.description}
+              </p>
+            )}
+          </Bloco>
         )}
 
         {p.layouts.length > 0 && (
-          <Bloco titulo={p.layouts.length === 1 ? 'Layout' : `Layout · ${p.layouts.length} imagens`}>
+          <Bloco
+            titulo={p.layouts.length === 1 ? 'Layout' : `Layout · ${p.layouts.length} imagens`}
+            ajuda={
+              p.layouts.length === 1
+                ? 'A arte como ela vai ser publicada.'
+                : 'As artes do carrossel, na ordem em que vão ser publicadas.'
+            }
+          >
             <Galeria key={p.id} imagens={p.layouts} titulo={p.title} />
           </Bloco>
         )}
 
         {p.caption && (
-          <Bloco titulo="Legenda">
+          <Bloco
+            titulo="Texto de apoio"
+            ajuda="O texto que vai publicado junto com a imagem, com as hashtags."
+          >
             <div
               style={{
                 whiteSpace: 'pre-wrap',
@@ -729,25 +748,18 @@ function Gaveta({
               }}
             >
               {p.caption}
+              {p.hashtags.length > 0 && (
+                <>
+                  {'\n\n'}
+                  <span style={{ color: 'var(--muted)' }}>{p.hashtags.join(' ')}</span>
+                </>
+              )}
             </div>
-            {p.hashtags.length > 0 && (
-              <div style={{ fontSize: 12.8, color: 'var(--muted)', marginTop: 7 }}>
-                {p.hashtags.join(' ')}
-              </div>
-            )}
-          </Bloco>
-        )}
-
-        {p.art_concept && (
-          <Bloco titulo="Ideia de imagem">
-            <p style={{ fontSize: 13.8, lineHeight: 1.65, color: 'var(--muted)' }}>
-              {p.art_concept}
-            </p>
           </Bloco>
         )}
 
         {p.cenas.length > 0 && (
-          <Bloco titulo="Cenas">
+          <Bloco titulo="Cenas" ajuda="O roteiro do vídeo, cena a cena.">
             {p.cenas.map((c, i) => (
               <div
                 key={i}
@@ -763,12 +775,6 @@ function Gaveta({
                 <span>{c.descricao}</span>
               </div>
             ))}
-          </Bloco>
-        )}
-
-        {p.cta && (
-          <Bloco titulo="Chamada para ação">
-            <p style={{ fontSize: 13.8 }}>{p.cta}</p>
           </Bloco>
         )}
 
@@ -938,21 +944,44 @@ function Gaveta({
   )
 }
 
-function Bloco({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+/**
+ * Cada parte da publicação com um rótulo que se lê de longe e uma
+ * linha dizendo o que aquilo é.
+ *
+ * O cliente não convive com o vocabulário da agência: "legenda",
+ * "conceito" e "direção de arte" são palavras nossas. Aqui o rótulo
+ * vem em caixa alta, na cor do texto, e embaixo uma frase curta
+ * explicando o que ele está olhando.
+ */
+function Bloco({
+  titulo,
+  ajuda,
+  children,
+}: {
+  titulo: string
+  ajuda?: string
+  children: React.ReactNode
+}) {
   return (
-    <section style={{ marginBottom: 18 }}>
+    <section style={{ marginBottom: 22 }}>
       <div
         style={{
-          fontSize: 10.5,
-          fontWeight: 700,
-          letterSpacing: '.14em',
+          fontFamily: 'var(--disp)',
+          fontSize: 11.5,
+          fontWeight: 600,
+          letterSpacing: '.12em',
           textTransform: 'uppercase',
-          color: 'var(--faint)',
-          marginBottom: 7,
+          color: 'var(--text)',
+          marginBottom: ajuda ? 2 : 8,
         }}
       >
         {titulo}
       </div>
+      {ajuda && (
+        <div style={{ fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.5, marginBottom: 9 }}>
+          {ajuda}
+        </div>
+      )}
       {children}
     </section>
   )

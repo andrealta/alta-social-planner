@@ -288,16 +288,11 @@ export default async function PdfDoMes({
 
                 {p.caption && (
                   <div className="bloco">
-                    <div className="rot">Legenda</div>
-                    <div className="legenda-texto">{p.caption}</div>
-                    {p.hashtags.length > 0 && <div className="hashtags">{p.hashtags.join(' ')}</div>}
-                  </div>
-                )}
-
-                {p.art_concept && (
-                  <div className="bloco">
-                    <div className="rot">Ideia de imagem</div>
-                    <div style={{ color: 'var(--meio)' }}>{p.art_concept}</div>
+                    <div className="rot">Texto de apoio</div>
+                    <div className="legenda-texto">
+                      {p.caption}
+                      {p.hashtags.length > 0 ? '\n\n' + p.hashtags.join(' ') : ''}
+                    </div>
                   </div>
                 )}
 
@@ -310,13 +305,6 @@ export default async function PdfDoMes({
                         <span>{c.descricao}</span>
                       </div>
                     ))}
-                  </div>
-                )}
-
-                {p.cta && (
-                  <div className="bloco">
-                    <div className="rot">Chamada para ação</div>
-                    <div>{p.cta}</div>
                   </div>
                 )}
 
