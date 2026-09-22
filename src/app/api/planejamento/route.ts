@@ -22,6 +22,7 @@ import {
   VERSAO_PROMPT,
   PLATAFORMAS,
   MESES,
+  OBJETIVOS_META,
   type Planejamento,
   type Entrada,
   type Linha,
@@ -42,6 +43,8 @@ type Corpo = {
   mes?: number
   ano?: number
   briefing?: string
+  /** Quanto o cliente investe em mídia neste mês, no total. Opcional. */
+  investimento?: number | null
   substituir?: boolean
 }
 
@@ -83,6 +86,15 @@ export async function POST(req: Request) {
   const mes = Number(corpo.mes)
   const ano = Number(corpo.ano)
   const briefing = String(corpo.briefing ?? '')
+
+  // A verba do mês é opcional: sem ela o planejamento sai como sempre
+  // saiu, só sem plano de mídia. Nunca pode virar pré-requisito para
+  // gerar um mês.
+  const bruto = corpo.investimento
+  const investimento = bruto === null || bruto === undefined ? null : Number(bruto)
+  if (investimento !== null && (!Number.isFinite(investimento) || investimento < 0)) {
+    return erro('O investimento do mês precisa ser um valor em reais, ou ficar em branco.')
+  }
 
   if (!slug) return erro('Faltou dizer a marca.')
   if (!Number.isInteger(mes) || mes < 1 || mes > 12) return erro('Mês inválido.')
@@ -278,8 +290,11 @@ export async function POST(req: Request) {
     mes,
     ano,
     briefing,
+    investimento,
     historico,
   }
+
+  const temVerba = investimento !== null && investimento > 0
 
   const prompt = montarPromptPautas(entrada)
   const totalPecas = escopo.reduce((a, l) => a + l.quota, 0)
@@ -314,6 +329,7 @@ export async function POST(req: Request) {
         month: mes,
         year: ano,
         status: 'generating',
+        investimento_total: investimento,
         created_by: user.id,
       })
       .select('id')
@@ -321,7 +337,13 @@ export async function POST(req: Request) {
     if (erroPlano || !novo) return erro('Não consegui criar o planejamento: ' + (erroPlano?.message ?? ''), 500)
     planoId = novo.id as string
   } else {
-    await supabase.from('plans').update({ status: 'generating' }).eq('id', planoId)
+    // A verba entra ANTES das pautas: o gatilho `investimento_guard`
+    // compara a soma das publicações com este total, e se ele ainda
+    // fosse o do mês passado a gravação seria recusada sem motivo.
+    await supabase
+      .from('plans')
+      .update({ status: 'generating', investimento_total: investimento })
+      .eq('id', planoId)
   }
   // O briefing é da equipe: mora em plano_interno, onde o cliente não chega.
   await gravarInterno(supabase, planoId, marcaId, { briefing })
@@ -455,21 +477,49 @@ export async function POST(req: Request) {
         // ---------- gravação ----------
         const pautas = (plano.pautas ?? []).slice(0, 200)
 
-        const paraGravar = pautas.map((p, i) => ({
-          brand_id: marcaId,
-          plan_id: planoId,
-          title: String(p.titulo ?? '(sem título)').slice(0, 300),
-          concept: p.conceito ?? null,
-          description: p.descricao ?? null,
-          editorial_line: p.pilar ?? null,
-          objective: p.objetivo ?? null,
-          theme: p.tema ?? null,
-          rationale: p.justificativa ?? null,
-          cta: p.cta ?? null,
-          scope_id: idDaLinha.get(String(p.linha ?? '').trim()) ?? null,
-          status: 'ai_generated',
-          position: i,
-        }))
+        // O plano de mídia sai da IA já conferido (`conferir` corta o
+        // que passa do total). "Sem impulsionamento" vira objetivo
+        // gravado com verba zero, e não campo vazio: é uma decisão
+        // tomada, e a equipe precisa ver a diferença entre "decidiram
+        // não impulsionar" e "ninguém olhou isto ainda".
+        const objetivosValidos: string[] = [...OBJETIVOS_META]
+        const midiaDa = (p: (typeof pautas)[number]) => {
+          if (!temVerba) return { objetivo: null, investimento: null, justificativa: null }
+          const objetivo = (p.midia?.objetivo ?? '').trim()
+          const valor = Number(p.midia?.investimento ?? 0)
+          const bom = Number.isFinite(valor) && valor > 0 ? Math.round(valor * 100) / 100 : 0
+          return {
+            objetivo: objetivosValidos.includes(objetivo)
+              ? objetivo
+              : bom > 0
+                ? null
+                : 'Sem impulsionamento',
+            investimento: bom,
+            justificativa: (p.midia?.porque ?? '').trim() || null,
+          }
+        }
+
+        const paraGravar = pautas.map((p, i) => {
+          const midia = midiaDa(p)
+          return {
+            brand_id: marcaId,
+            plan_id: planoId,
+            title: String(p.titulo ?? '(sem título)').slice(0, 300),
+            concept: p.conceito ?? null,
+            description: p.descricao ?? null,
+            editorial_line: p.pilar ?? null,
+            objective: p.objetivo ?? null,
+            theme: p.tema ?? null,
+            rationale: p.justificativa ?? null,
+            cta: p.cta ?? null,
+            scope_id: idDaLinha.get(String(p.linha ?? '').trim()) ?? null,
+            meta_objetivo: midia.objetivo,
+            meta_investimento: midia.investimento,
+            meta_justificativa: midia.justificativa,
+            status: 'ai_generated',
+            position: i,
+          }
+        })
 
         const { data: gravadas, error: erroPautas } = await supabase
           .from('content_ideas')

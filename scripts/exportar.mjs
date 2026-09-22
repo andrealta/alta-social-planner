@@ -140,10 +140,12 @@ try {
   console.log('')
 
   const planos = await sql`
-    select p.id, p.month, p.year, p.status, p.briefing, p.analysis,
-           p.client_released_at, p.approved_at,
+    select p.id, p.month, p.year, p.status, i.briefing, i.analysis,
+           p.client_released_at, p.approved_at, p.investimento_total,
            b.name as marca, b.slug
     from plans p join brands b on b.id = p.brand_id
+    -- Briefing e análise moram em plano_interno desde a migração 0022.
+    left join plano_interno i on i.plan_id = p.id
     order by b.name, p.year desc, p.month desc
   `
 
@@ -151,6 +153,7 @@ try {
     const pautas = await sql`
       select ci.title, ci.theme, ci.concept, ci.description, ci.editorial_line,
              ci.objective, ci.rationale, ci.cta, ci.status, ci.current_version,
+             ci.meta_objetivo, ci.meta_investimento, ci.meta_justificativa,
              s.label as linha_produto,
              c.platform, c.format, c.scheduled_date,
              k.caption, k.hashtags, k.art_concept, k.image_prompt, k.scenes
@@ -166,7 +169,7 @@ try {
     const nome = `${plano.slug}-${plano.year}-${marca(plano.month)}.md`
     const partes = []
 
-    partes.push(`# ${plano.marca} — ${MESES[plano.month - 1]} de ${plano.year}`)
+    partes.push(`# ${plano.marca}: ${MESES[plano.month - 1]} de ${plano.year}`)
     partes.push('')
     partes.push(`Situação: ${plano.status}`)
     if (plano.client_released_at) {
@@ -189,7 +192,7 @@ try {
       partes.push('## Territórios')
       partes.push('')
       for (const t of analise.territorios) {
-        partes.push(`- **${t.nome}** — ${t.peso}%${t.novo ? ' · novo' : ''}${t.cobre ? ` · ${t.cobre}` : ''}`)
+        partes.push(`- **${t.nome}**: ${t.peso}%${t.novo ? ' · novo' : ''}${t.cobre ? ` · ${t.cobre}` : ''}`)
       }
       partes.push('')
     }
@@ -198,6 +201,17 @@ try {
       partes.push('## Obrigatoriedades informadas')
       partes.push('')
       partes.push(String(plano.briefing))
+      partes.push('')
+    }
+
+    if (Number(plano.investimento_total ?? 0) > 0) {
+      const soma = pautas.reduce((a, p) => a + Number(p.meta_investimento ?? 0), 0)
+      partes.push('## Investimento em mídia')
+      partes.push('')
+      partes.push(
+        `Verba do mês: R$ ${Number(plano.investimento_total).toFixed(2)} · ` +
+          `distribuído nas publicações: R$ ${soma.toFixed(2)}`,
+      )
       partes.push('')
     }
 
@@ -228,6 +242,14 @@ try {
       if (p.rationale) {
         partes.push('')
         partes.push(`**Justificativa:** ${p.rationale}`)
+      }
+      if (Number(p.meta_investimento ?? 0) > 0 || p.meta_objetivo) {
+        partes.push('')
+        partes.push(
+          `**Impulsionamento:** ${p.meta_objetivo ?? 'objetivo a definir'}` +
+            `${Number(p.meta_investimento ?? 0) > 0 ? ` · R$ ${Number(p.meta_investimento).toFixed(2)}` : ' · sem verba'}` +
+            `${p.meta_justificativa ? ` · ${p.meta_justificativa}` : ''}`,
+        )
       }
       if (p.caption) {
         partes.push('')

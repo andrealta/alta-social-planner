@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { mesTitulado } from '@/lib/prompt'
 import { botao } from '@/lib/visual'
+import { reais } from '@/lib/midia'
 import { Avaliacao } from './avaliacao'
 import { carregarMesDoCliente } from './dados'
 import { FeedbackDoMes } from './feedback'
@@ -11,11 +12,15 @@ export default async function MesDoCliente({
   params: Promise<{ slug: string; ano: string; mes: string }>
 }) {
   const { slug, ano: anoTexto, mes: mesTexto } = await params
-  const { ano, mes, marca, fechado, pautas, eu, estrategia, meuFeedback } = await carregarMesDoCliente(
-    slug,
-    anoTexto,
-    mesTexto,
-  )
+  const { ano, mes, marca, fechado, pautas, eu, estrategia, meuFeedback, investimentoTotal } =
+    await carregarMesDoCliente(slug, anoTexto, mesTexto)
+
+  // O mês só fala de mídia se houver mídia. Quem não investe em
+  // tráfego não precisa saber que este bloco existe.
+  const impulsionadas = pautas.filter((p) => (p.midiaInvestimento ?? 0) > 0)
+  const somaDaMidia =
+    Math.round(impulsionadas.reduce((a, p) => a + (p.midiaInvestimento ?? 0), 0) * 100) / 100
+  const temMidia = somaDaMidia > 0
 
   const corDaMarca = marca.cor ?? 'var(--accent)'
   const inicial = (marca.nome || '?').trim().charAt(0).toUpperCase()
@@ -121,6 +126,58 @@ export default async function MesDoCliente({
           </div>
           <p style={{ fontSize: 15.5, lineHeight: 1.7, whiteSpace: 'pre-wrap', maxWidth: 820 }}>
             {estrategia}
+          </p>
+        </section>
+      )}
+
+      {temMidia && (
+        <section
+          style={{
+            marginTop: 18,
+            padding: '18px 22px',
+            borderRadius: 'var(--r-lg)',
+            background: 'var(--surface)',
+            boxShadow: 'var(--shadow)',
+            display: 'flex',
+            gap: 22,
+            flexWrap: 'wrap',
+            alignItems: 'center',
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontFamily: 'var(--disp)',
+                fontSize: 11,
+                fontWeight: 500,
+                letterSpacing: '.18em',
+                textTransform: 'uppercase',
+                color: 'var(--faint)',
+                marginBottom: 4,
+              }}
+            >
+              Investimento em mídia
+            </div>
+            <div style={{ fontFamily: 'var(--disp)', fontSize: 26, fontWeight: 600, lineHeight: 1.1 }}>
+              {reais(somaDaMidia)}
+            </div>
+          </div>
+          <p
+            style={{
+              flex: '1 1 320px',
+              minWidth: 0,
+              fontSize: 14,
+              lineHeight: 1.65,
+              color: 'var(--muted)',
+              margin: 0,
+            }}
+          >
+            Distribuídos entre <b style={{ color: 'var(--text)' }}>{impulsionadas.length}</b> das{' '}
+            {pautas.length} publicações do mês
+            {investimentoTotal !== null && investimentoTotal > somaDaMidia + 0.005
+              ? `, de um total previsto de ${reais(investimentoTotal)}`
+              : ''}
+            . Em cada publicação impulsionada você vê o valor e o objetivo da campanha.
           </p>
         </section>
       )}

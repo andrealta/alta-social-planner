@@ -289,3 +289,57 @@ export async function salvarConteudo(
   revalidatePath(caminho(slug, ano, mes))
   return { ok: true }
 }
+
+/**
+ * Grava o plano de mídia de uma publicação.
+ *
+ * Fica separado de `salvarPauta` por um motivo de fundo: mexer no
+ * objetivo de campanha ou no valor investido NÃO é mexer no conteúdo.
+ * Se passasse por `salvar_pauta`, cada ajuste de verba criaria uma
+ * versão nova, mandaria o texto anterior para o histórico e contaria
+ * como edição na medida de Precisão — que existe para responder
+ * "quanto do que a IA escreveu foi aproveitado". Distribuir verba não
+ * responde nada disso.
+ *
+ * Quem impede a soma de passar do total do mês é o banco (migração
+ * 0026). A conta feita na tela é cortesia, não trava.
+ */
+export async function salvarMidia(
+  slug: string,
+  ideaId: string,
+  midia: { objetivo: string | null; investimento: number | null; justificativa: string | null },
+  ano: number,
+  mes: number,
+): Promise<Resultado> {
+  const ctx = await equipe()
+  if ('erro' in ctx) return { ok: false, erro: ctx.erro }
+
+  const objetivo = (midia.objetivo ?? '').trim() || null
+  const bruto = Number(midia.investimento ?? 0)
+  const valor = Number.isFinite(bruto) && bruto > 0 ? Math.round(bruto * 100) / 100 : 0
+
+  if (valor > 0 && (!objetivo || objetivo === 'Sem impulsionamento')) {
+    return {
+      ok: false,
+      erro: 'Escolha o objetivo da campanha antes de destinar verba a esta publicação.',
+    }
+  }
+
+  const { error } = await ctx.supabase
+    .from('content_ideas')
+    .update({
+      meta_objetivo: objetivo,
+      meta_investimento: valor,
+      meta_justificativa: (midia.justificativa ?? '').trim() || null,
+    })
+    .eq('id', ideaId)
+
+  if (error) {
+    // O gatilho do banco fala em português e já diz os dois valores.
+    // Repassar a frase dele é melhor que inventar uma aqui.
+    return { ok: false, erro: error.message }
+  }
+
+  revalidatePath(caminho(slug, ano, mes))
+  return { ok: true }
+}

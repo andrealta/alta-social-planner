@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { MESES } from '@/lib/prompt'
+import { lerDinheiro, reais } from '@/lib/midia'
 
 type Achado = { gravidade: 'erro' | 'aviso'; texto: string }
 
@@ -32,6 +33,7 @@ export function Gerador({
   const [mes, setMes] = useState(mesInicial)
   const [ano, setAno] = useState(anoInicial)
   const [briefing, setBriefing] = useState('')
+  const [verba, setVerba] = useState('')
   const [estado, setEstado] = useState<Estado>({ fase: 'parado' })
   const [achados, setAchados] = useState<Achado[]>([])
   const relogio = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -58,7 +60,14 @@ export function Gerador({
       const r = await fetch('/api/planejamento', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ slug, mes, ano, briefing, substituir }),
+        body: JSON.stringify({
+          slug,
+          mes,
+          ano,
+          briefing,
+          investimento: lerDinheiro(verba),
+          substituir,
+        }),
       })
 
       if (!r.ok && r.headers.get('content-type')?.includes('application/json')) {
@@ -212,6 +221,67 @@ export function Gerador({
           outline: 'none',
         }}
       />
+
+      <div style={{ marginTop: 18 }}>
+        <label htmlFor="verba" style={{ display: 'block', fontWeight: 700, fontSize: 14 }}>
+          Investimento em mídia no mês{' '}
+          <span style={{ fontWeight: 500, color: 'var(--muted)' }}>(opcional)</span>
+        </label>
+        <p style={{ color: 'var(--muted)', fontSize: 12.6, margin: '2px 0 7px', lineHeight: 1.5 }}>
+          Quanto o cliente vai investir em tráfego no mês, no total. Com este valor
+          preenchido, a IA decide o objetivo de campanha na Meta de cada publicação e
+          quanto da verba vai em cada uma, sem nunca passar do total. Se houver
+          direcionamento de como distribuir, escreva nas obrigatoriedades acima. Em
+          branco, o mês sai sem plano de mídia.
+        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ position: 'relative' }}>
+            <span
+              aria-hidden
+              style={{
+                position: 'absolute',
+                left: 13,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: 'var(--muted)',
+                fontSize: 14,
+                pointerEvents: 'none',
+              }}
+            >
+              R$
+            </span>
+            <input
+              id="verba"
+              value={verba}
+              onChange={(ev) => setVerba(ev.target.value)}
+              disabled={gerando}
+              inputMode="decimal"
+              placeholder="0,00"
+              style={{
+                width: 190,
+                padding: '11px 13px 11px 40px',
+                fontFamily: 'inherit',
+                fontSize: 14,
+                color: 'var(--text)',
+                background: gerando ? 'var(--surface-2)' : 'var(--surface)',
+                border: '1px solid var(--line-2)',
+                borderRadius: 'var(--r)',
+                outline: 'none',
+              }}
+            />
+          </div>
+          {lerDinheiro(verba) !== null && (
+            <span style={{ fontSize: 13, color: 'var(--muted)' }}>
+              {reais(lerDinheiro(verba))} para distribuir entre as {pecas} peças do mês.
+            </span>
+          )}
+          {verba.trim() !== '' && lerDinheiro(verba) === null && (
+            <span style={{ fontSize: 13, color: 'var(--laranja-tinta)' }}>
+              Não entendi este valor. Escreva só o número, como 3.500 ou 3500,00.
+            </span>
+          )}
+        </div>
+      </div>
 
       <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
         <button

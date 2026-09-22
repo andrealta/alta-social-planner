@@ -2,7 +2,14 @@
 
 import { useEffect, useState } from 'react'
 import { COMANDOS } from '@/lib/prompt'
-import { salvarPauta } from './acoes'
+import { salvarMidia, salvarPauta } from './acoes'
+import {
+  AJUDA_OBJETIVO,
+  OBJETIVOS_META,
+  lerDinheiro,
+  reais,
+  type Midia,
+} from '@/lib/midia'
 import { AbaConteudo } from './conteudo'
 import type { Layout } from '@/lib/layouts'
 import {
@@ -42,6 +49,9 @@ export function Painel({
   aoGerarConteudo,
   admin,
   aoMudarLayouts,
+  investimentoTotal,
+  jaDistribuido,
+  aoMudarMidia,
 }: {
   slug: string
   ano: number
@@ -57,6 +67,11 @@ export function Painel({
   aoGerarConteudo: (c: ConteudoPauta) => void
   admin: boolean
   aoMudarLayouts: (layouts: Layout[]) => void
+  /** A verba de mídia do mês inteiro. Nulo: o mês não tem verba. */
+  investimentoTotal: number | null
+  /** O que as OUTRAS publicações do mês já levam. */
+  jaDistribuido: number
+  aoMudarMidia: (m: Midia) => void
 }) {
   const [aba, setAba] = useState<Aba>('ideia')
   const [campos, setCampos] = useState<Editaveis>(() => paraEditaveis(pauta))
@@ -454,6 +469,18 @@ export function Painel({
               </div>
             ))}
 
+            <BlocoMidia
+              slug={slug}
+              ano={ano}
+              mes={mes}
+              ideaId={pauta.id}
+              midia={pauta.midia}
+              total={investimentoTotal}
+              jaDistribuido={jaDistribuido}
+              podeEditar={podeEditar}
+              aoMudar={aoMudarMidia}
+            />
+
             {podeEditar && <section
               style={{
                 margin: '20px 0',
@@ -776,6 +803,288 @@ const REDES: Record<string, string> = {
   youtube: 'YouTube',
   facebook: 'Facebook',
   pinterest: 'Pinterest',
+}
+
+/**
+ * Impulsionamento: o objetivo de campanha na Meta e a verba da peça.
+ *
+ * É a proposta da IA aberta para a equipe conferir e mudar. Três
+ * coisas ficam explícitas de propósito:
+ *
+ *   1. QUANTO SOBRA no mês, ao lado do campo. Sem isso a pessoa
+ *      distribui no escuro e só descobre que estourou quando o banco
+ *      recusa a gravação da décima pauta.
+ *   2. O QUE CADA OBJETIVO FAZ, embaixo do seletor. Quem revisa nem
+ *      sempre é quem sobe campanha, e "Cadastros" não se explica.
+ *   3. POR QUE a IA escolheu assim, em uma frase. Sem a justificativa
+ *      a equipe só pode concordar ou chutar outra coisa.
+ *
+ * Gravar aqui não cria versão da pauta: ver `salvarMidia` em acoes.ts.
+ */
+function BlocoMidia({
+  slug,
+  ano,
+  mes,
+  ideaId,
+  midia,
+  total,
+  jaDistribuido,
+  podeEditar,
+  aoMudar,
+}: {
+  slug: string
+  ano: number
+  mes: number
+  ideaId: string
+  midia: Midia
+  total: number | null
+  jaDistribuido: number
+  podeEditar: boolean
+  aoMudar: (m: Midia) => void
+}) {
+  const [objetivo, setObjetivo] = useState(midia.objetivo ?? '')
+  const [valor, setValor] = useState(
+    midia.investimento && midia.investimento > 0
+      ? String(midia.investimento).replace('.', ',')
+      : '',
+  )
+  const [porque, setPorque] = useState(midia.justificativa ?? '')
+  const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+  const [salvo, setSalvo] = useState(false)
+
+  const temVerba = total !== null && total > 0
+  const numero = lerDinheiro(valor) ?? 0
+  const sobra = Math.round(((total ?? 0) - jaDistribuido - numero) * 100) / 100
+  const mudou =
+    (objetivo || null) !== (midia.objetivo ?? null) ||
+    numero !== (midia.investimento ?? 0) ||
+    (porque.trim() || null) !== (midia.justificativa ?? null)
+
+  // Mês sem verba e peça sem nada decidido: não há o que mostrar, e
+  // uma caixa vazia só ocupa a tela de quem não vende tráfego.
+  if (!temVerba && !midia.objetivo && !(midia.investimento ?? 0)) return null
+
+  async function gravar() {
+    setSalvando(true)
+    setErro(null)
+    const nova: Midia = {
+      objetivo: objetivo || null,
+      investimento: numero,
+      justificativa: porque.trim() || null,
+    }
+    const r = await salvarMidia(slug, ideaId, nova, ano, mes)
+    setSalvando(false)
+    if (r.ok) {
+      aoMudar(nova)
+      setSalvo(true)
+      setTimeout(() => setSalvo(false), 2500)
+    } else {
+      setErro(r.erro ?? 'Não consegui salvar o impulsionamento.')
+    }
+  }
+
+  return (
+    <section
+      style={{
+        margin: '20px 0',
+        padding: '15px 17px',
+        borderRadius: 'var(--r)',
+        border: '1px solid var(--line-2)',
+        background: 'var(--surface)',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'baseline',
+          gap: 10,
+          flexWrap: 'wrap',
+          marginBottom: 2,
+        }}
+      >
+        <div style={{ fontWeight: 700, fontSize: 13.5 }}>Impulsionamento</div>
+        {temVerba && (
+          <div style={{ fontSize: 12.3, color: 'var(--muted)' }}>
+            {reais(total)} no mês · {reais(jaDistribuido)} nas outras publicações
+          </div>
+        )}
+      </div>
+      <p style={{ color: 'var(--muted)', fontSize: 12.3, marginBottom: 11, lineHeight: 1.5 }}>
+        {temVerba
+          ? 'A IA propôs o objetivo de campanha e o valor abaixo. Confira e mude o que fizer sentido: isto vai para o cliente junto com a publicação.'
+          : 'Este mês foi gerado sem verba informada. O que está aqui veio de uma alteração da equipe.'}
+      </p>
+
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <div style={{ flex: '1 1 240px', minWidth: 0 }}>
+          <label
+            htmlFor={`m-obj-${ideaId}`}
+            style={{
+              display: 'block',
+              fontWeight: 600,
+              fontSize: 12.5,
+              color: 'var(--muted)',
+              marginBottom: 5,
+            }}
+          >
+            Objetivo da campanha na Meta
+          </label>
+          <select
+            id={`m-obj-${ideaId}`}
+            value={objetivo}
+            disabled={!podeEditar}
+            onChange={(ev) => setObjetivo(ev.target.value)}
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              fontFamily: 'inherit',
+              fontSize: 14,
+              color: 'var(--text)',
+              background: podeEditar ? 'var(--surface)' : 'var(--surface-2)',
+              border: '1px solid var(--line-2)',
+              borderRadius: 'var(--r-sm)',
+            }}
+          >
+            <option value="">Ainda não definido</option>
+            {OBJETIVOS_META.map((o) => (
+              <option key={o} value={o}>
+                {o}
+              </option>
+            ))}
+          </select>
+          {objetivo && AJUDA_OBJETIVO[objetivo] && (
+            <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 5, lineHeight: 1.5 }}>
+              {AJUDA_OBJETIVO[objetivo]}
+            </div>
+          )}
+        </div>
+
+        <div style={{ flex: '0 1 190px' }}>
+          <label
+            htmlFor={`m-val-${ideaId}`}
+            style={{
+              display: 'block',
+              fontWeight: 600,
+              fontSize: 12.5,
+              color: 'var(--muted)',
+              marginBottom: 5,
+            }}
+          >
+            Investimento
+          </label>
+          <div style={{ position: 'relative' }}>
+            <span
+              aria-hidden
+              style={{
+                position: 'absolute',
+                left: 12,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: 'var(--muted)',
+                fontSize: 14,
+                pointerEvents: 'none',
+              }}
+            >
+              R$
+            </span>
+            <input
+              id={`m-val-${ideaId}`}
+              value={valor}
+              readOnly={!podeEditar}
+              inputMode="decimal"
+              placeholder="0,00"
+              onChange={(ev) => setValor(ev.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 12px 10px 38px',
+                fontFamily: 'inherit',
+                fontSize: 14,
+                color: 'var(--text)',
+                background: podeEditar ? 'var(--surface)' : 'var(--surface-2)',
+                border: '1px solid var(--line-2)',
+                borderRadius: 'var(--r-sm)',
+                outline: 'none',
+              }}
+            />
+          </div>
+          {temVerba && (
+            <div
+              style={{
+                fontSize: 12,
+                marginTop: 5,
+                lineHeight: 1.5,
+                color: sobra < -0.005 ? 'var(--laranja-tinta)' : 'var(--faint)',
+              }}
+            >
+              {sobra < -0.005
+                ? `Passa ${reais(-sobra)} do total do mês.`
+                : `Sobram ${reais(sobra)} para as demais.`}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={{ marginTop: 12 }}>
+        <label
+          htmlFor={`m-por-${ideaId}`}
+          style={{
+            display: 'block',
+            fontWeight: 600,
+            fontSize: 12.5,
+            color: 'var(--muted)',
+            marginBottom: 5,
+          }}
+        >
+          Por que este objetivo e este valor
+        </label>
+        <textarea
+          id={`m-por-${ideaId}`}
+          rows={2}
+          value={porque}
+          readOnly={!podeEditar}
+          placeholder="Uma frase. Fica guardada com a publicação."
+          onChange={(ev) => setPorque(ev.target.value)}
+          style={podeEditar ? caixaTexto : soLeitura}
+        />
+      </div>
+
+      {erro && (
+        <div
+          style={{
+            marginTop: 10,
+            padding: '10px 13px',
+            borderRadius: 'var(--r-sm)',
+            background: 'var(--laranja-wash)',
+            fontSize: 12.8,
+            lineHeight: 1.55,
+          }}
+        >
+          {erro}
+        </div>
+      )}
+
+      {podeEditar && (mudou || salvo) && (
+        <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+          {mudou && (
+            <button onClick={gravar} disabled={salvando} style={botao(true, salvando)}>
+              {salvando ? 'Salvando…' : 'Salvar impulsionamento'}
+            </button>
+          )}
+          {salvo && !mudou && (
+            <span style={{ fontSize: 12.5, color: 'var(--ok)', fontWeight: 600 }}>
+              Salvo.
+            </span>
+          )}
+          {mudou && (
+            <span style={{ fontSize: 12.3, color: 'var(--muted)' }}>
+              Não cria versão nova da pauta.
+            </span>
+          )}
+        </div>
+      )}
+    </section>
+  )
 }
 
 function rede(p: string) {

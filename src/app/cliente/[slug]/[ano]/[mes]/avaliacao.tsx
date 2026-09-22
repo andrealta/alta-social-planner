@@ -13,6 +13,7 @@ import {
   semanasDoMes,
   tipoDaPeca,
 } from '@/lib/visual'
+import { AJUDA_OBJETIVO, reais } from '@/lib/midia'
 import { decidir } from './acoes'
 import { duracao } from '@/lib/medidas'
 
@@ -49,6 +50,10 @@ export type PautaCliente = {
   enviadaEm: string | null
   /** As imagens do layout, em ordem. A primeira é a capa. */
   layouts: { url: string; largura: number | null; altura: number | null }[]
+  /** O objetivo de campanha na Meta, quando a peça vai ser impulsionada. */
+  midiaObjetivo: string | null
+  /** Quanto vai em mídia nesta peça, em reais. Zero ou nulo: só orgânico. */
+  midiaInvestimento: number | null
 }
 
 const SITUACAO: Record<string, { rotulo: string; curto: string; cor: string; wash: string }> = {
@@ -754,6 +759,55 @@ function Gaveta({
                   <span style={{ color: 'var(--muted)' }}>{p.hashtags.join(' ')}</span>
                 </>
               )}
+            </div>
+          </Bloco>
+        )}
+
+        {(p.midiaInvestimento ?? 0) > 0 && (
+          <Bloco
+            titulo="Impulsionamento"
+            ajuda="Quanto da sua verba de mídia vai nesta publicação, e com que objetivo ela sobe na Meta."
+          >
+            <div
+              style={{
+                display: 'flex',
+                gap: 18,
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                padding: '14px 17px',
+                background: 'var(--surface-2)',
+                borderRadius: 'var(--r-sm)',
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 11.5, color: 'var(--faint)', marginBottom: 2 }}>
+                  Investimento
+                </div>
+                <div style={{ fontSize: 19, fontWeight: 700, lineHeight: 1.2 }}>
+                  {reais(p.midiaInvestimento)}
+                </div>
+              </div>
+              <div style={{ width: 1, alignSelf: 'stretch', background: 'var(--line-2)' }} />
+              <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+                <div style={{ fontSize: 11.5, color: 'var(--faint)', marginBottom: 2 }}>
+                  Objetivo da campanha
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.3 }}>
+                  {p.midiaObjetivo ?? 'a definir'}
+                </div>
+                {p.midiaObjetivo && AJUDA_OBJETIVO[p.midiaObjetivo] && (
+                  <div
+                    style={{
+                      fontSize: 12.8,
+                      color: 'var(--muted)',
+                      lineHeight: 1.5,
+                      marginTop: 3,
+                    }}
+                  >
+                    {AJUDA_OBJETIVO[p.midiaObjetivo]}
+                  </div>
+                )}
+              </div>
             </div>
           </Bloco>
         )}

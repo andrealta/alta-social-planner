@@ -48,7 +48,7 @@ export async function carregarMesDoCliente(slug: string, anoTexto: string, mesTe
 
   const { data: plano } = await supabase
     .from('plans')
-    .select('id, client_released_at, approved_at, estrategia_cliente')
+    .select('id, client_released_at, approved_at, estrategia_cliente, investimento_total')
     .eq('brand_id', marca.id)
     .eq('year', ano)
     .eq('month', mes)
@@ -67,7 +67,7 @@ export async function carregarMesDoCliente(slug: string, anoTexto: string, mesTe
     supabase
       .from('content_ideas')
       .select(
-        'id, title, concept, description, editorial_line, cta, status, scope_id, position, enviada_ao_cliente_em',
+        'id, title, concept, description, editorial_line, cta, status, scope_id, position, enviada_ao_cliente_em, meta_objetivo, meta_investimento',
       )
       .eq('plan_id', plano.id)
       .order('position'),
@@ -184,6 +184,11 @@ export async function carregarMesDoCliente(slug: string, anoTexto: string, mesTe
     pinterest: 'Pinterest',
   }
 
+  // O plano de mídia sai daqui com dois campos, e não três: a
+  // justificativa (`meta_justificativa`) é conversa interna da equipe
+  // sobre por que escolheu aquele objetivo, e o cliente recebe a
+  // decisão, não o raciocínio. O mesmo critério da leitura do mês.
+
   // O layout de cada publicação, com link assinado. O banco só entrega
   // o das publicações que este cliente já pode ver (0023).
   const layoutsDe = await carregarLayouts(
@@ -218,6 +223,11 @@ export async function carregarMesDoCliente(slug: string, anoTexto: string, mesTe
         recados: recadosDe.get(p.id as string) ?? [],
         decisoes: decisoesDe.get(p.id as string) ?? [],
         enviadaEm: (p.enviada_ao_cliente_em as string | null) ?? null,
+        midiaObjetivo: (p.meta_objetivo as string | null) ?? null,
+        midiaInvestimento:
+          p.meta_investimento === null || p.meta_investimento === undefined
+            ? null
+            : Number(p.meta_investimento),
         layouts: (layoutsDe.get(p.id as string) ?? [])
           .filter((l) => l.url)
           .map((l) => ({ url: l.url as string, largura: l.largura, altura: l.altura })),
@@ -238,6 +248,10 @@ export async function carregarMesDoCliente(slug: string, anoTexto: string, mesTe
     ano,
     mes,
     estrategia: ((plano.estrategia_cliente as string | null) ?? '').trim() || null,
+    investimentoTotal:
+      plano.investimento_total === null || plano.investimento_total === undefined
+        ? null
+        : Number(plano.investimento_total),
     meuFeedback: minhaFicha
       ? {
           destaques: (minhaFicha.destaques as string | null) ?? '',

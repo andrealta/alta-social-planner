@@ -1,4 +1,5 @@
 import type { Layout } from '@/lib/layouts'
+import type { Midia } from '@/lib/midia'
 
 /**
  * O que o calendário e o painel da pauta compartilham.
@@ -53,6 +54,15 @@ export type Pauta = {
   conteudo: ConteudoPauta | null
   /** As imagens do layout, em ordem. A primeira é a capa. */
   layouts: Layout[]
+  /**
+   * O plano de mídia: objetivo de campanha na Meta, verba e por quê.
+   *
+   * Fica fora de `Editaveis` de propósito. Mudar o valor de mídia não
+   * é mudar o conteúdo da pauta: não cria versão nova, não conta como
+   * edição na medida de Precisão e não invalida a crítica. Por isso
+   * tem gravação própria (`salvarMidia`) e não passa por `salvar_pauta`.
+   */
+  midia: Midia
   historico: Versao[]
   /** O que o cliente escreveu sobre esta pauta, do mais novo ao mais velho. */
   recados: Recado[]

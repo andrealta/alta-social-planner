@@ -21,6 +21,7 @@ import {
   type Editaveis,
   type Pauta,
 } from './comum'
+import { reais, resumoDoMes, somarInvestimento } from '@/lib/midia'
 
 /** A cor de cada veredito do crítico. Nunca sozinha: vem com a nota. */
 const JUIZO: Record<string, { rotulo: string; cor: string; wash: string }> = {
@@ -37,6 +38,7 @@ export function Calendario({
   pautas: iniciais,
   nivel,
   critica,
+  investimentoTotal = null,
   abrir = null,
   admin = false,
 }: {
@@ -49,6 +51,8 @@ export function Calendario({
   nivel: string
   /** O juízo da IA sobre o mês, quando alguém já pediu a avaliação. */
   critica: Critica | null
+  /** A verba de mídia do mês. Nulo: ninguém informou verba. */
+  investimentoTotal?: number | null
   /** Pauta para abrir assim que a tela carrega (link da fila de trabalho). */
   abrir?: string | null
   /** Administração: troca o layout mesmo com a publicação aprovada. */
@@ -93,6 +97,12 @@ export function Calendario({
   }, [pautas])
 
   const comConteudo = pautas.filter((p) => p.conteudo).length
+
+  // Quanto as OUTRAS publicações já levam, calculado aqui e não no
+  // painel: é o painel que muda um valor por vez, e a conta precisa
+  // enxergar o mês inteiro para dizer quanto ainda sobra.
+  const distribuido = useMemo(() => somarInvestimento(pautas), [pautas])
+  const midia = resumoDoMes(investimentoTotal, distribuido)
 
   function atualizar(id: string, mudanca: Partial<Pauta>) {
     setPautas((lista) => lista.map((p) => (p.id === id ? { ...p, ...mudanca } : p)))
@@ -288,6 +298,15 @@ export function Calendario({
             {comConteudo > 0 && ` · ${comConteudo} com conteúdo escrito`}
             {pendente && ' · salvando…'}
           </div>
+          {midia.temVerba && (
+            <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 6 }}>
+              Mídia: <b style={{ color: 'var(--text)' }}>{reais(midia.distribuido)}</b> de{' '}
+              {reais(midia.total)} distribuídos ·{' '}
+              <span style={{ color: midia.sobra < -0.005 ? 'var(--laranja-tinta)' : 'inherit' }}>
+                {midia.frase}
+              </span>
+            </div>
+          )}
           <div
             style={{
               height: 5,
@@ -787,6 +806,11 @@ export function Calendario({
           aoGerarConteudo={(c: ConteudoPauta) => atualizar(pautaAberta.id, { conteudo: c })}
           admin={admin}
           aoMudarLayouts={(layouts) => atualizar(pautaAberta.id, { layouts })}
+          investimentoTotal={investimentoTotal}
+          jaDistribuido={
+            Math.round((distribuido - (pautaAberta.midia.investimento ?? 0)) * 100) / 100
+          }
+          aoMudarMidia={(midia) => atualizar(pautaAberta.id, { midia })}
         />
       )}
     </div>

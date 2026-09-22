@@ -1,6 +1,7 @@
 import { mesTitulado } from '@/lib/prompt'
 import { DIAS_CURTOS, ICONE_PECA, semanasDoMes, tipoDaPeca } from '@/lib/visual'
 import { duracao } from '@/lib/medidas'
+import { AJUDA_OBJETIVO, reais } from '@/lib/midia'
 import { carregarMesDoCliente } from '../dados'
 import type { PautaCliente } from '../avaliacao'
 import { Imprimir } from './imprimir'
@@ -111,6 +112,12 @@ const CSS = `
   .pauta .bloco { margin-top: 8px; }
   .pauta .rot { font-size: 9.5px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; color: var(--claro); margin-bottom: 2px; }
   .pauta .legenda-texto { white-space: pre-wrap; background: var(--fundo); padding: 9px 11px; border-radius: 6px; }
+  .pauta .midia { margin-top: 4px; display: flex; gap: 12px; align-items: baseline; background: var(--fundo); padding: 8px 11px; border-radius: 6px; }
+  .pauta .midia b { font-size: 14px; }
+  .pauta .midia span { color: var(--meio); font-size: 11.5px; }
+  .verba { margin-top: 14px; padding: 12px 16px; border: 1px solid var(--fio); border-radius: 8px; display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; }
+  .verba b { font-size: 18px; }
+  .verba span { color: var(--meio); font-size: 12px; }
   .pauta .hashtags { color: var(--meio); font-size: 11.5px; margin-top: 4px; }
   .pauta .cena { display: flex; gap: 10px; }
   .pauta .cena span:first-child { color: var(--claro); min-width: 42px; font-weight: 600; }
@@ -139,7 +146,15 @@ export default async function PdfDoMes({
   params: Promise<{ slug: string; ano: string; mes: string }>
 }) {
   const { slug, ano: anoTexto, mes: mesTexto } = await params
-  const { ano, mes, marca, pautas, estrategia } = await carregarMesDoCliente(slug, anoTexto, mesTexto)
+  const { ano, mes, marca, pautas, estrategia, investimentoTotal } = await carregarMesDoCliente(
+    slug,
+    anoTexto,
+    mesTexto,
+  )
+
+  const impulsionadas = pautas.filter((p) => (p.midiaInvestimento ?? 0) > 0)
+  const somaDaMidia =
+    Math.round(impulsionadas.reduce((a, p) => a + (p.midiaInvestimento ?? 0), 0) * 100) / 100
 
   const nomeDoMes = `${mesTitulado(mes)} de ${ano}`
   const cor = marca.cor ?? '#2502D0'
@@ -244,6 +259,19 @@ export default async function PdfDoMes({
           </div>
         </section>
 
+        {somaDaMidia > 0 && (
+          <div className="verba">
+            <b>{reais(somaDaMidia)}</b>
+            <span>
+              em mídia, distribuídos entre {impulsionadas.length} das {pautas.length} publicações
+              {investimentoTotal !== null && investimentoTotal > somaDaMidia + 0.005
+                ? `, de um total previsto de ${reais(investimentoTotal)}`
+                : ''}
+              .
+            </span>
+          </div>
+        )}
+
         <section className="quebra" style={{ marginTop: 26 }}>
           <h2 className="titulo-secao">As publicações, uma a uma</h2>
 
@@ -292,6 +320,21 @@ export default async function PdfDoMes({
                     <div className="legenda-texto">
                       {p.caption}
                       {p.hashtags.length > 0 ? '\n\n' + p.hashtags.join(' ') : ''}
+                    </div>
+                  </div>
+                )}
+
+                {(p.midiaInvestimento ?? 0) > 0 && (
+                  <div className="bloco">
+                    <div className="rot">Impulsionamento</div>
+                    <div className="midia">
+                      <b>{reais(p.midiaInvestimento)}</b>
+                      <span>
+                        {p.midiaObjetivo ?? 'objetivo a definir'}
+                        {p.midiaObjetivo && AJUDA_OBJETIVO[p.midiaObjetivo]
+                          ? ` · ${AJUDA_OBJETIVO[p.midiaObjetivo]}`
+                          : ''}
+                      </span>
                     </div>
                   </div>
                 )}

@@ -49,6 +49,8 @@ export type Entrada = {
   ano: number
   briefing: string
   historico: MesAnterior[]
+  /** Quanto o cliente vai investir em mídia no mês. Nulo: não informado. */
+  investimento?: number | null
 }
 
 export function diasNoMes(ano: number, mes: number): number {
@@ -123,6 +125,12 @@ Total: ${total} publicações.
 Obrigatoriedades do mês:
 ${e.briefing.trim() || 'Nenhuma declarada.'}
 
+Investimento em mídia no mês: ${
+    e.investimento && e.investimento > 0
+      ? `R$ ${e.investimento.toFixed(2).replace('.', ',')} no total, para distribuir entre as publicações.`
+      : 'não informado. Não distribua verba: marque todas como "Sem impulsionamento" e deixe o valor em 0.'
+  }
+
 # REGRAS
 
 ESCOPO: restrição dura. Feche a cota de cada linha exatamente. Ao final preencha
@@ -157,6 +165,32 @@ TRAVESSÃO: não use travessão (—) em nenhum campo que você devolver: títul
 descrição, CTA, legenda, leitura do mês, territórios, justificativas e alertas. É uma das marcas mais evidentes de texto escrito por IA.
 Use vírgula, ponto, dois-pontos ou parênteses.
 
+PLANO DE MÍDIA: além da pauta, decida o objetivo de campanha na Meta e quanto da verba
+do mês vai para cada publicação. Os objetivos possíveis, exatamente como escritos:
+${OBJETIVOS_META.join(' · ')}.
+
+Como decidir:
+
+- A soma de todos os valores NÃO pode passar do total do mês. Pode sobrar; não pode faltar.
+- Concentre. Verba espalhada em muitas peças não sai da fase de aprendizado e entrega
+  pouco em todas. Escolha de três a cinco publicações para levar a maior parte do mês, e
+  deixe as outras sem impulsionamento. Uma campanha com verba suficiente para alguns dias
+  seguidos aprende; dez campanhas com trocados não aprendem nenhuma.
+- Escolha o objetivo pelo que a peça consegue entregar, não pelo que a marca gostaria.
+  Peça de oferta com link e público pronto para comprar pede Vendas. Conteúdo que educa e
+  cria repertório pede Engajamento ou Reconhecimento. Peça que leva a um formulário pede
+  Cadastros. Conteúdo de bastidor e institucional costuma render mais no orgânico.
+- Pense no algoritmo de hoje, não no de cinco anos atrás. A entrega hoje é otimizada pela
+  própria plataforma: público amplo, criativo variado e sinal claro de conversão rendem
+  mais que segmentação estreita. O que o sistema precisa é de EVENTO suficiente por
+  semana para sair do aprendizado, e é isso que a verba compra. Então prefira o objetivo
+  cujo evento a peça realmente produz: não peça Vendas a uma peça sem link de compra, nem
+  Cadastros sem formulário. Objetivo errado com muita verba entrega menos que objetivo
+  certo com pouca.
+- Respeite o que a base e as obrigatoriedades disserem sobre onde o cliente quer investir.
+- Uma frase de justificativa por peça impulsionada, dizendo por que este objetivo e por
+  que este valor. Peça sem verba leva "Sem impulsionamento", valor 0 e justificativa vazia.
+
 MEMÓRIA É CONTEXTO, NÃO LEI. Uma ideia forte pode contrariar o padrão histórico se a
 justificativa sustentar. Nesse caso, diga na justificativa que está contrariando.
 
@@ -183,7 +217,8 @@ Responda SOMENTE com JSON válido, nesta forma:
     "conceito": "A ideia central em uma frase.",
     "descricao": "O que é a peça, com direção de arte.",
     "cta": "",
-    "justificativa": "Começa com a âncora nomeada."
+    "justificativa": "Começa com a âncora nomeada.",
+    "midia": {"objetivo": "um da lista, exatamente", "investimento": 0, "porque": "Uma frase."}
   }],
   "conferencia": {${e.escopo.map((c) => `"${c.label || 'linha'}":0`).join(', ')}},
   "nao_fazer": ["O que a estratégia decidiu NÃO fazer, e por quê."],
@@ -216,6 +251,8 @@ export type Pauta = {
   descricao?: string
   cta?: string
   justificativa?: string
+  /** O plano de mídia desta peça: objetivo na Meta, verba e por quê. */
+  midia?: { objetivo?: string; investimento?: number; porque?: string }
 }
 
 export type Planejamento = {
@@ -226,6 +263,21 @@ export type Planejamento = {
   nao_fazer?: string[]
   alertas?: string[]
 }
+
+/**
+ * Os objetivos de campanha da Meta, como aparecem no gerenciador, mais
+ * a opção de não impulsionar. A mesma lista da tabela `objetivos_meta`
+ * (migração 0026): se mudar aqui, mude lá.
+ */
+export const OBJETIVOS_META = [
+  'Sem impulsionamento',
+  'Reconhecimento',
+  'Tráfego',
+  'Engajamento',
+  'Cadastros',
+  'Promoção do aplicativo',
+  'Vendas',
+] as const
 
 export const PLATAFORMAS = ['instagram', 'linkedin', 'tiktok', 'youtube', 'facebook', 'pinterest']
 
@@ -238,6 +290,63 @@ export function conferir(p: Planejamento, e: Entrada): Achado[] {
   if (!Array.isArray(p.pautas) || p.pautas.length === 0) {
     achados.push({ gravidade: 'erro', texto: 'A resposta não trouxe pauta nenhuma.' })
     return achados
+  }
+
+  // 0. Plano de mídia: objetivo válido e verba dentro do total.
+  const objetivos: string[] = [...OBJETIVOS_META]
+  let somaMidia = 0
+  for (const pauta of p.pautas) {
+    const m = pauta.midia
+    const objetivo = (m?.objetivo ?? '').trim()
+    if (objetivo && !objetivos.includes(objetivo)) {
+      achados.push({
+        gravidade: 'aviso',
+        texto: `"${objetivo}" não é um objetivo de campanha da Meta. A pauta "${pauta.titulo}" ficou sem objetivo.`,
+      })
+      if (m) m.objetivo = undefined
+    }
+    const valor = Number(m?.investimento ?? 0)
+    somaMidia += Number.isFinite(valor) && valor > 0 ? valor : 0
+  }
+  const total = e.investimento ?? 0
+  if (total > 0 && somaMidia > total + 0.005) {
+    achados.push({
+      gravidade: 'erro',
+      texto:
+        `O investimento distribuído (R$ ${somaMidia.toFixed(2)}) passava do total do mês ` +
+        `(R$ ${total.toFixed(2)}). Cortei da última publicação para trás até caber.`,
+    })
+    // Não basta avisar: o banco recusa gravar uma soma maior que o
+    // total (migração 0026), e a geração inteira morreria por causa de
+    // uma conta que a IA errou por trinta reais. Então o excedente é
+    // cortado aqui, de trás para frente, e a equipe redistribui na
+    // revisão sabendo exatamente o que aconteceu.
+    let cabe = total
+    for (const pauta of p.pautas) {
+      const m = pauta.midia
+      if (!m) continue
+      const valor = Number(m.investimento ?? 0)
+      if (!Number.isFinite(valor) || valor <= 0) continue
+      if (valor <= cabe + 0.005) {
+        cabe = Math.round((cabe - valor) * 100) / 100
+      } else {
+        m.investimento = cabe > 0.005 ? Math.round(cabe * 100) / 100 : 0
+        cabe = 0
+      }
+    }
+  }
+  if (total > 0 && somaMidia === 0) {
+    achados.push({
+      gravidade: 'aviso',
+      texto: 'O mês tem verba informada, mas nenhuma publicação recebeu investimento.',
+    })
+  }
+  if (total <= 0 && somaMidia > 0) {
+    achados.push({
+      gravidade: 'aviso',
+      texto: 'Vieram valores de investimento, mas o mês não tem verba informada. Os valores foram ignorados.',
+    })
+    for (const pauta of p.pautas) if (pauta.midia) pauta.midia.investimento = 0
   }
 
   // 1. Cota por linha — a restrição que mais escapa.

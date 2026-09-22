@@ -48,7 +48,9 @@ export default async function CalendarioDoMes({
 
   const { data: plano } = await supabase
     .from('plans')
-    .select('id, status, client_released_at, estrategia_cliente, estrategia_atualizada_em')
+    .select(
+      'id, status, client_released_at, estrategia_cliente, estrategia_atualizada_em, investimento_total',
+    )
     .eq('brand_id', marca.id)
     .eq('year', ano)
     .eq('month', mes)
@@ -69,7 +71,7 @@ export default async function CalendarioDoMes({
     supabase
       .from('content_ideas')
       .select(
-        'id, title, theme, concept, description, editorial_line, objective, rationale, cta, status, current_version, scope_id, position',
+        'id, title, theme, concept, description, editorial_line, objective, rationale, cta, status, current_version, scope_id, position, meta_objetivo, meta_investimento, meta_justificativa',
       )
       .eq('plan_id', plano.id)
       .order('position'),
@@ -288,6 +290,14 @@ export default async function CalendarioDoMes({
       data: c?.scheduled_date ?? null,
       conteudo: conteudoDe.get(p.id as string) ?? null,
       layouts: layoutsDe.get(p.id as string) ?? [],
+      midia: {
+        objetivo: (p.meta_objetivo as string | null) ?? null,
+        investimento:
+          p.meta_investimento === null || p.meta_investimento === undefined
+            ? null
+            : Number(p.meta_investimento),
+        justificativa: (p.meta_justificativa as string | null) ?? null,
+      },
       historico: historicoDe.get(p.id as string) ?? [],
       recados: recadosDe.get(p.id as string) ?? [],
       decisoes: decisoesDe.get(p.id as string) ?? [],
@@ -362,6 +372,11 @@ export default async function CalendarioDoMes({
         pautas={pautas}
         nivel={nivel}
         critica={critica}
+        investimentoTotal={
+          plano.investimento_total === null || plano.investimento_total === undefined
+            ? null
+            : Number(plano.investimento_total)
+        }
         abrir={typeof abrir === 'string' ? abrir : null}
         admin={papel === 'admin'}
       />
