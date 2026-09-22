@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { clienteServidor } from '@/lib/supabase/server'
 import { temChaveAdmin } from '@/lib/supabase/admin'
 import { Pessoas, type Marca, type Pessoa } from './pessoas'
+import { urlsDasFotos } from '@/lib/avatar'
 
 export default async function GerenciarPessoas() {
   const supabase = await clienteServidor()
@@ -18,7 +19,7 @@ export default async function GerenciarPessoas() {
   // A política `profiles_admin_all` devolve todo mundo para quem
   // administra, e só para quem administra.
   const [{ data: gente }, { data: marcasBrutas }, { data: vinculos }] = await Promise.all([
-    supabase.from('profiles').select('id, name, email, role').order('name'),
+    supabase.from('profiles').select('id, name, email, role, avatar_url').order('name'),
     supabase.from('brands').select('id, name, slug').order('name'),
     supabase.from('brand_members').select('user_id, brand_id, access'),
   ])
@@ -37,9 +38,16 @@ export default async function GerenciarPessoas() {
     porPessoa.set(id, lista)
   }
 
+  // As fotos de perfil, num pedido só (ver lib/avatar.tsx).
+  const fotos = await urlsDasFotos(
+    supabase,
+    (gente ?? []).map((p) => p.avatar_url as string | null),
+  )
+
   const pessoas: Pessoa[] = (gente ?? []).map((p) => ({
     id: p.id as string,
     nome: (p.name as string) ?? '',
+    foto: fotos.get((p.avatar_url as string) ?? '') ?? null,
     email: (p.email as string) ?? '',
     papel: (p.role as string) ?? 'client',
     vinculos: porPessoa.get(p.id as string) ?? [],

@@ -12,11 +12,14 @@ import {
   novaSenha,
   type Historico,
 } from './acoes'
+import { Avatar } from '@/lib/avatar'
 
 export type Marca = { id: string; nome: string; slug: string }
 export type Pessoa = {
   id: string
   nome: string
+  /** Endereço assinado da foto de perfil, quando a pessoa tem uma. */
+  foto?: string | null
   email: string
   papel: string
   vinculos: { brandId: string; acesso: string }[]
@@ -528,7 +531,8 @@ export function Pessoas({
                     borderBottom: i === gente.length - 1 ? 'none' : '1px solid var(--line)',
                   }}
                 >
-                  <div style={{ display: 'flex', gap: 12, alignItems: 'baseline', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <Avatar nome={p.nome} url={p.foto} tamanho={38} />
                     <div style={{ flex: 1, minWidth: 190 }}>
                       <div style={{ fontWeight: 700, fontSize: 15 }}>
                         {p.nome}

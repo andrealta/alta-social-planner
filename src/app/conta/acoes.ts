@@ -3,6 +3,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { clienteServidor } from '@/lib/supabase/server'
 import { ambienteSupabase } from '@/lib/supabase/env'
+import { revalidatePath } from 'next/cache'
+import { LIMITE_DA_FOTO, TIPOS_DE_FOTO } from '@/lib/avatar'
 
 export type Resultado = { ok: boolean; erro?: string }
 
@@ -63,5 +65,83 @@ export async function trocarSenha(atual: string, nova: string): Promise<Resultad
     }
   }
 
+  return { ok: true }
+}
+
+/**
+ * A foto de perfil.
+ *
+ * O arquivo não passa por aqui: o navegador reduz a imagem e manda
+ * direto para o balde "avatares", como no layout das publicações. Aqui
+ * se decide o caminho e se guarda o endereço na linha da pessoa.
+ */
+export async function prepararFoto(
+  arquivo: { tipo: string; bytes: number },
+): Promise<{ ok: true; caminho: string } | { ok: false; erro: string }> {
+  const supabase = await clienteServidor()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, erro: 'Sua sessão expirou. Entre de novo.' }
+
+  if (!(TIPOS_DE_FOTO as readonly string[]).includes(arquivo.tipo)) {
+    return { ok: false, erro: 'Use uma imagem em JPG, PNG ou WEBP.' }
+  }
+  if (arquivo.bytes > LIMITE_DA_FOTO) {
+    return { ok: false, erro: 'A imagem passa de 2 MB.' }
+  }
+  const extensao = arquivo.tipo === 'image/png' ? 'png' : arquivo.tipo === 'image/webp' ? 'webp' : 'jpg'
+  return { ok: true, caminho: `${user.id}/${crypto.randomUUID()}.${extensao}` }
+}
+
+/** Guarda o caminho da foto nova e apaga a anterior. */
+export async function salvarFoto(caminho: string): Promise<Resultado> {
+  const supabase = await clienteServidor()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, erro: 'Sua sessão expirou. Entre de novo.' }
+  if (!caminho.startsWith(`${user.id}/`)) return { ok: false, erro: 'Caminho inválido.' }
+
+  const { data: antes } = await supabase
+    .from('profiles')
+    .select('avatar_url')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  const { error } = await supabase.from('profiles').update({ avatar_url: caminho }).eq('id', user.id)
+  if (error) {
+    await supabase.storage.from('avatares').remove([caminho])
+    return { ok: false, erro: error.message }
+  }
+
+  const anterior = (antes?.avatar_url as string | null) ?? null
+  if (anterior && anterior !== caminho) {
+    await supabase.storage.from('avatares').remove([anterior])
+  }
+  revalidatePath('/conta')
+  return { ok: true }
+}
+
+/** Tira a foto: some da linha e do balde. */
+export async function removerFoto(): Promise<Resultado> {
+  const supabase = await clienteServidor()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, erro: 'Sua sessão expirou. Entre de novo.' }
+
+  const { data: antes } = await supabase
+    .from('profiles')
+    .select('avatar_url')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  const { error } = await supabase.from('profiles').update({ avatar_url: null }).eq('id', user.id)
+  if (error) return { ok: false, erro: error.message }
+
+  const anterior = (antes?.avatar_url as string | null) ?? null
+  if (anterior) await supabase.storage.from('avatares').remove([anterior])
+  revalidatePath('/conta')
   return { ok: true }
 }

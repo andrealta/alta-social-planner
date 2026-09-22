@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { clienteServidor } from '@/lib/supabase/server'
 import { TrocarSenha } from './senha'
+import { FotoDePerfil } from './foto'
+import { urlDaFoto } from '@/lib/avatar'
 
 /**
  * Minha conta: quem sou eu no sistema, e a troca da própria senha.
@@ -19,15 +21,16 @@ export default async function MinhaConta() {
 
   const { data: perfil } = await supabase
     .from('profiles')
-    .select('name, email, role')
+    .select('name, email, role, avatar_url')
     .eq('id', user.id)
     .maybeSingle()
 
+  const foto = await urlDaFoto(supabase, perfil?.avatar_url as string | null)
   const cliente = (perfil?.role as string) === 'client' || !perfil
   const voltar = cliente ? '/cliente' : '/painel'
 
   return (
-    <main className="pagina" style={{ maxWidth: 640 }}>
+    <main className="pagina" style={{ maxWidth: 680 }}>
       <Link href={voltar} style={{ fontSize: 13, color: 'var(--muted)', textDecoration: 'none' }}>
         ← Voltar
       </Link>
@@ -49,6 +52,24 @@ export default async function MinhaConta() {
           {(perfil?.email as string) ?? user.email}
         </p>
       </header>
+
+      <section
+        style={{
+          padding: '22px 24px',
+          borderRadius: 'var(--r-lg)',
+          background: 'var(--surface)',
+          boxShadow: 'var(--shadow)',
+          marginBottom: 18,
+        }}
+      >
+        <h2 style={{ fontFamily: 'var(--disp)', fontSize: 18, fontWeight: 600, marginBottom: 4 }}>
+          Foto de perfil
+        </h2>
+        <p style={{ color: 'var(--muted)', fontSize: 13.5, lineHeight: 1.6, marginBottom: 18 }}>
+          Ela aparece ao lado do seu nome no topo da tela. Sem foto, aparecem as suas iniciais.
+        </p>
+        <FotoDePerfil nome={(perfil?.name as string) ?? user.email ?? ''} url={foto} />
+      </section>
 
       <section
         style={{

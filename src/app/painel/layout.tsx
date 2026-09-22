@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { clienteServidor } from '@/lib/supabase/server'
 import { Sair } from './sair'
 import { Navegacao } from './navegacao'
+import { Avatar, urlDaFoto } from '@/lib/avatar'
 
 /**
  * A moldura de todas as telas da equipe: uma barra no topo, fixa, com
@@ -26,17 +27,12 @@ export default async function LayoutDaEquipe({ children }: { children: React.Rea
 
   const { data: perfil } = await supabase
     .from('profiles')
-    .select('name, role')
+    .select('name, role, avatar_url')
     .eq('id', user.id)
     .single()
 
   const nome = ((perfil?.name as string | null) ?? user.email ?? '').trim()
-  const iniciais = nome
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p.charAt(0).toUpperCase())
-    .join('')
+  const foto = await urlDaFoto(supabase, perfil?.avatar_url as string | null)
 
   return (
     <>
@@ -53,9 +49,7 @@ export default async function LayoutDaEquipe({ children }: { children: React.Rea
 
           <div className="topo-conta">
             <span className="topo-pessoa" title={nome}>
-              <span className="topo-avatar" aria-hidden>
-                {iniciais || '?'}
-              </span>
+              <Avatar nome={nome} url={foto} tamanho={30} />
               <span className="topo-nome">{nome.split(' ')[0]}</span>
             </span>
             <Sair />
