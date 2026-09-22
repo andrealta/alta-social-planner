@@ -5,6 +5,8 @@ import { Sair } from './sair'
 import { calcularStatusEquipe, type Fila } from '@/lib/status'
 import { duracao } from '@/lib/medidas'
 import { Quadro, Icone, type Numero } from '@/lib/quadro'
+import { montarFila } from '@/lib/fila'
+import { Fila as FilaDeTrabalho } from './fila'
 
 const PAPEL: Record<string, string> = {
   admin: 'Administração',
@@ -60,11 +62,13 @@ export default async function Painel() {
   // A fila de trabalho: onde está cada pauta agora. Mesmas políticas
   // do banco, então cada pessoa vê a fila das marcas que alcança.
   const [{ data: planos }, { data: pautas }, { data: decisoes }] = await Promise.all([
-    supabase.from('plans').select('id, brand_id'),
-    supabase.from('content_ideas').select('id, plan_id, status').limit(10000),
+    supabase
+      .from('plans')
+      .select('id, brand_id, month, year, client_released_at, estrategia_cliente'),
+    supabase.from('content_ideas').select('id, plan_id, title, status').limit(10000),
     supabase
       .from('approvals')
-      .select('idea_id, actor_kind, seconds_to_decide')
+      .select('idea_id, decision, actor_kind, comment_id, seconds_to_decide, created_at')
       .eq('actor_kind', 'client')
       .limit(10000),
   ])
@@ -83,6 +87,49 @@ export default async function Painel() {
     })),
   })
   const tempo = duracao(status.segundosMedios)
+
+  // O texto do pedido de alteração: só dos pedidos que ainda estão
+  // abertos, que são os que aparecem na fila.
+  const abertas = new Set(
+    (pautas ?? []).filter((p) => p.status === 'client_changes_requested').map((p) => p.id as string),
+  )
+  const idsPedido = (decisoes ?? [])
+    .filter((d) => d.decision === 'changes_requested' && d.comment_id && abertas.has(d.idea_id as string))
+    .map((d) => d.comment_id as string)
+  const { data: comentarios } = idsPedido.length
+    ? await supabase.from('comments').select('id, body').in('id', idsPedido)
+    : { data: [] }
+
+  const fila = montarFila({
+    marcas: (marcas ?? []).map((m) => ({
+      id: m.id as string,
+      name: m.name as string,
+      slug: m.slug as string,
+      color: (m.color as string | null) ?? null,
+    })),
+    planos: (planos ?? []).map((p) => ({
+      id: p.id as string,
+      brand_id: p.brand_id as string,
+      month: Number(p.month),
+      year: Number(p.year),
+      client_released_at: (p.client_released_at as string | null) ?? null,
+      estrategia_cliente: (p.estrategia_cliente as string | null) ?? null,
+    })),
+    pautas: (pautas ?? []).map((p) => ({
+      id: p.id as string,
+      plan_id: p.plan_id as string,
+      title: (p.title as string) ?? '',
+      status: (p.status as string) ?? '',
+    })),
+    decisoes: (decisoes ?? []).map((d) => ({
+      idea_id: d.idea_id as string,
+      decision: (d.decision as string) ?? '',
+      actor_kind: (d.actor_kind as string) ?? '',
+      comment_id: (d.comment_id as string | null) ?? null,
+      created_at: (d.created_at as string) ?? '',
+    })),
+    comentarios: (comentarios ?? []).map((c) => ({ id: c.id as string, body: (c.body as string) ?? '' })),
+  })
   const numeros: Numero[] = [
     { valor: String(marcas?.length ?? 0), rotulo: (marcas?.length ?? 0) === 1 ? 'marca' : 'marcas', icone: 'marca' },
     { valor: String(status.meses), rotulo: status.meses === 1 ? 'mês planejado' : 'meses planejados', icone: 'calendario' },
@@ -142,7 +189,23 @@ export default async function Painel() {
             {perfil?.email ?? user.email} · {PAPEL[papel] ?? papel}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 9, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 9, alignItems: 'center', flexWrap: 'wrap' }}>
+          <Link
+            href="/painel/agenda"
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              padding: '8px 14px',
+              border: '1px solid var(--line-2)',
+              borderRadius: 8,
+              background: 'var(--surface)',
+              color: 'var(--text)',
+              textDecoration: 'none',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Agenda
+          </Link>
           <Link
             href="/painel/qualidade"
             style={{
@@ -180,6 +243,8 @@ export default async function Painel() {
           <Sair />
         </div>
       </header>
+
+      <FilaDeTrabalho itens={fila} />
 
       <Quadro titulo="Status geral" numeros={numeros} marginTop={28} />
 

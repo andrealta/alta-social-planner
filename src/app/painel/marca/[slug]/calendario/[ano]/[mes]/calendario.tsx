@@ -37,6 +37,7 @@ export function Calendario({
   pautas: iniciais,
   nivel,
   critica,
+  abrir = null,
 }: {
   slug: string
   planoId: string
@@ -47,6 +48,8 @@ export function Calendario({
   nivel: string
   /** O juízo da IA sobre o mês, quando alguém já pediu a avaliação. */
   critica: Critica | null
+  /** Pauta para abrir assim que a tela carrega (link da fila de trabalho). */
+  abrir?: string | null
 }) {
   // Esconder botão não é segurança: quem tem a sessão aberta consegue
   // montar a requisição na mão. A trava de verdade está no banco. Isto
@@ -55,7 +58,9 @@ export function Calendario({
   const podeEnviar = nivel === 'owner'
 
   const [pautas, setPautas] = useState(iniciais)
-  const [aberta, setAberta] = useState<string | null>(null)
+  const [aberta, setAberta] = useState<string | null>(
+    abrir && iniciais.some((p) => p.id === abrir) ? abrir : null,
+  )
   const [arrastando, setArrastando] = useState<string | null>(null)
   const [alvo, setAlvo] = useState<string | null>(null)
   const [aviso, setAviso] = useState<{ tipo: 'ok' | 'erro'; texto: string } | null>(null)

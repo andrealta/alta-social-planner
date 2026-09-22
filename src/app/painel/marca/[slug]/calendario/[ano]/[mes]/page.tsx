@@ -9,10 +9,14 @@ import { lerInterno } from '@/lib/interno'
 
 export default async function CalendarioDoMes({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string; ano: string; mes: string }>
+  /** `?pauta=<id>` abre a pauta direto, vindo da fila de trabalho. */
+  searchParams: Promise<{ pauta?: string }>
 }) {
   const { slug, ano: anoTexto, mes: mesTexto } = await params
+  const { pauta: abrir } = await searchParams
   const ano = Number(anoTexto)
   const mes = Number(mesTexto)
   if (!Number.isInteger(ano) || !Number.isInteger(mes) || mes < 1 || mes > 12) notFound()
@@ -350,6 +354,7 @@ export default async function CalendarioDoMes({
         pautas={pautas}
         nivel={nivel}
         critica={critica}
+        abrir={typeof abrir === 'string' ? abrir : null}
       />
     </main>
   )
