@@ -51,7 +51,8 @@ export default async function PortalDoCliente() {
     .order('month', { ascending: false })
 
   const [{ data: pautas }, { data: decisoes }, { data: comentarios }, { data: canais }] = await Promise.all([
-    supabase.from('content_ideas').select('id, plan_id, title, status'),
+    // A vista da migração 0027, não a tabela: ver `dados.ts`.
+    supabase.from('pautas_do_cliente').select('id, plan_id, title, status'),
     // Para o status geral: o que o cliente decidiu e o que escreveu ao
     // pedir alteração. As políticas do banco só devolvem o da marca dele.
     supabase

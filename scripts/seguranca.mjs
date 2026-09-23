@@ -168,6 +168,99 @@ try {
       console.log('           os clientes. Vale conferir se todos precisam mesmo.')
     }
   }
+
+  console.log('\n--- 8. O material interno fica longe do cliente ---')
+  const colunasNoPlano = await sql`
+    select column_name from information_schema.columns
+    where table_schema = 'public' and table_name = 'plans'
+      and column_name in ('analysis', 'briefing')
+  `
+  diz(
+    colunasNoPlano.length === 0,
+    'leitura, critica e briefing fora da tabela que o cliente le',
+    'A tabela plans ainda tem ' + colunasNoPlano.map((c) => c.column_name).join(' e ') +
+      '. A migracao 0022 nao foi aplicada. Rode o 04-migrar.cmd.',
+  )
+  const politicasInternas = await sql`
+    select p.polname, pg_get_expr(p.polqual, p.polrelid) as usando,
+           pg_get_expr(p.polwithcheck, p.polrelid) as conferindo
+    from pg_policy p join pg_class c on c.oid = p.polrelid
+    where c.relname = 'plano_interno'
+  `
+  const abertaAoCliente = politicasInternas.filter((x) =>
+    /client|auth_brand_ids/.test(`${x.usando ?? ''} ${x.conferindo ?? ''}`),
+  )
+  diz(
+    politicasInternas.length > 0 && abertaAoCliente.length === 0,
+    'plano_interno so tem politica para a equipe',
+    politicasInternas.length === 0
+      ? 'A tabela plano_interno nao existe ou esta sem politica. Rode o 04-migrar.cmd.'
+      : 'Politica que alcanca o cliente: ' + abertaAoCliente.map((x) => x.polname).join(', '),
+  )
+
+  console.log('\n--- 9. As imagens de layout ficam fechadas ---')
+  const baldes = await sql`select id, public from storage.buckets where id = 'layouts'`
+  diz(
+    baldes.length === 1 && baldes[0].public === false,
+    'balde "layouts" existe e e privado',
+    baldes.length === 0
+      ? 'O balde nao existe. Rode o 04-migrar.cmd (migracao 0023).'
+      : 'O balde esta PUBLICO: qualquer pessoa com o endereco ve as artes dos clientes. Desligue "Public bucket" no painel do Supabase.',
+  )
+  console.log('\n--- 10. O cliente le vistas, nunca as tabelas ---')
+  // RLS protege linhas, nao colunas. Enquanto o cliente lesse
+  // content_ideas direto, qualquer coluna interna da linha dele vinha
+  // junto, aparecesse ou nao na tela. A 0027 fechou as duas tabelas
+  // para ele e pos duas vistas no lugar, com as colunas escritas nome
+  // por nome. Esta secao confere que continua assim.
+  const vistas = await sql`
+    select table_name from information_schema.views
+    where table_schema = 'public'
+      and table_name in ('pautas_do_cliente', 'conteudo_do_cliente')
+  `
+  diz(
+    vistas.length === 2,
+    'as vistas pautas_do_cliente e conteudo_do_cliente existem',
+    'Faltando: ' +
+      ['pautas_do_cliente', 'conteudo_do_cliente']
+        .filter((v) => !vistas.some((x) => x.table_name === v))
+        .join(', ') +
+      '. Rode o 04-migrar.cmd (migracao 0027).',
+  )
+
+  const colunasQueVazariam = await sql`
+    select table_name, column_name from information_schema.columns
+    where table_schema = 'public'
+      and table_name in ('pautas_do_cliente', 'conteudo_do_cliente')
+      and column_name in (
+        'rationale', 'meta_justificativa', 'theme', 'objective', 'audience',
+        'current_version', 'owner_id', 'art_direction', 'image_prompt',
+        'alt_text', 'caption_variants'
+      )
+  `
+  diz(
+    colunasQueVazariam.length === 0,
+    'nenhuma coluna interna aparece nas vistas do cliente',
+    'Vazando: ' +
+      colunasQueVazariam.map((c) => c.table_name + '.' + c.column_name).join(', ') +
+      '. Tire a coluna da vista antes de subir isto.',
+  )
+
+  const aindaAbertas = await sql`
+    select c.relname as tabela, p.polname,
+           pg_get_expr(p.polqual, p.polrelid) as usando
+    from pg_policy p join pg_class c on c.oid = p.polrelid
+    where c.relname in ('content_ideas', 'idea_content')
+      and p.polcmd = 'r'
+  `
+  const paraCliente = aindaAbertas.filter((x) => /auth_role\(\) = 'client'/.test(x.usando ?? ''))
+  diz(
+    paraCliente.length === 0,
+    'content_ideas e idea_content nao tem politica de leitura para o cliente',
+    'Politica que reabre a tabela: ' +
+      paraCliente.map((x) => x.tabela + '.' + x.polname).join(', '),
+  )
+
 } catch (e) {
   falhas++
   console.error('\nFALHOU ao conferir: ' + (e && e.message ? e.message : String(e)))

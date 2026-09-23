@@ -64,8 +64,14 @@ export async function carregarMesDoCliente(slug: string, anoTexto: string, mesTe
     { data: decisoes },
     { data: nomes },
   ] = await Promise.all([
+    // `pautas_do_cliente` e `conteudo_do_cliente` não são tabelas: são
+    // as vistas da migração 0027, que listam nome por nome as colunas
+    // que pertencem ao cliente. As tabelas `content_ideas` e
+    // `idea_content` estão fechadas para ele no banco, e é assim que
+    // a justificativa da pauta, o prompt de imagem e a direção de arte
+    // deixam de sair daqui mesmo que alguém peça pela API.
     supabase
-      .from('content_ideas')
+      .from('pautas_do_cliente')
       .select(
         'id, title, concept, description, editorial_line, cta, status, scope_id, position, enviada_ao_cliente_em, meta_objetivo, meta_investimento',
       )
@@ -81,7 +87,7 @@ export async function carregarMesDoCliente(slug: string, anoTexto: string, mesTe
       .eq('brand_id', marca.id)
       .order('position'),
     supabase
-      .from('idea_content')
+      .from('conteudo_do_cliente')
       .select('idea_id, caption, hashtags, art_concept, scenes')
       .eq('brand_id', marca.id),
     supabase
