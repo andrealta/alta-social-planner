@@ -185,31 +185,76 @@ export type Editaveis = {
   cta: string
 }
 
-/** Os campos principais, na ordem em que a equipe lê a pauta. */
-export const CAMPOS: { id: keyof Editaveis; rotulo: string; linhas: number }[] = [
-  { id: 'editorial_line', rotulo: 'Pilar editorial', linhas: 1 },
-  { id: 'concept', rotulo: 'Conceito', linhas: 2 },
-  { id: 'title', rotulo: 'Título', linhas: 2 },
-  { id: 'description', rotulo: 'Descrição do conteúdo', linhas: 5 },
-  { id: 'cta', rotulo: 'Chamada para ação', linhas: 1 },
+/**
+ * Como cada campo aparece quando o bloco está só sendo lido.
+ *
+ *   titulo   — a manchete da peça, em destaque
+ *   texto    — parágrafo normal
+ *   apoio    — parágrafo secundário, em tinta mais clara
+ *   rotulado — uma linha curta precedida do nome do campo
+ */
+export type LeituraDoCampo = 'titulo' | 'texto' | 'apoio' | 'rotulado'
+
+export type CampoDaPauta = {
+  id: keyof Editaveis
+  rotulo: string
+  linhas: number
+  leitura: LeituraDoCampo
+}
+
+/**
+ * O pilar editorial, sozinho.
+ *
+ * Fica fora dos grupos porque não é prosa: é a classificação da peça
+ * dentro da linha editorial da marca, uma palavra que a equipe troca
+ * num piscar e que o calendário usa para colorir. Misturá-lo ao texto
+ * corrido só atrapalharia a leitura dos dois.
+ */
+export const CAMPO_PILAR: CampoDaPauta = {
+  id: 'editorial_line',
+  rotulo: 'Pilar editorial',
+  linhas: 1,
+  leitura: 'rotulado',
+}
+
+/**
+ * A pauta como ela se lê: um texto só.
+ *
+ * Eram quatro caixas empilhadas, cada uma com seu rótulo, e quem abria
+ * a pauta precisava remontar mentalmente o que aquilo era. No banco
+ * eles continuam quatro campos separados, porque a IA precisa saber o
+ * que é título e o que é chamada para ação na hora de escrever o
+ * conteúdo, e o portal do cliente separa contexto de detalhe. O que
+ * mudou é a tela: lê-se como um texto, edita-se campo a campo quando
+ * for preciso.
+ */
+export const GRUPO_CONTEUDO: CampoDaPauta[] = [
+  { id: 'title', rotulo: 'Título', linhas: 2, leitura: 'titulo' },
+  { id: 'concept', rotulo: 'Conceito', linhas: 2, leitura: 'texto' },
+  { id: 'description', rotulo: 'Descrição', linhas: 6, leitura: 'apoio' },
+  { id: 'cta', rotulo: 'Chamada para ação', linhas: 1, leitura: 'rotulado' },
 ]
 
 /**
- * Os dois que ficam recolhidos.
+ * O bastidor, também como um texto só.
  *
- * Não saem da tela porque o sistema depende deles: o TEMA alimenta a
- * regra que impede repetir o mesmo assunto três meses seguidos, e a
- * JUSTIFICATIVA é a âncora que explica por que a pauta existe. Se
- * sumissem daqui, a equipe editaria o título e deixaria o tema velho
- * para trás sem perceber.
+ * Continua recolhido, e continua existindo porque o sistema depende
+ * dos três: o TEMA alimenta a regra que impede repetir o mesmo assunto
+ * três meses seguidos, e a JUSTIFICATIVA é a âncora que explica por
+ * que a pauta existe. Some da primeira vista, não do trabalho.
  */
-export const CAMPOS_EXTRAS: { id: keyof Editaveis; rotulo: string; linhas: number }[] = [
-  { id: 'theme', rotulo: 'Tema', linhas: 1 },
-  { id: 'objective', rotulo: 'Objetivo', linhas: 1 },
-  { id: 'rationale', rotulo: 'Justificativa', linhas: 4 },
+export const GRUPO_BASTIDOR: CampoDaPauta[] = [
+  { id: 'theme', rotulo: 'Tema', linhas: 1, leitura: 'rotulado' },
+  { id: 'objective', rotulo: 'Objetivo', linhas: 1, leitura: 'rotulado' },
+  { id: 'rationale', rotulo: 'Justificativa', linhas: 4, leitura: 'texto' },
 ]
 
-export const TODOS_CAMPOS = [...CAMPOS, ...CAMPOS_EXTRAS]
+/** Todo campo editável da pauta, para saber se há algo por salvar. */
+export const TODOS_CAMPOS: CampoDaPauta[] = [
+  CAMPO_PILAR,
+  ...GRUPO_CONTEUDO,
+  ...GRUPO_BASTIDOR,
+]
 
 export function paraEditaveis(p: Pauta): Editaveis {
   return {

@@ -14,9 +14,10 @@ import { AbaConteudo } from './conteudo'
 import type { Layout } from '@/lib/layouts'
 import {
   ACOES,
-  CAMPOS,
-  CAMPOS_EXTRAS,
+  CAMPO_PILAR,
   ESTADO,
+  GRUPO_BASTIDOR,
+  GRUPO_CONTEUDO,
   ICONE_PECA,
   ORIGEM,
   TODOS_CAMPOS,
@@ -27,6 +28,7 @@ import {
   pilula,
   ponto,
   tipoDaPeca,
+  type CampoDaPauta,
   type ConteudoPauta,
   type Editaveis,
   type JuizoDaPauta,
@@ -52,6 +54,7 @@ export function Painel({
   investimentoTotal,
   jaDistribuido,
   aoMudarMidia,
+  aoAtenderCliente,
 }: {
   slug: string
   ano: number
@@ -72,6 +75,8 @@ export function Painel({
   /** O que as OUTRAS publicações do mês já levam. */
   jaDistribuido: number
   aoMudarMidia: (m: Midia) => void
+  /** A IA atendeu o pedido do cliente: texto novo, versão nova, estado novo. */
+  aoAtenderCliente: (campos: Editaveis, versao: number, estado: string | null) => void
 }) {
   const [aba, setAba] = useState<Aba>('ideia')
   const [campos, setCampos] = useState<Editaveis>(() => paraEditaveis(pauta))
@@ -83,7 +88,8 @@ export function Painel({
   const [segundos, setSegundos] = useState(0)
   const [mudou, setMudou] = useState<string | null>(null)
   const [versaoAtual, setVersaoAtual] = useState(pauta.current_version)
-  const [verExtras, setVerExtras] = useState(false)
+  const [atendendo, setAtendendo] = useState(false)
+  const [atendido, setAtendido] = useState<string | null>(null)
 
   const original = paraEditaveis(pauta)
   const sujo = TODOS_CAMPOS.some((c) => campos[c.id] !== original[c.id])
@@ -91,11 +97,11 @@ export function Painel({
   const acoes = ACOES[pauta.status] ?? []
 
   useEffect(() => {
-    if (!refinando) return
+    if (!refinando && !atendendo) return
     setSegundos(0)
     const t = setInterval(() => setSegundos((x) => x + 1), 1000)
     return () => clearInterval(t)
-  }, [refinando])
+  }, [refinando, atendendo])
 
   async function gravar() {
     setSalvando(true)
@@ -152,6 +158,62 @@ export function Painel({
       setErro('A conexão caiu durante o refino. Tente de novo.')
     } finally {
       setRefinando(null)
+    }
+  }
+
+  /**
+   * Atende o pedido do cliente com a IA, em um clique.
+   *
+   * O texto do pedido NÃO sai daqui: a rota vai buscá-lo no recado que
+   * o cliente gravou. Assim o histórico não pode registrar como
+   * "pedido do cliente" uma frase que a equipe escreveu.
+   *
+   * A pauta volta para avaliação interna, e não direto para o cliente:
+   * alguém da Alta ainda precisa ler o que a IA escreveu antes de
+   * devolver. Enviar continua sendo um ato de gente, no calendário.
+   */
+  async function atenderCliente() {
+    if (atendendo || refinando) return
+    if (sujo) {
+      setErro(
+        'Você tem alterações não salvas. Salve ou descarte antes de pedir à IA, senão uma coisa sobrescreve a outra.',
+      )
+      return
+    }
+    setAtendendo(true)
+    setErro(null)
+    setMudou(null)
+    setAtendido(null)
+    try {
+      const r = await fetch('/api/refinar', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ideaId: pauta.id, atenderCliente: true }),
+      })
+      const corpo = await r.json()
+      if (!r.ok || corpo.erro) {
+        setErro(corpo.erro ?? 'A IA não conseguiu atender o pedido.')
+        return
+      }
+      const novos: Editaveis = {
+        title: corpo.pauta.title ?? '',
+        theme: corpo.pauta.theme ?? '',
+        concept: corpo.pauta.concept ?? '',
+        description: corpo.pauta.description ?? '',
+        editorial_line: corpo.pauta.editorial_line ?? '',
+        objective: campos.objective,
+        rationale: corpo.pauta.rationale ?? '',
+        cta: corpo.pauta.cta ?? '',
+      }
+      setCampos(novos)
+      setVersaoAtual(Number(corpo.versao))
+      setMudou(corpo.oQueMudou || 'A IA reescreveu a pauta atendendo o cliente.')
+      setAtendido(corpo.pedidoAtendido ?? null)
+      aoAtenderCliente(novos, Number(corpo.versao), (corpo.estado as string | null) ?? null)
+    } catch {
+      setErro('A conexão caiu enquanto a IA trabalhava. Tente de novo.')
+    } finally {
+      setAtendendo(false)
     }
   }
 
@@ -436,38 +498,95 @@ export function Painel({
                   </div>
                 ))}
                 {pauta.status === 'client_changes_requested' && (
-                  <p style={{ fontSize: 12.3, color: 'var(--muted)', marginTop: 8, lineHeight: 1.5 }}>
-                    Ajuste, aprove de novo e use &ldquo;Enviar ao cliente&rdquo; no calendário
-                    para devolver.
-                  </p>
+                  <>
+                    {podeEditar && (
+                      <div
+                        style={{
+                          marginTop: 12,
+                          paddingTop: 12,
+                          borderTop: '1px solid rgba(29,37,48,.10)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 11,
+                          flexWrap: 'wrap',
+                        }}
+                      >
+                        <button
+                          onClick={atenderCliente}
+                          disabled={atendendo || !!refinando || sujo}
+                          title={sujo ? 'Salve as alterações antes.' : undefined}
+                          style={botao(!atendendo && !sujo, atendendo || !!refinando || sujo)}
+                        >
+                          {atendendo ? `Atendendo… ${segundos}s` : 'Atender o pedido com a IA'}
+                        </button>
+                        <span
+                          style={{ fontSize: 12.2, color: 'var(--muted)', lineHeight: 1.5, flex: '1 1 220px' }}
+                        >
+                          {atendendo
+                            ? 'A IA está reescrevendo a pauta para resolver o que o cliente pediu. De um a três minutos.'
+                            : 'A IA reescreve a pauta resolvendo este pedido e devolve para você conferir. Leva de um a três minutos.'}
+                        </span>
+                      </div>
+                    )}
+                    <p style={{ fontSize: 12.3, color: 'var(--muted)', marginTop: 8, lineHeight: 1.5 }}>
+                      Feito o ajuste, aprove e use &ldquo;Enviar ao cliente&rdquo; no calendário
+                      para devolver.
+                    </p>
+                  </>
                 )}
               </section>
             )}
 
-            {CAMPOS.map((c) => (
-              <div key={c.id} style={{ marginBottom: 14 }}>
-                <label
-                  htmlFor={`p-${c.id}`}
-                  style={{
-                    display: 'block',
-                    fontWeight: 600,
-                    fontSize: 12.5,
-                    color: 'var(--muted)',
-                    marginBottom: 5,
-                  }}
-                >
-                  {c.rotulo}
-                </label>
-                <textarea
-                  id={`p-${c.id}`}
-                  rows={c.linhas}
-                  value={campos[c.id]}
-                  readOnly={!podeEditar}
-                  onChange={(ev) => setCampos((a) => ({ ...a, [c.id]: ev.target.value }))}
-                  style={podeEditar ? caixaTexto : soLeitura}
-                />
-              </div>
-            ))}
+            <div style={{ marginBottom: 16 }}>
+              <label
+                htmlFor={`p-${CAMPO_PILAR.id}`}
+                style={{
+                  display: 'block',
+                  fontWeight: 600,
+                  fontSize: 12.5,
+                  color: 'var(--muted)',
+                  marginBottom: 5,
+                }}
+              >
+                {CAMPO_PILAR.rotulo}
+              </label>
+              <textarea
+                id={`p-${CAMPO_PILAR.id}`}
+                rows={CAMPO_PILAR.linhas}
+                value={campos[CAMPO_PILAR.id]}
+                readOnly={!podeEditar}
+                onChange={(ev) =>
+                  setCampos((a) => ({ ...a, [CAMPO_PILAR.id]: ev.target.value }))
+                }
+                style={podeEditar ? caixaTexto : soLeitura}
+              />
+            </div>
+
+            {atendido && (
+              <section
+                style={{
+                  marginBottom: 16,
+                  padding: '13px 16px',
+                  borderRadius: 'var(--r)',
+                  background: 'var(--ok-wash)',
+                  fontSize: 13.2,
+                  lineHeight: 1.6,
+                }}
+              >
+                <b>Pedido do cliente atendido.</b> A pauta voltou para avaliação interna com
+                uma versão nova, marcada no histórico como pedido do cliente. Leia, ajuste
+                se precisar, aprove e reenvie.
+              </section>
+            )}
+
+            <GrupoDeCampos
+              titulo="Descrição do conteúdo"
+              lista={GRUPO_CONTEUDO}
+              campos={campos}
+              original={original}
+              podeEditar={podeEditar}
+              aoMudar={(id, valor) => setCampos((a) => ({ ...a, [id]: valor }))}
+            />
 
             <BlocoMidia
               slug={slug}
@@ -559,49 +678,16 @@ export function Painel({
               )}
             </section>}
 
-            <button
-              onClick={() => setVerExtras((v) => !v)}
-              style={{
-                fontFamily: 'inherit',
-                fontSize: 12.5,
-                fontWeight: 600,
-                background: 'none',
-                border: 'none',
-                color: 'var(--muted)',
-                cursor: 'pointer',
-                padding: '4px 0',
-                marginBottom: verExtras ? 10 : 0,
-              }}
-            >
-              {verExtras ? '▾' : '▸'} Tema, objetivo e justificativa
-            </button>
-
-            {verExtras && (
-              <>
-                <p style={{ color: 'var(--faint)', fontSize: 12, marginBottom: 12, lineHeight: 1.5 }}>
-                  Ficam recolhidos por serem de bastidor, mas o sistema usa os três: o tema
-                  alimenta a regra que impede repetir o mesmo assunto três meses seguidos.
-                </p>
-                {CAMPOS_EXTRAS.map((c) => (
-                  <div key={c.id} style={{ marginBottom: 14 }}>
-                    <label
-                      htmlFor={`p-${c.id}`}
-                      style={{ display: 'block', fontWeight: 700, fontSize: 13, marginBottom: 4 }}
-                    >
-                      {c.rotulo}
-                    </label>
-                    <textarea
-                      id={`p-${c.id}`}
-                      rows={c.linhas}
-                      value={campos[c.id]}
-                      readOnly={!podeEditar}
-                      onChange={(ev) => setCampos((a) => ({ ...a, [c.id]: ev.target.value }))}
-                      style={podeEditar ? caixaTexto : soLeitura}
-                    />
-                  </div>
-                ))}
-              </>
-            )}
+            <GrupoDeCampos
+              titulo="Tema, objetivo e justificativa"
+              ajuda="Ficam recolhidos por serem de bastidor, mas o sistema usa os três: o tema alimenta a regra que impede repetir o mesmo assunto três meses seguidos, e a justificativa é a âncora que explica por que a pauta existe."
+              lista={GRUPO_BASTIDOR}
+              campos={campos}
+              original={original}
+              podeEditar={podeEditar}
+              aoMudar={(id, valor) => setCampos((a) => ({ ...a, [id]: valor }))}
+              recolhivel
+            />
 
             {sujo && (
               <div style={{ margin: '14px 0' }}>
@@ -803,6 +889,234 @@ const REDES: Record<string, string> = {
   youtube: 'YouTube',
   facebook: 'Facebook',
   pinterest: 'Pinterest',
+}
+
+/**
+ * Um grupo de campos que se LÊ como um texto e se EDITA como campos.
+ *
+ * A pauta aberta tinha nove caixas de texto empilhadas, cada uma com
+ * seu rótulo. Quem chegava para revisar gastava os primeiros segundos
+ * remontando na cabeça o que aquilo dizia, porque a informação estava
+ * fatiada pela conveniência do banco, não pela ordem em que uma pessoa
+ * lê uma ideia.
+ *
+ * Então o normal aqui é a leitura: título, conceito e descrição
+ * corridos, como um texto. Editar é um clique, e abre exatamente os
+ * campos de antes, porque eles continuam existindo: a IA precisa saber
+ * o que é título e o que é chamada para ação na hora de escrever o
+ * conteúdo, e o portal do cliente separa contexto de detalhe.
+ *
+ * Duas regras que evitam perder trabalho: com alteração não salva o
+ * bloco não fecha, e um grupo recolhido com alteração não salva abre
+ * sozinho. Esconder texto que a pessoa acabou de digitar é o jeito
+ * mais rápido de fazê-la perdê-lo.
+ */
+function GrupoDeCampos({
+  titulo,
+  ajuda,
+  lista,
+  campos,
+  original,
+  podeEditar,
+  aoMudar,
+  recolhivel = false,
+}: {
+  titulo: string
+  ajuda?: string
+  lista: CampoDaPauta[]
+  campos: Editaveis
+  original: Editaveis
+  podeEditar: boolean
+  aoMudar: (id: keyof Editaveis, valor: string) => void
+  /** Começa fechado, como o bastidor da pauta. */
+  recolhivel?: boolean
+}) {
+  const sujo = lista.some((c) => campos[c.id] !== original[c.id])
+  const [editando, setEditando] = useState(false)
+  const [aberto, setAberto] = useState(!recolhivel)
+  const emEdicao = editando || sujo
+  const visivel = aberto || sujo
+  const temAlgo = lista.some((c) => (campos[c.id] ?? '').trim() !== '')
+
+  return (
+    <section
+      style={{
+        marginBottom: 18,
+        border: '1px solid var(--line)',
+        borderRadius: 'var(--r)',
+        background: 'var(--surface)',
+        overflow: 'hidden',
+      }}
+    >
+      <header
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: '11px 15px',
+          background: 'var(--surface-2)',
+          borderBottom: visivel ? '1px solid var(--line)' : 'none',
+        }}
+      >
+        {recolhivel ? (
+          <button
+            onClick={() => setAberto((v) => !v)}
+            disabled={sujo}
+            style={{
+              fontFamily: 'inherit',
+              fontSize: 12.5,
+              fontWeight: 700,
+              letterSpacing: '.02em',
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              color: 'var(--text)',
+              cursor: sujo ? 'default' : 'pointer',
+              textAlign: 'left',
+            }}
+          >
+            {visivel ? '▾' : '▸'} {titulo}
+          </button>
+        ) : (
+          <div style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '.02em' }}>{titulo}</div>
+        )}
+
+        {visivel && podeEditar && (
+          <button
+            onClick={() => setEditando((v) => !v)}
+            disabled={sujo && emEdicao}
+            style={{
+              marginLeft: 'auto',
+              fontFamily: 'inherit',
+              fontSize: 12.2,
+              fontWeight: 600,
+              background: 'none',
+              border: 'none',
+              padding: '2px 0',
+              color: sujo && emEdicao ? 'var(--faint)' : 'var(--accent)',
+              cursor: sujo && emEdicao ? 'default' : 'pointer',
+            }}
+          >
+            {emEdicao ? (sujo ? 'editando' : 'Pronto') : 'Editar'}
+          </button>
+        )}
+      </header>
+
+      {visivel && (
+        <div style={{ padding: '14px 15px 4px' }}>
+          {ajuda && (
+            <p style={{ color: 'var(--faint)', fontSize: 12, marginBottom: 12, lineHeight: 1.5 }}>
+              {ajuda}
+            </p>
+          )}
+
+          {emEdicao ? (
+            lista.map((c) => (
+              <div key={c.id} style={{ marginBottom: 14 }}>
+                <label
+                  htmlFor={`p-${c.id}`}
+                  style={{
+                    display: 'block',
+                    fontWeight: 600,
+                    fontSize: 12.5,
+                    color: 'var(--muted)',
+                    marginBottom: 5,
+                  }}
+                >
+                  {c.rotulo}
+                </label>
+                <textarea
+                  id={`p-${c.id}`}
+                  rows={c.linhas}
+                  value={campos[c.id]}
+                  readOnly={!podeEditar}
+                  onChange={(ev) => aoMudar(c.id, ev.target.value)}
+                  style={podeEditar ? caixaTexto : soLeitura}
+                />
+              </div>
+            ))
+          ) : temAlgo ? (
+            <div style={{ paddingBottom: 10 }}>
+              {lista.map((c) => {
+                const v = (campos[c.id] ?? '').trim()
+                if (!v) return null
+                if (c.leitura === 'titulo') {
+                  return (
+                    <div
+                      key={c.id}
+                      style={{
+                        fontFamily: 'var(--disp)',
+                        fontSize: 17,
+                        fontWeight: 600,
+                        lineHeight: 1.3,
+                        letterSpacing: '-.01em',
+                        marginBottom: 9,
+                      }}
+                    >
+                      {v}
+                    </div>
+                  )
+                }
+                if (c.leitura === 'texto') {
+                  return (
+                    <p
+                      key={c.id}
+                      style={{
+                        fontSize: 14.2,
+                        lineHeight: 1.68,
+                        marginBottom: 9,
+                        whiteSpace: 'pre-wrap',
+                      }}
+                    >
+                      {v}
+                    </p>
+                  )
+                }
+                if (c.leitura === 'apoio') {
+                  return (
+                    <p
+                      key={c.id}
+                      style={{
+                        fontSize: 13.7,
+                        lineHeight: 1.7,
+                        color: 'var(--muted)',
+                        marginBottom: 9,
+                        whiteSpace: 'pre-wrap',
+                      }}
+                    >
+                      {v}
+                    </p>
+                  )
+                }
+                return (
+                  <p key={c.id} style={{ fontSize: 13.4, lineHeight: 1.6, marginBottom: 6 }}>
+                    <span style={{ color: 'var(--faint)', fontWeight: 600 }}>{c.rotulo}: </span>
+                    {v}
+                  </p>
+                )
+              })}
+              {/* Campo vazio não vira linha em branco: vira uma nota no fim,
+                  para a equipe ver o que falta sem poluir a leitura. */}
+              {lista.some((c) => !(campos[c.id] ?? '').trim()) && (
+                <p style={{ fontSize: 12, color: 'var(--faint)', marginTop: 4 }}>
+                  Sem{' '}
+                  {lista
+                    .filter((c) => !(campos[c.id] ?? '').trim())
+                    .map((c) => c.rotulo.toLowerCase())
+                    .join(', sem ')}
+                  .
+                </p>
+              )}
+            </div>
+          ) : (
+            <p style={{ fontSize: 13, color: 'var(--faint)', paddingBottom: 12, lineHeight: 1.6 }}>
+              Nada escrito aqui ainda.
+            </p>
+          )}
+        </div>
+      )}
+    </section>
+  )
 }
 
 /**

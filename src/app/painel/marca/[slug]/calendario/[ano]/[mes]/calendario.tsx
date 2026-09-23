@@ -811,6 +811,15 @@ export function Calendario({
             Math.round((distribuido - (pautaAberta.midia.investimento ?? 0)) * 100) / 100
           }
           aoMudarMidia={(midia) => atualizar(pautaAberta.id, { midia })}
+          aoAtenderCliente={(campos: Editaveis, versao: number, estado: string | null) =>
+            atualizar(pautaAberta.id, {
+              ...campos,
+              current_version: versao,
+              // A rota já mudou o estado no banco; aqui a tela só
+              // acompanha, sem uma segunda viagem ao servidor.
+              ...(estado ? { status: estado } : {}),
+            })
+          }
         />
       )}
     </div>

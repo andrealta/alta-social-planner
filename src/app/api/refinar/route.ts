@@ -32,7 +32,7 @@ function json(corpo: unknown, status = 200) {
 }
 
 export async function POST(req: Request) {
-  let corpo: { ideaId?: string; comando?: string }
+  let corpo: { ideaId?: string; comando?: string; atenderCliente?: boolean }
   try {
     corpo = await req.json()
   } catch {
@@ -40,13 +40,20 @@ export async function POST(req: Request) {
   }
 
   const ideaId = String(corpo.ideaId ?? '')
-  const comando = String(corpo.comando ?? '').trim()
+  // Com `atenderCliente`, o texto do pedido NÃO vem do navegador: vem
+  // do recado que o cliente gravou. Se viesse daqui, a equipe poderia
+  // mandar qualquer coisa carimbada como pedido do cliente, e o
+  // histórico registraria uma mentira.
+  const atenderCliente = corpo.atenderCliente === true
+  let comando = String(corpo.comando ?? '').trim()
 
   if (!ideaId) return json({ erro: 'Faltou dizer qual pauta.' }, 400)
-  if (comando.length < 3) return json({ erro: 'Diga o que você quer mudar.' }, 400)
-  if (comando.length > 1000) return json({ erro: 'O pedido ficou longo demais.' }, 400)
+  if (!atenderCliente) {
+    if (comando.length < 3) return json({ erro: 'Diga o que você quer mudar.' }, 400)
+    if (comando.length > 1000) return json({ erro: 'O pedido ficou longo demais.' }, 400)
+  }
 
-  const log = registro('refino')
+  const log = registro(atenderCliente ? 'refino (pedido do cliente)' : 'refino')
   await log.passo('pedido recebido', comando.slice(0, 60))
 
   const supabase = await clienteServidor()
@@ -85,6 +92,39 @@ export async function POST(req: Request) {
       { erro: 'Esta pauta já foi aprovada pelo cliente. Reabrir é uma decisão de gente, não de IA.' },
       409,
     )
+  }
+
+  // ---------- atender o pedido do cliente ----------
+  //
+  // Um botão só, no lugar de copiar o recado à mão para a caixa do
+  // refino. O texto vem do banco, e é o último recado que o cliente
+  // escreveu sobre esta pauta.
+  if (atenderCliente) {
+    if (pauta.status !== 'client_changes_requested') {
+      return json(
+        { erro: 'Esta pauta não está com um pedido de alteração do cliente aberto.' },
+        409,
+      )
+    }
+
+    const { data: recado } = await supabase
+      .from('comments')
+      .select('body, created_at')
+      .eq('idea_id', ideaId)
+      .eq('author_kind', 'client')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const texto = String(recado?.body ?? '').trim()
+    if (texto.length < 3) {
+      return json(
+        { erro: 'O cliente pediu alteração mas não deixou texto. Converse com ele antes.' },
+        409,
+      )
+    }
+    comando = texto.slice(0, 1000)
+    await log.passo('recado do cliente', comando.slice(0, 80))
   }
 
   const [{ data: marca }, { data: plano }, { data: secoes }, { data: canal }, { data: linha }, interno] =
@@ -147,6 +187,7 @@ export async function POST(req: Request) {
       justificativa: (pauta.rationale as string) ?? null,
     },
     comando,
+    deCliente: atenderCliente,
   })
 
   const { data: corrida } = await supabase
@@ -208,13 +249,34 @@ export async function POST(req: Request) {
       p_objective: (pauta.objective as string) ?? null,
       p_rationale: novo.justificativa || null,
       p_cta: novo.cta || null,
-      p_motivo: `Pedido da equipe: ${comando}`,
-      p_origem: 'ai',
+      p_motivo: atenderCliente ? `Pedido do cliente: ${comando}` : `Pedido da equipe: ${comando}`,
+      // O banco distingue três origens de versão (0008). Uma pauta
+      // reescrita para atender o cliente não é "a IA teve uma ideia":
+      // é o ciclo de revisão com o cliente funcionando, e a medida de
+      // Precisão precisa saber a diferença.
+      p_origem: atenderCliente ? 'client_request' : 'ai',
     })
 
     if (erroGravar) {
       await log.passo('FALHOU ao gravar', erroGravar.message.slice(0, 120))
       return json({ erro: 'A IA respondeu, mas a gravação falhou: ' + erroGravar.message }, 500)
+    }
+
+    // Atendido o pedido, a pauta volta para a mesa da equipe.
+    //
+    // Ela não fica em "cliente pediu alteração", porque o pedido já foi
+    // trabalhado, e não vai direto ao cliente, porque ninguém da Alta
+    // leu ainda o que a IA escreveu. Fica em avaliação interna, que é o
+    // estado em que alguém precisa olhar e aprovar. O envio continua
+    // sendo um ato de gente, no calendário.
+    let estadoNovo: string | null = null
+    if (atenderCliente) {
+      const { error: erroEstado } = await supabase
+        .from('content_ideas')
+        .update({ status: 'internal_review' })
+        .eq('id', ideaId)
+      if (!erroEstado) estadoNovo = 'internal_review'
+      else await log.passo('nao mudou o estado', erroEstado.message.slice(0, 120))
     }
 
     // O formato fica no canal, não na pauta.
@@ -244,6 +306,10 @@ export async function POST(req: Request) {
       ok: true,
       versao: Number(versao),
       oQueMudou: novo.o_que_mudou ?? '',
+      /** O pedido do cliente que foi atendido, para a tela repetir. */
+      pedidoAtendido: atenderCliente ? comando : null,
+      /** Para onde a pauta foi, quando o refino mexeu no estado dela. */
+      estado: estadoNovo,
       achados,
       custoUsd: Number(r.custoUsd.toFixed(4)),
       segundos: Math.round(r.latenciaMs / 1000),

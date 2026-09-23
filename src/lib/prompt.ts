@@ -534,9 +534,22 @@ export function montarPromptRefino(e: {
   territorios?: { nome: string; peso: number }[]
   pauta: PautaAtual
   comando: string
+  /**
+   * O pedido veio do CLIENTE, não da equipe.
+   *
+   * Muda o peso da instrução, e por isso muda o prompt. Pedido da
+   * equipe é uma direção entre colegas: pode ser interpretado. Pedido
+   * do cliente é o que precisa estar atendido quando a peça voltar
+   * para ele, e a pessoa que escreveu não conhece o vocabulário
+   * interno nem sabe qual campo mexer. Então a IA recebe o texto como
+   * ele chegou e é instruída a resolver o pedido, não a comentá-lo.
+   */
+  deCliente?: boolean
 }): string {
   const p = e.pauta
-  return `Você refina uma pauta de conteúdo já existente, a pedido da equipe da agência.
+  return `Você refina uma pauta de conteúdo já existente, a pedido ${
+    e.deCliente ? 'do CLIENTE da agência, trazido pela equipe' : 'da equipe da agência'
+  }.
 Mantenha o que não foi pedido para mudar. Não invente produto, recurso ou dado que não
 esteja na base da marca.
 
@@ -560,11 +573,21 @@ Descrição: ${p.descricao ?? 'não informado'}
 CTA: ${p.cta ?? 'não informado'}
 Justificativa: ${p.justificativa ?? 'não informado'}
 
-# O QUE A EQUIPE PEDIU
+# ${e.deCliente ? 'O QUE O CLIENTE PEDIU, COM AS PALAVRAS DELE' : 'O QUE A EQUIPE PEDIU'}
 ${e.comando}
 
 # REGRAS
-Mantenha a linha de produto e o dia, a menos que o pedido diga o contrário.
+${
+  e.deCliente
+    ? `Este pedido veio do cliente e precisa estar ATENDIDO na pauta que você devolver. Ele
+não escreveu pensando em campos: leia o que ele quer e mexa nos campos que forem
+necessários para resolver, sem mudar o que ele não pediu. Se o pedido for vago, resolva
+da forma mais conservadora possível. Se o pedido contrariar a base da marca ou uma
+expressão proibida, atenda o espírito dele sem quebrar a base e explique o ajuste em
+"o_que_mudou". Não escreva resposta ao cliente em campo nenhum: os campos são a pauta.
+`
+    : ''
+}Mantenha a linha de produto e o dia, a menos que o pedido diga o contrário.
 Respeite as expressões proibidas e os recursos indisponíveis declarados na base.
 A justificativa precisa citar uma âncora nomeada da base ou do contexto do mês.
 Não use travessão (—) no título, conceito, descrição ou CTA: é marca de texto de IA. Use vírgula, ponto ou dois-pontos.
