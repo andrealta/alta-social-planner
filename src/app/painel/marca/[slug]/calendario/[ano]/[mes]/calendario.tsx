@@ -38,6 +38,7 @@ export function Calendario({
   pautas: iniciais,
   nivel,
   critica,
+  podeMidia = false,
   investimentoTotal = null,
   abrir = null,
   admin = false,
@@ -51,6 +52,8 @@ export function Calendario({
   nivel: string
   /** O juízo da IA sobre o mês, quando alguém já pediu a avaliação. */
   critica: Critica | null
+  /** Quem define objetivo de campanha e valor investido (0028). */
+  podeMidia?: boolean
   /** A verba de mídia do mês. Nulo: ninguém informou verba. */
   investimentoTotal?: number | null
   /** Pauta para abrir assim que a tela carrega (link da fila de trabalho). */
@@ -806,6 +809,7 @@ export function Calendario({
           aoGerarConteudo={(c: ConteudoPauta) => atualizar(pautaAberta.id, { conteudo: c })}
           admin={admin}
           aoMudarLayouts={(layouts) => atualizar(pautaAberta.id, { layouts })}
+          podeMidia={podeMidia}
           investimentoTotal={investimentoTotal}
           jaDistribuido={
             Math.round((distribuido - (pautaAberta.midia.investimento ?? 0)) * 100) / 100

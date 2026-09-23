@@ -10,9 +10,11 @@ import {
   apagarPessoa,
   editarPessoa,
   novaSenha,
+  salvarPermissoes,
   type Historico,
 } from './acoes'
 import { Avatar } from '@/lib/avatar'
+import { ATALHOS, PERMISSOES, atalhoDe, resumoDePermissoes } from '@/lib/permissoes'
 
 export type Marca = { id: string; nome: string; slug: string }
 export type Pessoa = {
@@ -23,6 +25,8 @@ export type Pessoa = {
   email: string
   papel: string
   vinculos: { brandId: string; acesso: string }[]
+  /** O que esta pessoa pode ALTERAR. Ver `lib/permissoes` e a 0028. */
+  permissoes: string[]
 }
 
 const PAPEL: Record<string, { rotulo: string; explica: string }> = {
@@ -217,6 +221,9 @@ export function Pessoas({
         nome: nome.trim(),
         email: email.trim().toLowerCase(),
         papel,
+        // Pessoa nova nasce sem permissão nenhuma: lê tudo, não altera
+        // nada, até alguém decidir o contrário. É o padrão seguro.
+        permissoes: [],
         vinculos: Object.entries(escolhidas).map(([brandId, acesso]) => ({
           brandId,
           acesso: String(acesso),
@@ -601,8 +608,18 @@ export function Pessoas({
                   )}
                   {p.papel === 'admin' && (
                     <p style={{ color: 'var(--faint)', fontSize: 12.3, marginTop: 8 }}>
-                      Administração alcança todas as marcas e não precisa de vínculo.
+                      Administração alcança tudo e não precisa de vínculo nem de permissão.
                     </p>
+                  )}
+
+                  {p.papel === 'staff' && (
+                    <>
+                      <p style={{ color: 'var(--faint)', fontSize: 12, marginTop: 7, lineHeight: 1.5 }}>
+                        O vínculo acima diz quais marcas esta pessoa acompanha de perto. Ela lê
+                        todas de qualquer forma; o que ela pode ALTERAR está logo abaixo.
+                      </p>
+                      <Permissoes pessoa={p} />
+                    </>
                   )}
 
                   {editando?.id !== p.id && confirmando?.id !== p.id && (
@@ -839,6 +856,168 @@ export function Pessoas({
             </ul>
           </section>
         ),
+      )}
+    </div>
+  )
+}
+
+/**
+ * As permissões de uma pessoa da equipe.
+ *
+ * Fica recolhido como uma frase até alguém clicar, porque na maior
+ * parte das vezes o que se quer saber é "o que o fulano faz?", e isso
+ * cabe em quatro palavras. Aberto, mostra as cinco caixas e três
+ * atalhos que preenchem as caixas de uma vez.
+ *
+ * O botão de salvar só aparece quando há o que salvar, e a tela não
+ * mente: enquanto a gravação não volta do servidor, ela mostra o que
+ * estava antes.
+ */
+function Permissoes({ pessoa }: { pessoa: Pessoa }) {
+  const [aberto, setAberto] = useState(false)
+  const [marcadas, setMarcadas] = useState<string[]>(pessoa.permissoes)
+  const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+  const [aviso, setAviso] = useState<string | null>(null)
+
+  const original = [...pessoa.permissoes].sort().join(',')
+  const sujo = [...marcadas].sort().join(',') !== original
+  const atalho = atalhoDe(marcadas)
+
+  function alternar(chave: string) {
+    setMarcadas((a) => (a.includes(chave) ? a.filter((x) => x !== chave) : [...a, chave]))
+  }
+
+  async function gravar() {
+    setSalvando(true)
+    setErro(null)
+    const r = await salvarPermissoes(pessoa.id, marcadas)
+    setSalvando(false)
+    if (r.ok) {
+      setAviso('Permissões salvas.')
+      setTimeout(() => setAviso(null), 2500)
+    } else {
+      setErro(r.erro ?? 'Não consegui salvar.')
+      setMarcadas(pessoa.permissoes)
+    }
+  }
+
+  return (
+    <div style={{ marginTop: 10 }}>
+      <button
+        onClick={() => setAberto((v) => !v)}
+        style={{
+          fontFamily: 'inherit',
+          fontSize: 12.5,
+          fontWeight: 600,
+          background: 'none',
+          border: 'none',
+          padding: 0,
+          color: 'var(--muted)',
+          cursor: 'pointer',
+          textAlign: 'left',
+        }}
+      >
+        {aberto ? '▾' : '▸'} Pode alterar:{' '}
+        <span style={{ color: 'var(--text)' }}>{resumoDePermissoes(pessoa.permissoes)}</span>
+      </button>
+
+      {aberto && (
+        <div
+          style={{
+            marginTop: 9,
+            padding: '13px 15px',
+            borderRadius: 'var(--r)',
+            background: 'var(--surface-2)',
+          }}
+        >
+          <p style={{ color: 'var(--faint)', fontSize: 12, lineHeight: 1.5, marginBottom: 10 }}>
+            Ela lê todas as marcas de qualquer forma. O que se marca aqui é o que ela pode
+            mudar, e vale na agência inteira.
+          </p>
+
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+            {ATALHOS.map((a) => (
+              <button
+                key={a.nome}
+                onClick={() => setMarcadas([...a.permissoes])}
+                title={a.explica}
+                style={{
+                  fontFamily: 'inherit',
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  padding: '5px 11px',
+                  borderRadius: 99,
+                  border: 'none',
+                  background: atalho === a.nome ? 'var(--accent)' : 'var(--surface)',
+                  color: atalho === a.nome ? '#fff' : 'var(--text)',
+                  boxShadow: atalho === a.nome ? 'none' : '0 1px 2px rgba(29,37,48,.07)',
+                  cursor: 'pointer',
+                }}
+              >
+                {a.nome}
+              </button>
+            ))}
+          </div>
+
+          {PERMISSOES.map((perm) => (
+            <label
+              key={perm.chave}
+              style={{
+                display: 'flex',
+                gap: 9,
+                alignItems: 'flex-start',
+                padding: '7px 0',
+                cursor: 'pointer',
+                borderTop: '1px solid var(--line)',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={marcadas.includes(perm.chave)}
+                onChange={() => alternar(perm.chave)}
+                style={{ marginTop: 3, width: 15, height: 15, accentColor: 'var(--accent)' }}
+              />
+              <span style={{ minWidth: 0 }}>
+                <span style={{ display: 'block', fontSize: 13.3, fontWeight: 600 }}>
+                  {perm.nome}
+                </span>
+                <span
+                  style={{
+                    display: 'block',
+                    fontSize: 12,
+                    color: 'var(--muted)',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {perm.ajuda}
+                </span>
+              </span>
+            </label>
+          ))}
+
+          {erro && (
+            <p style={{ color: 'var(--laranja-tinta)', fontSize: 12.5, marginTop: 9, lineHeight: 1.5 }}>
+              {erro}
+            </p>
+          )}
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12 }}>
+            {sujo && (
+              <button onClick={gravar} disabled={salvando} style={botao(true, salvando)}>
+                {salvando ? 'Salvando…' : 'Salvar permissões'}
+              </button>
+            )}
+            {sujo && !salvando && (
+              <button onClick={() => setMarcadas(pessoa.permissoes)} style={botao(false)}>
+                Desfazer
+              </button>
+            )}
+            <span style={{ fontSize: 12.3, color: aviso ? 'var(--ok)' : 'var(--muted)' }}>
+              {aviso ?? (sujo ? 'Alterações não salvas.' : 'Tudo salvo.')}
+            </span>
+          </div>
+        </div>
       )}
     </div>
   )

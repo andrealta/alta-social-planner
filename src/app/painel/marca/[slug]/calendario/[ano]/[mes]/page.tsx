@@ -46,6 +46,13 @@ export default async function CalendarioDoMes({
   const { data: nivelBruto } = await supabase.rpc('nivel_na_marca', { b: marca.id })
   const nivel = (nivelBruto as string | null) ?? 'viewer'
 
+  // O que esta pessoa pode ALTERAR (0028). O nível acima continua sendo
+  // calculado a partir daqui, e sobrevive porque muitas telas ainda o
+  // perguntam; o investimento de mídia é a primeira parte que tem
+  // permissão própria e por isso precisa da lista inteira.
+  const { data: permissoesBrutas } = await supabase.rpc('minhas_permissoes')
+  const permissoes = (permissoesBrutas as string[] | null) ?? []
+
   const { data: plano } = await supabase
     .from('plans')
     .select(
@@ -372,6 +379,7 @@ export default async function CalendarioDoMes({
         pautas={pautas}
         nivel={nivel}
         critica={critica}
+        podeMidia={permissoes.includes('midia')}
         investimentoTotal={
           plano.investimento_total === null || plano.investimento_total === undefined
             ? null

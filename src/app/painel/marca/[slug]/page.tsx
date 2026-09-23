@@ -29,7 +29,11 @@ export default async function BaseDaMarca({
     .single()
 
   const papel = (perfil?.role as string) ?? 'client'
-  const podeEditar = papel === 'admin' || papel === 'staff'
+  // A base alimenta toda a geração: estragá-la estraga os meses
+  // seguintes, não só uma peça. Por isso ela tem permissão própria
+  // desde a 0028, e não basta ser da equipe.
+  const { data: podeBase } = await supabase.rpc('pode', { p: 'base' })
+  const podeEditar = (papel === 'admin' || papel === 'staff') && podeBase === true
 
   // Sem filtro por marca no código: se as políticas do banco não
   // deixarem, a consulta volta vazia e a página some. É o teste de

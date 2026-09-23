@@ -261,6 +261,60 @@ try {
       paraCliente.map((x) => x.tabela + '.' + x.polname).join(', '),
   )
 
+  console.log('\n--- 11. Quem pode alterar o que ---')
+  // Desde a 0028 a escrita da equipe depende de permissao por pessoa.
+  // Duas coisas podem estragar isso em silencio: uma politica antiga de
+  // comando ALL, que daria tudo a qualquer pessoa da equipe, e alguem
+  // com permissao demais por engano.
+  const catalogo = await sql`select chave from public.permissoes order by ordem`
+  diz(
+    catalogo.length === 5,
+    'as cinco permissoes estao cadastradas',
+    'Achei ' + catalogo.length + '. Rode o 04-migrar.cmd (migracao 0028).',
+  )
+
+  const tudoLiberado = await sql`
+    select c.relname as tabela, p.polname
+    from pg_policy p join pg_class c on c.oid = p.polrelid
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public' and p.polcmd = '*'
+      and pg_get_expr(p.polqual, p.polrelid) like '%is_staff()%'
+  `
+  diz(
+    tudoLiberado.length === 0,
+    'nenhuma politica da escrita a qualquer pessoa da equipe',
+    'Politica de comando ALL em: ' +
+      tudoLiberado.map((x) => x.tabela + '.' + x.polname).join(', ') +
+      '. Ela desfaz a divisao de permissoes inteira.',
+  )
+
+  const comTudo = await sql`
+    select p.name, p.email, count(*)::int as quantas
+    from public.permissao_usuario u
+    join public.profiles p on p.id = u.user_id
+    where p.role = 'staff'
+    group by p.name, p.email
+    having count(*) = 5
+  `
+  if (comTudo.length > 2) {
+    avisos++
+    console.log('  [aviso]  ' + comTudo.length + ' pessoas da equipe com as cinco permissoes.')
+    console.log('           Cada uma delas pode gerar planejamento, mexer na base e enviar')
+    console.log('           ao cliente. Vale conferir se todas precisam mesmo.')
+  }
+
+  const semNenhuma = await sql`
+    select p.name from public.profiles p
+    where p.role = 'staff'
+      and not exists (select 1 from public.permissao_usuario u where u.user_id = p.id)
+  `
+  if (semNenhuma.length > 0) {
+    console.log(
+      '  [nota]   Sem nenhuma permissao, so acompanham: ' +
+        semNenhuma.map((x) => x.name).join(', ') + '.',
+    )
+  }
+
 } catch (e) {
   falhas++
   console.error('\nFALHOU ao conferir: ' + (e && e.message ? e.message : String(e)))

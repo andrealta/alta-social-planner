@@ -69,10 +69,13 @@ export async function POST(req: Request) {
 
   const marcaId = plano.brand_id as string
 
-  const { data: nivel } = await supabase.rpc('nivel_na_marca', { b: marcaId })
-  if (nivel !== 'owner' && nivel !== 'editor') {
+  // Desde a 0028 a permissão de planejamento é que abre esta porta, e
+  // não o nível na marca. Quem só cuida de conteúdo não gasta a conta
+  // da Anthropic sem querer.
+  const { data: podePlanejar } = await supabase.rpc('pode', { p: 'planejamento' })
+  if (podePlanejar !== true) {
     return json(
-      { erro: 'Você tem acesso de leitura nesta marca. Avaliar o mês é de quem edita.' },
+      { erro: 'Avaliar o mês com a IA não está entre as suas permissões.' },
       403,
     )
   }

@@ -51,8 +51,18 @@ export default async function Planos({ params }: { params: Promise<{ slug: strin
   // Quem pode excluir, quantas pautas cada mês tem, e em quais o
   // cliente já decidiu alguma coisa. O banco é quem manda nas três
   // coisas; a tela só pergunta para não oferecer o que vai ser recusado.
-  const [{ data: nivel }, { data: perfil }, { data: ideias }, { data: decisoesCliente }] = await Promise.all([
+  const [
+    { data: nivel },
+    { data: permissoesBrutas },
+    { data: perfil },
+    { data: ideias },
+    { data: decisoesCliente },
+  ] = await Promise.all([
     supabase.rpc('nivel_na_marca', { b: marca.id }),
+    // Gerar o mês é a chamada cara do sistema, e tem permissão própria
+    // desde a 0028. O banco recusa de qualquer forma; isto evita a
+    // pessoa preencher o formulário para ouvir não no fim.
+    supabase.rpc('minhas_permissoes'),
     supabase.from('profiles').select('role').eq('id', user.id).single(),
     supabase.from('content_ideas').select('id, plan_id').eq('brand_id', marca.id),
     supabase
@@ -165,6 +175,11 @@ export default async function Planos({ params }: { params: Promise<{ slug: strin
           <b>Esta marca não tem escopo contratado cadastrado.</b> Sem saber quantas
           peças o contrato pede por mês, não dá para planejar.
         </div>
+      ) : !((permissoesBrutas as string[] | null) ?? []).includes('planejamento') ? (
+        <p style={{ color: 'var(--muted)', fontSize: 13.5, lineHeight: 1.6 }}>
+          Gerar o planejamento não está entre as suas permissões. Você acompanha o mês
+          normalmente; para gerar, peça a quem responde pela conta ou à administração.
+        </p>
       ) : (
         <Gerador
           slug={slug}

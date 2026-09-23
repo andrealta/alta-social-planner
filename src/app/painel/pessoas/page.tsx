@@ -18,11 +18,23 @@ export default async function GerenciarPessoas() {
 
   // A política `profiles_admin_all` devolve todo mundo para quem
   // administra, e só para quem administra.
-  const [{ data: gente }, { data: marcasBrutas }, { data: vinculos }] = await Promise.all([
-    supabase.from('profiles').select('id, name, email, role, avatar_url').order('name'),
-    supabase.from('brands').select('id, name, slug').order('name'),
-    supabase.from('brand_members').select('user_id, brand_id, access'),
-  ])
+  const [{ data: gente }, { data: marcasBrutas }, { data: vinculos }, { data: concedidas }] =
+    await Promise.all([
+      supabase.from('profiles').select('id, name, email, role, avatar_url').order('name'),
+      supabase.from('brands').select('id, name, slug').order('name'),
+      supabase.from('brand_members').select('user_id, brand_id, access'),
+      // As permissões da migração 0028: o que cada pessoa da Alta pode
+      // ALTERAR. Ler não está aqui porque quem é da equipe lê tudo.
+      supabase.from('permissao_usuario').select('user_id, permissao'),
+    ])
+
+  const permissoesDe = new Map<string, string[]>()
+  for (const linha of concedidas ?? []) {
+    const id = linha.user_id as string
+    const lista = permissoesDe.get(id) ?? []
+    lista.push(linha.permissao as string)
+    permissoesDe.set(id, lista)
+  }
 
   const marcas: Marca[] = (marcasBrutas ?? []).map((m) => ({
     id: m.id as string,
@@ -51,6 +63,7 @@ export default async function GerenciarPessoas() {
     email: (p.email as string) ?? '',
     papel: (p.role as string) ?? 'client',
     vinculos: porPessoa.get(p.id as string) ?? [],
+    permissoes: permissoesDe.get(p.id as string) ?? [],
   }))
 
   return (
@@ -77,8 +90,9 @@ export default async function GerenciarPessoas() {
           Pessoas e acessos
         </h1>
         <p style={{ color: 'var(--muted)', fontSize: 14, marginTop: 6, lineHeight: 1.6 }}>
-          Quem é da Alta trabalha nas marcas em que for vinculado. Quem é cliente só enxerga o
-          planejamento da própria marca, e só depois que ele for enviado.
+          Quem é da Alta enxerga todas as marcas. O que se concede aqui é o direito de
+          ALTERAR cada parte do sistema, e vale na agência inteira. Quem é cliente só
+          enxerga o planejamento da própria marca, e só depois que ele for enviado.
         </p>
       </header>
 

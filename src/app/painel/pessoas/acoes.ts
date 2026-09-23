@@ -441,3 +441,72 @@ export async function desvincular(userId: string, brandId: string): Promise<Resu
   revalidatePath('/painel/pessoas')
   return { ok: true }
 }
+
+/**
+ * Define o conjunto inteiro de permissões de uma pessoa.
+ *
+ * Grava o conjunto, e não um item de cada vez, porque é assim que a
+ * tela pensa: a pessoa marca e desmarca algumas caixas e salva o
+ * resultado. Uma chamada por caixa deixaria a pessoa a meio caminho se
+ * a conexão caísse no meio, com metade das permissões novas e metade
+ * das velhas.
+ *
+ * Quem manda continua sendo o banco: a política de `permissao_usuario`
+ * só aceita escrita da administração. Esta função confere antes só
+ * para dar uma frase em português em vez de um erro de política.
+ */
+export async function salvarPermissoes(
+  userId: string,
+  permissoes: string[],
+): Promise<Resultado> {
+  const ctx = await souAdmin()
+  if ('erro' in ctx) return { ok: false, erro: ctx.erro }
+
+  // O catálogo é do banco. Chave inventada é recusada aqui e lá.
+  const { data: validas } = await ctx.supabase.from('permissoes').select('chave')
+  const conhecidas = new Set((validas ?? []).map((p) => p.chave as string))
+  const lista = [...new Set(permissoes)].filter((p) => conhecidas.has(p))
+  if (lista.length !== new Set(permissoes).size) {
+    return { ok: false, erro: 'Permissão desconhecida no pedido.' }
+  }
+
+  const { data: alvo } = await ctx.supabase
+    .from('profiles')
+    .select('role, name')
+    .eq('id', userId)
+    .maybeSingle()
+
+  if (!alvo) return { ok: false, erro: 'Não achei esta pessoa.' }
+  if (alvo.role === 'client') {
+    return {
+      ok: false,
+      erro: 'Cliente não tem permissões de equipe. Ele enxerga o planejamento da marca dele.',
+    }
+  }
+  if (alvo.role === 'admin' && lista.length < 5) {
+    return {
+      ok: false,
+      erro: 'A administração alcança tudo por definição. Para limitar alguém, mude o papel para equipe antes.',
+    }
+  }
+
+  const { error: erroApagar } = await ctx.supabase
+    .from('permissao_usuario')
+    .delete()
+    .eq('user_id', userId)
+  if (erroApagar) return { ok: false, erro: erroApagar.message }
+
+  if (lista.length > 0) {
+    const { error } = await ctx.supabase.from('permissao_usuario').insert(
+      lista.map((permissao) => ({
+        user_id: userId,
+        permissao,
+        concedida_por: ctx.user.id,
+      })),
+    )
+    if (error) return { ok: false, erro: error.message }
+  }
+
+  revalidatePath('/painel/pessoas')
+  return { ok: true }
+}

@@ -128,11 +128,15 @@ export async function POST(req: Request) {
 
   const marcaId = marca.id as string
 
-  // Quem só lê não gasta chamada de IA — e gerar um mês é a chamada
-  // mais cara do sistema.
-  const { data: nivel } = await supabase.rpc('nivel_na_marca', { b: marcaId })
-  if (nivel !== 'owner' && nivel !== 'editor') {
-    return erro('Você tem acesso de leitura nesta marca. Gerar o planejamento é de quem edita.', 403)
+  // Desde a 0028 a permissão de planejamento é que abre esta porta, e
+  // não o nível na marca. Quem só cuida de conteúdo não gasta a conta
+  // da Anthropic sem querer.
+  const { data: podePlanejar } = await supabase.rpc('pode', { p: 'planejamento' })
+  if (podePlanejar !== true) {
+    return erro(
+      'Gerar o planejamento não está entre as suas permissões. Peça a quem responde pela conta.',
+      403,
+    )
   }
 
   const [{ data: secoes }, { data: escopoBruto }] = await Promise.all([

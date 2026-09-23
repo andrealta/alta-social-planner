@@ -51,6 +51,7 @@ export function Painel({
   aoGerarConteudo,
   admin,
   aoMudarLayouts,
+  podeMidia,
   investimentoTotal,
   jaDistribuido,
   aoMudarMidia,
@@ -70,6 +71,8 @@ export function Painel({
   aoGerarConteudo: (c: ConteudoPauta) => void
   admin: boolean
   aoMudarLayouts: (layouts: Layout[]) => void
+  /** Quem define objetivo de campanha e valor investido (0028). */
+  podeMidia: boolean
   /** A verba de mídia do mês inteiro. Nulo: o mês não tem verba. */
   investimentoTotal: number | null
   /** O que as OUTRAS publicações do mês já levam. */
@@ -596,7 +599,7 @@ export function Painel({
               midia={pauta.midia}
               total={investimentoTotal}
               jaDistribuido={jaDistribuido}
-              podeEditar={podeEditar}
+              podeEditar={podeMidia}
               aoMudar={aoMudarMidia}
             />
 
