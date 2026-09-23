@@ -6,6 +6,8 @@ import { salvarConteudo } from './acoes'
 import { COMANDOS_CONTEUDO } from '@/lib/prompt'
 import { Layouts } from './layouts'
 import type { Layout } from '@/lib/layouts'
+import { GrupoDeCampos, type CampoDoGrupo } from '@/lib/grupo'
+import { juntarLayout, juntarTextoDeApoio, separarTextoDeApoio } from '@/lib/texto'
 
 function Copiar({ texto, rotulo = 'Copiar' }: { texto: string; rotulo?: string }) {
   const [copiado, setCopiado] = useState(false)
@@ -78,129 +80,46 @@ function Bloco({
   )
 }
 
-/** Uma ideia do que a peça vai parecer. Não é a arte final — é o layout. */
-function Mockup({ layout, proporcao }: { layout: Record<string, string>; proporcao: string }) {
-  const cor = (v: string | undefined, padrao: string) =>
-    v && /^#[0-9a-fA-F]{6}$/.test(v) ? v : padrao
-
-  const c1 = cor(layout.cor1, '#2B2F36')
-  const c2 = cor(layout.cor2, '#0E1013')
-  const ct = cor(layout.cor_texto, '#FFFFFF')
-  const ancora = layout.ancora === 'topo' ? 'flex-start' : layout.ancora === 'centro' ? 'center' : 'flex-end'
-
-  const razao: Record<string, string> = { '1:1': '1 / 1', '4:5': '4 / 5', '9:16': '9 / 16', '16:9': '16 / 9' }
-
-  return (
-    <div>
-      <div
-        style={{
-          aspectRatio: razao[proporcao] ?? '4 / 5',
-          maxWidth: 300,
-          borderRadius: 10,
-          overflow: 'hidden',
-          background: `linear-gradient(155deg, ${c1}, ${c2})`,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: ancora,
-          padding: 18,
-          color: ct,
-          border: '1px solid var(--line-2)',
-        }}
-      >
-        {layout.kicker && (
-          <div
-            style={{
-              fontSize: 9.5,
-              fontWeight: 700,
-              letterSpacing: '.18em',
-              textTransform: 'uppercase',
-              opacity: 0.86,
-              marginBottom: 7,
-            }}
-          >
-            {layout.kicker}
-          </div>
-        )}
-        {layout.titulo && (
-          <div
-            style={{
-              fontFamily: 'var(--disp)',
-              fontSize: 25,
-              fontWeight: 600,
-              lineHeight: 1.08,
-              textWrap: 'balance',
-            }}
-          >
-            {layout.titulo}
-          </div>
-        )}
-        {layout.apoio && (
-          <div style={{ fontSize: 12, opacity: 0.85, marginTop: 8, lineHeight: 1.45 }}>
-            {layout.apoio}
-          </div>
-        )}
-        {layout.selo && (
-          <div
-            style={{
-              alignSelf: 'flex-start',
-              marginTop: 12,
-              fontSize: 10,
-              fontWeight: 700,
-              padding: '3px 9px',
-              borderRadius: 99,
-              border: `1px solid ${ct}`,
-              opacity: 0.9,
-            }}
-          >
-            {layout.selo}
-          </div>
-        )}
-      </div>
-      <p style={{ color: 'var(--faint)', fontSize: 11.5, marginTop: 6, lineHeight: 1.5 }}>
-        Layout, não a arte final. O fundo previsto é <b>{layout.fundo ?? 'cor'}</b>
-        {layout.foto_descricao ? `: ${layout.foto_descricao}` : ''}.
-      </p>
-    </div>
-  )
-}
-
 /**
- * Os campos do conteúdo que a equipe edita à mão.
+ * O conteúdo que a equipe edita à mão, em dois textos.
  *
- * Mesma ideia da aba Ideia: o que a IA escreveu é rascunho, e quem
- * responde pela marca precisa poder mexer sem pedir nada a ninguém.
- * Só que aqui não há versão arquivada: conteúdo é o que vai publicado,
- * e guardar rascunho de legenda não ajuda ninguém.
+ * No banco são cinco colunas, e elas continuam cinco: a IA escreve
+ * legenda, chamada para ação e hashtags separadas porque precisa saber
+ * o que é cada coisa, e o portal do cliente e o PDF montam cada parte
+ * no lugar dela. Só que na hora de publicar isso tudo é UM texto, na
+ * ordem em que sai no post, e era assim que a equipe precisava ler e
+ * escrever. Três caixas rotuladas para uma coisa só é o banco vazando
+ * na tela.
+ *
+ * Então aqui em cima são dois campos: o texto que vai publicado e a
+ * sugestão de layout. A junta e a separação estão logo abaixo, e são
+ * as duas únicas funções que sabem dessa tradução.
  */
 type Campos = {
-  caption: string
-  cta: string
-  hashtags: string
-  alt_text: string
-  art_concept: string
-  art_direction: string
-  image_prompt: string
+  texto: string
+  layout: string
 }
 
-const CAMPOS_CONTEUDO: { id: keyof Campos; rotulo: string; linhas: number; dica?: string; mono?: boolean }[] = [
-  { id: 'caption', rotulo: 'Legenda', linhas: 9, dica: 'A primeira linha é o gancho: ela aparece antes do "mais".' },
-  { id: 'cta', rotulo: 'CTA', linhas: 2 },
-  { id: 'hashtags', rotulo: 'Hashtags', linhas: 2, dica: 'Separadas por espaço. O # entra sozinho se faltar.' },
-  { id: 'alt_text', rotulo: 'Texto alternativo', linhas: 3, dica: 'Descrição da imagem para quem usa leitor de tela.' },
-  { id: 'art_concept', rotulo: 'Conceito de arte', linhas: 3 },
-  { id: 'art_direction', rotulo: 'Direção de arte', linhas: 5 },
-  { id: 'image_prompt', rotulo: 'Prompt da imagem', linhas: 5, mono: true, dica: 'Em inglês e sem marca, logotipo ou texto: o gerador erra tudo isso.' },
+const GRUPO_TEXTO: CampoDoGrupo<keyof Campos>[] = [
+  {
+    id: 'texto',
+    rotulo: '',
+    linhas: 14,
+    leitura: 'texto',
+    dica: 'A primeira linha é o gancho: ela aparece antes do "mais". As hashtags do fim voltam a ser lista quando você grava.',
+  },
 ]
+
+const GRUPO_LAYOUT: CampoDoGrupo<keyof Campos>[] = [
+  { id: 'layout', rotulo: '', linhas: 7, leitura: 'texto' },
+]
+
+const CAMPOS_CONTEUDO = [...GRUPO_TEXTO, ...GRUPO_LAYOUT]
 
 function paraCampos(c: ConteudoPauta | null): Campos {
   return {
-    caption: c?.caption ?? '',
-    cta: c?.cta ?? '',
-    hashtags: (c?.hashtags ?? []).join(' '),
-    alt_text: c?.alt_text ?? '',
-    art_concept: c?.art_concept ?? '',
-    art_direction: c?.art_direction ?? '',
-    image_prompt: c?.image_prompt ?? '',
+    texto: juntarTextoDeApoio(c?.caption, c?.cta, c?.hashtags),
+    layout: juntarLayout(c?.art_concept, c?.art_direction),
   }
 }
 
@@ -252,30 +171,32 @@ export function AbaConteudo({
     setSalvando(true)
     setAviso(null)
     setErro(null)
-    const r = await salvarConteudo(slug, pauta.id, campos, ano, mes)
+
+    // A tradução dos dois textos para as cinco colunas acontece aqui, e
+    // só aqui. A ação do servidor recebe as colunas já separadas.
+    const t = separarTextoDeApoio(campos.texto)
+    const layout = campos.layout.trim()
+    const gravar = {
+      caption: t.legenda ?? '',
+      cta: '',
+      hashtags: t.hashtags.join(' '),
+      art_concept: layout,
+      art_direction: '',
+    }
+
+    const r = await salvarConteudo(slug, pauta.id, gravar, ano, mes)
     setSalvando(false)
     if (!r.ok) {
       setErro(r.erro ?? 'Não consegui gravar.')
       return
     }
-    const tags = [
-      ...new Set(
-        campos.hashtags
-          .split(/[\s,]+/)
-          .map((h) => h.trim())
-          .filter(Boolean)
-          .map((h) => (h.startsWith('#') ? h : '#' + h)),
-      ),
-    ].slice(0, 30)
     aoGerar({
       ...conteudo,
-      caption: campos.caption.trim() || null,
-      cta: campos.cta.trim() || null,
-      hashtags: tags,
-      alt_text: campos.alt_text.trim() || null,
-      art_concept: campos.art_concept.trim() || null,
-      art_direction: campos.art_direction.trim() || null,
-      image_prompt: campos.image_prompt.trim() || null,
+      caption: t.legenda,
+      cta: null,
+      hashtags: t.hashtags,
+      art_concept: layout || null,
+      art_direction: null,
     })
     setAviso('Alterações gravadas.')
     setTimeout(() => setAviso(null), 2500)
@@ -327,11 +248,10 @@ export function AbaConteudo({
     conteudo.generated_for_version !== null &&
     conteudo.generated_for_version < pauta.current_version
 
-  const legendaInteira = conteudo
-    ? [conteudo.caption, conteudo.cta, (conteudo.hashtags ?? []).join(' ')]
-        .filter((x) => x && String(x).trim())
-        .join('\n\n')
-    : ''
+  // O que o botão copia é exatamente o que está na caixa, inclusive as
+  // alterações ainda não gravadas. Copiar uma coisa e ver outra na tela
+  // seria pior que não ter botão.
+  const legendaInteira = campos.texto.trim()
 
   return (
     <div>
@@ -390,7 +310,7 @@ export function AbaConteudo({
         )}
         {criando && (
           <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>
-            legenda, hashtags e direção de arte. Leva de dois a cinco minutos
+            texto de apoio, hashtags e sugestão de layout. Leva de dois a cinco minutos
           </span>
         )}
       </div>
@@ -436,10 +356,9 @@ export function AbaConteudo({
 
       {!conteudo && !criando && podeEditar && (
         <p style={{ color: 'var(--muted)', fontSize: 13.5, lineHeight: 1.6 }}>
-          A IA escreve a legenda pronta para publicar, as hashtags, o texto
-          alternativo, a direção de arte e o prompt da imagem em inglês. Se o
-          formato for vídeo, escreve também a decupagem em cenas, com uma marcada
-          como cena-chave.
+          A IA escreve o texto pronto para publicar, a chamada para ação, as
+          hashtags e a sugestão de layout. Se o formato for vídeo, escreve também
+          a decupagem em cenas, com uma marcada como cena-chave.
         </p>
       )}
 
@@ -468,34 +387,26 @@ export function AbaConteudo({
         <>
           {podeEditar ? (
             <>
-              {CAMPOS_CONTEUDO.map((c) => (
-                <Bloco
-                  key={c.id}
-                  titulo={c.rotulo}
-                  copiavel={c.id === 'caption' ? legendaInteira : campos[c.id] || undefined}
-                >
-                  <textarea
-                    value={campos[c.id]}
-                    onChange={(e) => setCampos({ ...campos, [c.id]: e.target.value })}
-                    rows={c.linhas}
-                    disabled={criando || salvando}
-                    style={{
-                      ...caixaTexto,
-                      border:
-                        campos[c.id] !== original[c.id]
-                          ? '1px solid var(--accent)'
-                          : '1px solid var(--line)',
-                      fontFamily: c.mono ? 'var(--mono)' : 'inherit',
-                      fontSize: c.mono ? 12 : 13.8,
-                    }}
-                  />
-                  {c.dica && (
-                    <p style={{ color: 'var(--faint)', fontSize: 11.5, marginTop: 4, lineHeight: 1.5 }}>
-                      {c.dica}
-                    </p>
-                  )}
-                </Bloco>
-              ))}
+              <GrupoDeCampos
+                titulo="Texto de apoio"
+                lista={GRUPO_TEXTO}
+                campos={campos}
+                original={original}
+                podeEditar
+                desabilitado={criando || salvando}
+                aoMudar={(id, valor) => setCampos({ ...campos, [id]: valor })}
+                extra={<Copiar texto={legendaInteira} rotulo="Copiar tudo" />}
+              />
+
+              <GrupoDeCampos
+                titulo="Sugestão de layout"
+                lista={GRUPO_LAYOUT}
+                campos={campos}
+                original={original}
+                podeEditar
+                desabilitado={criando || salvando}
+                aoMudar={(id, valor) => setCampos({ ...campos, [id]: valor })}
+              />
 
               {/* Gravar e desfazer, logo abaixo dos campos. */}
               <div
@@ -569,7 +480,7 @@ export function AbaConteudo({
                   value={pedido}
                   onChange={(e) => setPedido(e.target.value)}
                   disabled={criando || salvando}
-                  placeholder="Ou explique com suas palavras: encurte a legenda, tire a pergunta do começo e troque o CTA por um convite para visitar a loja."
+                  placeholder="Ou explique com suas palavras: encurte o texto, tire a pergunta do começo e troque a chamada para ação por um convite para visitar a loja."
                   style={{ ...caixaTexto, fontSize: 13 }}
                 />
                 <button
@@ -597,81 +508,24 @@ export function AbaConteudo({
             </>
           ) : (
             <>
-              <Bloco titulo="Legenda" copiavel={legendaInteira}>
-                <div
-                  style={{
-                    whiteSpace: 'pre-wrap',
-                    fontSize: 14,
-                    lineHeight: 1.65,
-                    padding: '12px 14px',
-                    background: 'var(--surface-2)',
-                    borderRadius: 8,
-                    border: '1px solid var(--line)',
-                  }}
-                >
-                  {conteudo.caption}
-                </div>
-                {conteudo.cta && (
-                  <p style={{ fontSize: 13.5, marginTop: 8 }}>
-                    <b>CTA:</b> {conteudo.cta}
-                  </p>
-                )}
-              </Bloco>
+              <GrupoDeCampos
+                titulo="Texto de apoio"
+                lista={GRUPO_TEXTO}
+                campos={campos}
+                original={campos}
+                podeEditar={false}
+                aoMudar={() => {}}
+                extra={<Copiar texto={legendaInteira} rotulo="Copiar tudo" />}
+              />
 
-              {(conteudo.hashtags ?? []).length > 0 && (
-                <Bloco titulo="Hashtags" copiavel={(conteudo.hashtags ?? []).join(' ')}>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                    {conteudo.hashtags.map((h) => (
-                      <span
-                        key={h}
-                        style={{
-                          fontSize: 12,
-                          padding: '2px 9px',
-                          borderRadius: 99,
-                          background: 'var(--surface-3)',
-                          color: 'var(--muted)',
-                        }}
-                      >
-                        {h}
-                      </span>
-                    ))}
-                  </div>
-                </Bloco>
-              )}
-
-              {(conteudo.art_concept || conteudo.art_direction) && (
-                <Bloco titulo="Direção de arte">
-                  {conteudo.art_concept && (
-                    <p style={{ fontSize: 13.8, fontWeight: 600, marginBottom: 5, lineHeight: 1.55 }}>
-                      {conteudo.art_concept}
-                    </p>
-                  )}
-                  {conteudo.art_direction && (
-                    <p style={{ fontSize: 13.2, color: 'var(--muted)', lineHeight: 1.6 }}>
-                      {conteudo.art_direction}
-                    </p>
-                  )}
-                </Bloco>
-              )}
-
-              {conteudo.image_prompt && (
-                <Bloco titulo="Prompt da imagem" copiavel={conteudo.image_prompt}>
-                  <div
-                    style={{
-                      fontFamily: 'var(--mono)',
-                      fontSize: 12,
-                      lineHeight: 1.55,
-                      padding: '11px 13px',
-                      background: 'var(--surface-2)',
-                      border: '1px solid var(--line)',
-                      borderRadius: 8,
-                      whiteSpace: 'pre-wrap',
-                    }}
-                  >
-                    {conteudo.image_prompt}
-                  </div>
-                </Bloco>
-              )}
+              <GrupoDeCampos
+                titulo="Sugestão de layout"
+                lista={GRUPO_LAYOUT}
+                campos={campos}
+                original={campos}
+                podeEditar={false}
+                aoMudar={() => {}}
+              />
             </>
           )}
 
@@ -735,11 +589,11 @@ export function AbaConteudo({
           )}
 
 
-          {conteudo.layout && Object.keys(conteudo.layout).length > 0 && (
-            <Bloco titulo="A peça">
-              <Mockup layout={conteudo.layout} proporcao={conteudo.aspect_ratio} />
-            </Bloco>
-          )}
+          {/* O mockup da peça saiu daqui (rodada 41). Ele desenhava um
+              retângulo com as cores e o texto por cima, e a equipe já
+              anexa o layout de verdade logo acima: dois desenhos da
+              mesma coisa, um deles falso, confundiam mais que ajudavam.
+              A coluna `layout` continua gravada. */}
         </>
       )}
     </div>

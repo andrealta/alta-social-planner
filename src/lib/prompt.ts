@@ -478,19 +478,26 @@ export const COMANDOS = [
 // pedido, então ele precisa dizer o que fazer, não o que a tela chama.
 // -------------------------------------------------------------
 
+/**
+ * Os atalhos de alteração da aba Conteúdo.
+ *
+ * O texto do botão vai inteiro à IA como pedido, então ele precisa
+ * fazer sentido para as duas pontas: para quem clica e para quem lê do
+ * outro lado. "Refazer o prompt da imagem" saiu na rodada 41, quando o
+ * campo saiu da tela: botão que mexe no que ninguém vê é só ruído.
+ */
 export const COMANDOS_CONTEUDO = [
-  'Encurtar a legenda',
-  'Alongar a legenda',
+  'Encurtar o texto',
+  'Alongar o texto',
   'Trocar o gancho da primeira linha',
   'Tornar menos comercial',
   'Tornar mais próxima e direta',
   'Tirar as perguntas',
   'Simplificar as palavras',
-  'Trocar o CTA',
+  'Trocar a chamada para ação',
   'Refazer as hashtags',
-  'Outra direção de arte',
-  'Refazer o prompt da imagem',
-  'Escrever outra versão da legenda',
+  'Outra sugestão de layout',
+  'Escrever outra versão do texto',
 ]
 
 export type PautaAtual = {

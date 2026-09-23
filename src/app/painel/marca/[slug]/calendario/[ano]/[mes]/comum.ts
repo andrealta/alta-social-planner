@@ -1,5 +1,6 @@
 import type { Layout } from '@/lib/layouts'
 import type { Midia } from '@/lib/midia'
+import type { CampoDoGrupo } from '@/lib/grupo'
 
 /**
  * O que o calendário e o painel da pauta compartilham.
@@ -185,22 +186,8 @@ export type Editaveis = {
   cta: string
 }
 
-/**
- * Como cada campo aparece quando o bloco está só sendo lido.
- *
- *   titulo   — a manchete da peça, em destaque
- *   texto    — parágrafo normal
- *   apoio    — parágrafo secundário, em tinta mais clara
- *   rotulado — uma linha curta precedida do nome do campo
- */
-export type LeituraDoCampo = 'titulo' | 'texto' | 'apoio' | 'rotulado'
-
-export type CampoDaPauta = {
-  id: keyof Editaveis
-  rotulo: string
-  linhas: number
-  leitura: LeituraDoCampo
-}
+/** Um campo editável da pauta. A forma do grupo mora em `lib/grupo`. */
+export type CampoDaPauta = CampoDoGrupo<keyof Editaveis>
 
 /**
  * O pilar editorial, sozinho.

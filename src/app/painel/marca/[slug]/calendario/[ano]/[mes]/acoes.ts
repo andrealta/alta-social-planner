@@ -238,14 +238,19 @@ export async function enviarAoCliente(
 export async function salvarConteudo(
   slug: string,
   ideaId: string,
+  /**
+   * O texto alternativo e o prompt da imagem saíram desta lista na
+   * rodada 41, quando saíram da tela. As colunas continuam no banco e a
+   * IA continua escrevendo as duas na geração: elas só não passam mais
+   * por aqui, e é de propósito. Se entrassem vazias neste update,
+   * gravar uma vírgula na legenda apagaria o que a IA tinha escrito.
+   */
   campos: {
     caption: string
     cta: string
     hashtags: string
-    alt_text: string
     art_concept: string
     art_direction: string
-    image_prompt: string
   },
   ano: number,
   mes: number,
@@ -276,10 +281,8 @@ export async function salvarConteudo(
       caption: limpo(campos.caption),
       cta: limpo(campos.cta),
       hashtags: tags,
-      alt_text: limpo(campos.alt_text),
       art_concept: limpo(campos.art_concept),
       art_direction: limpo(campos.art_direction),
-      image_prompt: limpo(campos.image_prompt),
       updated_at: new Date().toISOString(),
     })
     .eq('idea_id', ideaId)
