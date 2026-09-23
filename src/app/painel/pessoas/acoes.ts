@@ -63,6 +63,16 @@ export async function criarPessoa(dados: {
   email: string
   papel: string
   marcas: { id: string; acesso: string }[]
+  /**
+   * O que a pessoa vai poder ALTERAR (0028).
+   *
+   * Vem do cadastro para a pessoa já nascer pronta para trabalhar. Sem
+   * isto, quem cadastra precisa lembrar de voltar na lista e abrir as
+   * permissões depois, e o que acontece na prática é a pessoa passar a
+   * primeira semana sem conseguir salvar nada e ninguém entender por
+   * quê. Vazio continua sendo válido: lê tudo, não altera nada.
+   */
+  permissoes?: string[]
   porConvite: boolean
 }): Promise<Resultado> {
   const ctx = await souAdmin()
@@ -147,6 +157,27 @@ export async function criarPessoa(dados: {
       )
     if (erroVinculo) {
       aviso = (aviso ? aviso + ' ' : '') + 'As marcas não vincularam: ' + erroVinculo.message
+    }
+  }
+
+  // As permissões só valem para quem é da equipe. Administração alcança
+  // tudo sem precisar de linha, e cliente não tem o que alterar.
+  if (dados.papel === 'staff' && (dados.permissoes ?? []).length > 0) {
+    const { data: validas } = await ctx.supabase.from('permissoes').select('chave')
+    const conhecidas = new Set((validas ?? []).map((p) => p.chave as string))
+    const lista = [...new Set(dados.permissoes ?? [])].filter((p) => conhecidas.has(p))
+
+    if (lista.length > 0) {
+      const { error: erroPerm } = await ctx.supabase.from('permissao_usuario').insert(
+        lista.map((permissao) => ({ user_id: id, permissao, concedida_por: ctx.user.id })),
+      )
+      if (erroPerm) {
+        aviso =
+          (aviso ? aviso + ' ' : '') +
+          'A pessoa foi criada, mas as permissões não gravaram: ' +
+          erroPerm.message +
+          ' Abra a pessoa na lista e marque de novo.'
+      }
     }
   }
 

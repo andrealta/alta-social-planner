@@ -31,7 +31,7 @@ export type Pessoa = {
 
 const PAPEL: Record<string, { rotulo: string; explica: string }> = {
   admin: { rotulo: 'Administração', explica: 'vê todas as marcas e gerencia pessoas' },
-  staff: { rotulo: 'Equipe da Alta', explica: 'trabalha nas marcas em que for vinculada' },
+  staff: { rotulo: 'Equipe da Alta', explica: 'enxerga todas as marcas; o que pode alterar você escolhe abaixo' },
   client: { rotulo: 'Cliente', explica: 'só avalia o planejamento da própria marca' },
 }
 
@@ -94,6 +94,8 @@ export function Pessoas({
   const [papel, setPapel] = useState('staff')
   const [porConvite, setPorConvite] = useState(true)
   const [escolhidas, setEscolhidas] = useState<Record<string, string>>({})
+  /** O que a pessoa nova vai poder alterar. Vazio: só acompanha. */
+  const [permissoesNovas, setPermissoesNovas] = useState<string[]>([])
 
   const nomeDaMarca = new Map(marcas.map((m) => [m.id, m.nome]))
 
@@ -185,6 +187,7 @@ export function Pessoas({
     setEmail('')
     setPapel('staff')
     setEscolhidas({})
+    setPermissoesNovas([])
     setErro(null)
   }
 
@@ -198,6 +201,7 @@ export function Pessoas({
       nome,
       email,
       papel,
+      permissoes: papel === 'staff' ? permissoesNovas : [],
       marcas: Object.entries(escolhidas).map(([id, acesso]): { id: string; acesso: string } => ({
         id,
         acesso: String(acesso),
@@ -221,9 +225,7 @@ export function Pessoas({
         nome: nome.trim(),
         email: email.trim().toLowerCase(),
         papel,
-        // Pessoa nova nasce sem permissão nenhuma: lê tudo, não altera
-        // nada, até alguém decidir o contrário. É o padrão seguro.
-        permissoes: [],
+        permissoes: papel === 'staff' ? permissoesNovas : [],
         vinculos: Object.entries(escolhidas).map(([brandId, acesso]) => ({
           brandId,
           acesso: String(acesso),
@@ -231,6 +233,7 @@ export function Pessoas({
       },
     ])
     limpar()
+    setPermissoesNovas([])
     setCriando(false)
   }
 
@@ -361,6 +364,10 @@ export function Pessoas({
                   onClick={() => {
                     setPapel(k)
                     setEscolhidas({})
+                    // Permissão é coisa de equipe. Trocar para cliente ou
+                    // administração e deixar caixas marcadas para trás
+                    // criaria um pedido que o servidor ia recusar.
+                    setPermissoesNovas([])
                   }}
                   style={{
                     ...botao(false),
@@ -405,7 +412,11 @@ export function Pessoas({
                       onChange={(e) =>
                         setEscolhidas((a) => {
                           const novo = { ...a }
-                          if (e.target.checked) novo[m.id] = acessosDe(papel)[0]
+                          // Para a equipe o vínculo virou um sim ou não:
+                          // ele diz quais marcas a pessoa acompanha, e não
+                          // mais o que ela pode fazer nelas. O valor
+                          // gravado deixou de ter leitura na tela.
+                          if (e.target.checked) novo[m.id] = papel === 'client' ? 'client' : 'editor'
                           else delete novo[m.id]
                           return novo
                         })
@@ -414,43 +425,105 @@ export function Pessoas({
                     <label htmlFor={`m-${m.id}`} style={{ flex: 1, fontSize: 14, cursor: 'pointer' }}>
                       {m.nome}
                     </label>
-                    {marcada && papel !== 'client' && (
-                      <select
-                        value={escolhidas[m.id]}
-                        onChange={(e) => setEscolhidas((a) => ({ ...a, [m.id]: e.target.value }))}
-                        style={{ ...campo, width: 'auto', padding: '5px 9px', fontSize: 13 }}
-                      >
-                        {acessosDe(papel).map((a) => (
-                          <option key={a} value={a}>
-                            {ACESSO[a].rotulo}
-                          </option>
-                        ))}
-                      </select>
+                    {marcada && papel === 'staff' && (
+                      <span style={{ fontSize: 12, color: 'var(--muted)' }}>acompanha</span>
                     )}
                   </div>
                 )
               })}
             </div>
 
-            {papel !== 'client' && (
-              <ul
-                style={{
-                  listStyle: 'none',
-                  margin: '10px 0 0',
-                  padding: 0,
-                  fontSize: 12.3,
-                  lineHeight: 1.65,
-                  color: 'var(--muted)',
-                }}
-              >
-                {['owner', 'editor', 'viewer'].map((a) => (
-                  <li key={a}>
-                    <b style={{ color: 'var(--text)' }}>{ACESSO[a].rotulo}</b>: {ACESSO[a].explica}
-                  </li>
-                ))}
-              </ul>
+            {papel === 'staff' && (
+              <p style={{ color: 'var(--muted)', fontSize: 12.3, marginTop: 10, lineHeight: 1.6 }}>
+                Marcar aqui não abre nem fecha nada: quem é da Alta lê todas as marcas. O
+                vínculo diz quais ela acompanha de perto, e aparece na fila de trabalho dela.
+              </p>
             )}
           </div>
+
+          {papel === 'staff' && (
+            <div style={{ marginTop: 16 }}>
+              <span style={rotulo}>O que ela pode alterar</span>
+              <p style={{ color: 'var(--muted)', fontSize: 12.5, margin: '0 0 10px', lineHeight: 1.6 }}>
+                Vale na agência inteira, e não marca a marca. Sem nenhuma marcada, a pessoa
+                entra, acompanha tudo e não altera nada, que é um começo seguro: dá para
+                abrir depois, na lista abaixo.
+              </p>
+
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 11 }}>
+                {ATALHOS.map((a) => {
+                  const igual = atalhoDe(permissoesNovas) === a.nome
+                  return (
+                    <button
+                      key={a.nome}
+                      onClick={() => setPermissoesNovas([...a.permissoes])}
+                      title={a.explica}
+                      style={{
+                        fontFamily: 'inherit',
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        padding: '5px 11px',
+                        borderRadius: 99,
+                        border: 'none',
+                        background: igual ? 'var(--accent)' : 'var(--surface-2)',
+                        color: igual ? '#fff' : 'var(--text)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {a.nome}
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div style={{ display: 'grid', gap: 7 }}>
+                {PERMISSOES.map((perm) => {
+                  const marcada = permissoesNovas.includes(perm.chave)
+                  return (
+                    <label
+                      key={perm.chave}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 10,
+                        padding: '8px 12px',
+                        border: `1px solid ${marcada ? 'var(--accent)' : 'var(--line)'}`,
+                        borderRadius: 8,
+                        background: marcada ? 'var(--accent-wash)' : 'transparent',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={marcada}
+                        onChange={() =>
+                          setPermissoesNovas((a) =>
+                            a.includes(perm.chave)
+                              ? a.filter((x) => x !== perm.chave)
+                              : [...a, perm.chave],
+                          )
+                        }
+                        style={{ marginTop: 3, width: 15, height: 15, accentColor: 'var(--accent)' }}
+                      />
+                      <span style={{ minWidth: 0 }}>
+                        <span style={{ display: 'block', fontSize: 14 }}>{perm.nome}</span>
+                        <span
+                          style={{
+                            display: 'block',
+                            fontSize: 12.2,
+                            color: 'var(--muted)',
+                            lineHeight: 1.5,
+                          }}
+                        >
+                          {perm.ajuda}
+                        </span>
+                      </span>
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           <div style={{ marginTop: 16 }}>
             <span style={rotulo}>Como ela recebe o acesso</span>
