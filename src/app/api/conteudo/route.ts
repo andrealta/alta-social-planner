@@ -15,6 +15,7 @@ import { clienteServidor } from '@/lib/supabase/server'
 import { chamarClaude, extrairJson, ErroClaude, MODELO_PADRAO } from '@/lib/claude'
 import { registro } from '@/lib/registro'
 import { coletarEstilo, blocoDeEstilo } from '@/lib/estilo'
+import { coletarProducao } from '@/lib/producao'
 import {
   montarPromptConteudo,
   montarPromptRefinoConteudo,
@@ -125,6 +126,11 @@ export async function POST(req: Request) {
   // público lê. O bloco vai inteiro.
   const estilo = blocoDeEstilo(await coletarEstilo(supabase, pauta.brand_id as string, base))
 
+  // O repertorio real da conta: assuntos que voltam e influenciadores
+  // que ja trabalharam com a marca. Aqui serve como vocabulario, nao
+  // como medida de capacidade, que e assunto do planejamento.
+  const producao = await coletarProducao(supabase, pauta.brand_id as string)
+
   const analise = interno.analysis as { leitura?: string }
   const data = canal?.scheduled_date as string | undefined
   const formato = (canal?.format as string) ?? null
@@ -134,6 +140,7 @@ export async function POST(req: Request) {
     marca: { nome: marca.name as string, segmento: marca.segment as string | null },
     base,
     estilo,
+    producao,
     mes: Number(plano.month),
     ano: Number(plano.year),
     leitura: analise.leitura ?? null,

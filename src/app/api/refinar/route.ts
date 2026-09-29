@@ -12,6 +12,7 @@ import { clienteServidor } from '@/lib/supabase/server'
 import { chamarClaude, extrairJson, ErroClaude, MODELO_PADRAO } from '@/lib/claude'
 import { registro } from '@/lib/registro'
 import { coletarEstilo, blocoDeEstilo } from '@/lib/estilo'
+import { coletarProducao } from '@/lib/producao'
 import {
   montarPromptRefino,
   conferirRefino,
@@ -163,12 +164,18 @@ export async function POST(req: Request) {
   // pauta atual já chega inteira no prompt.
   const estilo = blocoDeEstilo(await coletarEstilo(supabase, pauta.brand_id as string, base), true)
 
+  // No refino o historico de producao entra pelo mesmo motivo do
+  // estilo: a peca refeita precisa continuar soando como a conta, e
+  // o vocabulario dela esta ali.
+  const producao = await coletarProducao(supabase, pauta.brand_id as string)
+
   const data = canal?.scheduled_date as string | undefined
 
   const prompt = montarPromptRefino({
     marca: { nome: marca.name as string, segmento: marca.segment as string | null },
     base,
     estilo,
+    producao,
     mes: Number(plano.month),
     ano: Number(plano.year),
     leitura: analise.leitura ?? null,

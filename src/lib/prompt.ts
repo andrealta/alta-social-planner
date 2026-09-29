@@ -12,7 +12,7 @@
 
 import { SECOES } from './base'
 
-export const VERSAO_PROMPT = '2026-09-planejamento-1'
+export const VERSAO_PROMPT = '2026-09-planejamento-2-producao'
 
 export const MESES = [
   'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
@@ -51,6 +51,12 @@ export type Entrada = {
   historico: MesAnterior[]
   /** Quanto o cliente vai investir em mídia no mês. Nulo: não informado. */
   investimento?: number | null
+  /**
+   * O que a agência já produziu para esta marca, em texto.
+   * Vem de `operand_perfil.resumo`, montado fora daqui pela rotina de
+   * sincronização. Opcional: marca sem Operand ligado planeja igual.
+   */
+  producao?: string | null
 }
 
 export function diasNoMes(ano: number, mes: number): number {
@@ -86,6 +92,55 @@ export function contextoDaMarca(
   return partes.join('\n\n')
 }
 
+/**
+ * O histórico de produção, embrulhado no que ele é e no que não é.
+ *
+ * Este é o bloco mais fácil de usar errado do prompt inteiro. Ele traz
+ * números concretos sobre o passado, e número concreto tem uma
+ * autoridade que o resto do contexto não tem: é fácil o modelo tratar
+ * "esta marca fez 83 vídeos" como "vídeo é o que funciona aqui", e daí
+ * para propor mais do mesmo para sempre é um passo.
+ *
+ * Duas coisas que o dado NÃO diz, e que o texto precisa dizer que não
+ * diz. Primeira: nada sobre resultado. O sistema de produção sabe
+ * quanto custou e quando entregou, não se deu certo. Segunda: ausência
+ * não é proibição. Uma marca que nunca fez carrossel pode nunca ter
+ * tentado, e ler isso como "não faça carrossel" transformaria o
+ * histórico numa jaula.
+ *
+ * O que ele diz de verdade é duas coisas úteis: quanto a equipe
+ * consegue entregar num mês, e que palavras esta conta usa. Capacidade
+ * e vocabulário.
+ */
+export function blocoDeProducao(texto: string | null | undefined): string {
+  const t = (texto ?? '').trim()
+  if (!t) return ''
+  return `# O QUE A AGÊNCIA JÁ PRODUZIU PARA ESTA MARCA
+
+Isto vem do sistema de produção da agência, e é UMA fonte entre várias, ao lado da base
+da marca, do jeito de escrever dela, dos concorrentes e do histórico de planejamentos.
+Não é a mais importante, e não substitui nenhuma das outras.
+
+${t}
+
+Como usar:
+
+CAPACIDADE: use os números de volume e de tempo para propor um mês que a equipe consegue
+entregar. Uma proposta que dobra o ritmo histórico precisa dizer, na leitura do mês, que
+está pedindo mais do que o normal e por que vale.
+
+VOCABULÁRIO: os assuntos recorrentes e os nomes de influenciadores são o repertório real
+desta conta. Use como matéria-prima, não como lista de tarefas.
+
+AUSÊNCIA NÃO É PROIBIÇÃO: formato que nunca apareceu pode simplesmente nunca ter sido
+tentado. Propor algo inédito é permitido e às vezes é o certo; nesse caso diga na
+justificativa que é inédito para esta marca e considere o esforço.
+
+NÃO É PROVA DE QUE FUNCIONA: este sistema registra esforço e entrega, nunca resultado.
+Nada aqui autoriza dizer que um formato performa bem. Se precisar afirmar desempenho,
+ancore em outra fonte ou não afirme.`
+}
+
 export const SISTEMA =
   'Você é o agente de planejamento de conteúdo da Alta Comunicazione, agência de ' +
   'publicidade de Ribeirão Preto/SP. Você cria as pautas de um mês para uma marca, ' +
@@ -108,7 +163,9 @@ export function montarPromptPautas(e: Entrada): string {
           .join('\n')
       : 'Nenhum planejamento anterior registrado no sistema.'
 
-  return `${contextoDaMarca(e.marca, e.base)}${e.estilo ? '\n\n' + e.estilo : ''}${e.concorrencia ? '\n\n' + e.concorrencia : ''}
+  const producao = blocoDeProducao(e.producao)
+
+  return `${contextoDaMarca(e.marca, e.base)}${e.estilo ? '\n\n' + e.estilo : ''}${e.concorrencia ? '\n\n' + e.concorrencia : ''}${producao ? '\n\n' + producao : ''}
 
 # HISTÓRICO RECENTE
 
@@ -192,7 +249,9 @@ Como decidir:
   que este valor. Peça sem verba leva "Sem impulsionamento", valor 0 e justificativa vazia.
 
 MEMÓRIA É CONTEXTO, NÃO LEI. Uma ideia forte pode contrariar o padrão histórico se a
-justificativa sustentar. Nesse caso, diga na justificativa que está contrariando.
+justificativa sustentar. Nesse caso, diga na justificativa que está contrariando. Isso
+vale também para o histórico de produção, quando houver: ele mede o que foi feito, não
+o que deve ser feito.
 
 COMECE PELA TENSÃO. Antes das pautas, escreva a leitura do mês: qual é o problema ou a
 oportunidade real deste mês para esta marca. Um mês sem tensão identificada vira uma
@@ -535,6 +594,8 @@ export function montarPromptRefino(e: {
   marca: Entrada['marca']
   base: Entrada['base']
   estilo?: string
+  /** O repertório real da conta. Ver `blocoDeProducao`. */
+  producao?: string | null
   mes: number
   ano: number
   leitura?: string | null
@@ -560,7 +621,7 @@ export function montarPromptRefino(e: {
 Mantenha o que não foi pedido para mudar. Não invente produto, recurso ou dado que não
 esteja na base da marca.
 
-${contextoDaMarca(e.marca, e.base)}${e.estilo ? '\n\n' + e.estilo : ''}
+${contextoDaMarca(e.marca, e.base)}${e.estilo ? '\n\n' + e.estilo : ''}${blocoDeProducao(e.producao) ? '\n\n' + blocoDeProducao(e.producao) : ''}
 
 # CONTEXTO DO MÊS
 ${MESES[e.mes - 1]} de ${e.ano}.
@@ -674,6 +735,8 @@ export function montarPromptConteudo(e: {
   marca: Entrada['marca']
   base: Entrada['base']
   estilo?: string
+  /** O repertório real da conta. Ver `blocoDeProducao`. */
+  producao?: string | null
   mes: number
   ano: number
   leitura?: string | null
@@ -687,7 +750,7 @@ export function montarPromptConteudo(e: {
 Ribeirão Preto/SP. Uma pauta já foi aprovada internamente. Sua tarefa é produzir o
 conteúdo dessa peça: a legenda que vai no post e a direção da imagem.
 
-${contextoDaMarca(e.marca, e.base)}${e.estilo ? '\n\n' + e.estilo : ''}
+${contextoDaMarca(e.marca, e.base)}${e.estilo ? '\n\n' + e.estilo : ''}${blocoDeProducao(e.producao) ? '\n\n' + blocoDeProducao(e.producao) : ''}
 
 # CONTEXTO DO MÊS
 ${MESES[e.mes - 1]} de ${e.ano}.${e.leitura ? '\nLeitura do mês: ' + e.leitura : ''}

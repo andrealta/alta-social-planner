@@ -14,6 +14,7 @@ import { clienteServidor } from '@/lib/supabase/server'
 import { registro } from '@/lib/registro'
 import { coletarEstilo, blocoDeEstilo } from '@/lib/estilo'
 import { coletarConcorrencia, blocoDeConcorrencia } from '@/lib/concorrencia'
+import { coletarProducao } from '@/lib/producao'
 import { chamarClaude, extrairJson, ErroClaude, MODELO_PADRAO, type Uso } from '@/lib/claude'
 import {
   montarPromptPautas,
@@ -191,6 +192,16 @@ export async function POST(req: Request) {
     await log.passo('concorrencia lida', `${concorrencia.length} caracteres de varredura`)
   }
 
+  // O que a agência de fato já produziu para esta marca, vindo do
+  // Operand. Entra como medida de capacidade e como vocabulário, nunca
+  // como prova de que um formato funciona: o sistema de produção
+  // registra esforço e entrega, não resultado. Marca sem Operand
+  // ligado devolve nulo e o mês é gerado como sempre foi.
+  const producao = await coletarProducao(supabase, marcaId)
+  if (producao) {
+    await log.passo('historico de producao lido', `${producao.length} caracteres do Operand`)
+  }
+
   // ---------- o mês já existe? ----------
   const { data: planoExistente } = await supabase
     .from('plans')
@@ -290,6 +301,7 @@ export async function POST(req: Request) {
     base,
     estilo,
     concorrencia,
+    producao,
     escopo,
     mes,
     ano,
