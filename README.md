@@ -7,6 +7,26 @@ A equipe cadastra a base de conhecimento de cada marca, a IA propõe as
 pautas do mês respeitando o escopo contratado, a equipe revisa e escreve
 o conteúdo, e o cliente aprova pauta a pauta no portal dele.
 
+### Para quem chega agora
+
+Três coisas explicam quase todas as decisões deste projeto, e nenhuma
+delas é óbvia olhando o código:
+
+1. **O isolamento entre marcas mora no banco, não na aplicação.** Nenhuma
+   página filtra por marca. Se você está prestes a escrever um `.eq()`
+   por segurança, pare e leia a seção de segurança primeiro.
+2. **O prompt pede, o código confere.** Tudo que a IA devolve passa por
+   verificação antes de ser gravado, e o que não passa não entra. Regra
+   nova no prompt sem conferência no código é regra que vale às vezes.
+3. **Cada fonte que alimenta a IA entra com o enquadramento do que ela
+   NÃO prova.** Concorrência entra como restrição, não como exemplo.
+   Produção mede capacidade, não sucesso. Pesquisa muda a forma, não a
+   razão. É aí que mora a diferença entre um planejamento defensável e um
+   texto bonito.
+
+E uma regra de escrita que vale para tudo que a IA gera: **sem travessão**
+(ver `src/lib/travessao.ts`, que limpa depois da conferência).
+
 ---
 
 ## Como rodar
@@ -31,6 +51,10 @@ Rode com dois cliques, na ordem, na primeira vez:
 | `17-exportar.cmd` | **Tira o backup completo do banco** |
 | `18-concorrentes.cmd` | Varre o Instagram dos concorrentes citados na base |
 | `19-restaurar-custos.cmd` | Devolve, a partir dos backups, o custo de meses excluídos antes da 0019 |
+| `20-operand.cmd` | **O Operand**: menu com dezesseis opções. Veja a seção abaixo |
+| `21-agendar.cmd` | Cria a tarefa do Windows que sincroniza o Operand todo dia |
+| `22-diario.cmd` | O que a tarefa chama. Rodar na mão também funciona |
+| `23-marca.cmd` | Cria uma marca nova pela linha de comando (a tela faz o mesmo) |
 
 Diagnóstico, quando algo quebra: `08-testar-ia.cmd` (fala com a API da
 Anthropic direto), `09-repetir-pedido.cmd` (repete o último pedido fora
@@ -44,6 +68,19 @@ profundidade, e as telas do calendário estão no oitavo. O `14` copia o
 projeto para `_espelho/`, uma pasta rasa com o caminho embutido no nome
 do arquivo; o `15` devolve cada arquivo ao lugar certo e confere pelo
 resumo criptográfico se chegou idêntico. `_espelho/` fica fora do Git.
+
+### Criar uma marca
+
+Pelo painel, em **+ nova marca** ao lado da lista de marcas, só para quem
+administra. Pede nome, endereço curto e o escopo contratado; a base fica
+vazia de propósito, para ser escrita na tela da marca por quem conhece a
+conta. Base preenchida às pressas parece pronta e ninguém volta para
+conferir.
+
+`23-marca.cmd` faz o mesmo pela linha de comando. As duas usam a mesma
+validação (`src/lib/marca.ts`), e há um teste que importa a função de
+slug das duas cópias e compara resultado a resultado: elas precisam ser
+gêmeas e não há como uma importar a outra.
 
 ### O backup (`17-exportar.cmd`)
 
@@ -116,6 +153,111 @@ linha, com o dia da semana escrito, e os dias vazios desaparecem.
 
 ---
 
+## O Operand
+
+O Operand é o sistema onde a agência controla a produção. Ele sabe o que
+foi feito, quando e quanto custou de trabalho; o planner sabe o que foi
+planejado e o que o cliente aprovou. Eram duas verdades em dois lugares.
+
+**O Operand não tem tela aqui, e isso é uma decisão.** A produção não
+aparece no calendário nem em painel nenhum. O que ela faz é alimentar a
+base da marca: o que a agência REALMENTE produziu vira insumo do prompt,
+ao lado da base, do estilo, dos concorrentes e do histórico.
+
+### Por que a sincronização mora fora do site
+
+`scripts/operand.mjs` conversa com a API; o site só lê a cópia em
+`operand_jobs`. Duas razões, e as duas valem a separação:
+
+- o segredo de acesso do Operand nunca precisa viajar para a Vercel;
+- o mês do cliente não pode depender de um sistema de terceiro estar no
+  ar na hora em que alguém abre o calendário. Faltando sincronização, a
+  tela mostra dado de ontem **avisando que é de ontem**.
+
+### Como marca e cadastro se ligam (migrações 0029, 0033, 0035)
+
+Os dois formatos reais apareceram no uso, e nenhum dos dois é "um para
+um". `operand_ligacao` é muitos para muitos porque a realidade é:
+
+| Caso | Exemplo | Como se resolve |
+|---|---|---|
+| Várias marcas num cadastro | A conta da fabricante abriga Queensberry e Hero | `linhas`: o começo do título diz de quem é o job. `!Hero Brasil` exclui |
+| Uma marca em vários cadastros | Habiarte, um cadastro por empreendimento | Vários números na ligação, ou um **padrão de nome** |
+
+O **padrão de nome** (`brands.operand_padrao`) existe porque ligação
+feita a mão envelhece: o próximo empreendimento entra no Operand e fica
+invisível aqui, sem ninguém perceber. Com o padrão, cadastro novo que
+casa entra sozinho, **gravado** e marcado como automático. Gravar em vez
+de resolver na hora é o que permite auditar e desfazer. Cadastro
+desativado fica de fora do padrão; quem quiser um liga a mão, e ligação
+manual nenhum padrão mexe.
+
+### Duas coisas que custaram caro para descobrir
+
+**Qual campo é o job.** A resposta traz `id` e `itemId` e a documentação
+não diz qual é qual. Adivinhar deu errado duas vezes. O que resolveu foi
+medir: cada job declara quantas tarefas tem, e a rota
+`/beta/jobs/<n>/tasks` devolve as tarefas de `<n>`. O número certo é o
+que faz as duas contas baterem, e é o `id`. A opção 11 do menu refaz
+essa medição se um dia a API mudar.
+
+**Data em branco.** O banco por trás do Operand guarda data vazia como
+`0000-00-00`, que passa em qualquer teste de formato e não existe no
+calendário. Ela derrubou a primeira sincronização inteira com "Invalid
+time value" e, antes disso, cegou o filtro de recência. Toda data entra
+por `ehDataDeVerdade`.
+
+### O retrato de produção (`scripts/operand-perfil.mjs`, migração 0034)
+
+Lê os jobs copiados e escreve, **em português**, o que a agência produziu
+para a marca: volume típico por mês, formatos e quanto cada um custa,
+assuntos recorrentes, influenciadores, frentes, datas comemorativas. Esse
+texto vai para `operand_perfil.resumo` e daí para o prompt.
+
+Texto e não JSON de propósito: é o que o modelo lê melhor **e** o que uma
+pessoa consegue conferir antes de deixar aquilo influenciar planejamento.
+
+Quatro decisões dentro dele que não são óbvias:
+
+- **O trabalho é separado em quatro naturezas**: conteúdo para o público,
+  comunicação interna do cliente (SIPAT, aniversariantes), anúncio de
+  vaga e administrativo. As três últimas não devem inspirar pauta de rede
+  social, e o texto diz isso. Sem separar, a IA proporia pauta inspirada
+  na semana de prevenção de acidentes.
+- **Custo típico é mediana, e ignora quem não apontou.** Média se deforma
+  com um job de 86 horas, e zero hora quase sempre quer dizer "ninguém
+  apontou", não "não deu trabalho".
+- **Volume típico é a mediana dos meses já vividos**, não a média do
+  período. O período cobre até um ano à frente, porque job aberto hoje
+  pode ter prazo longe, e a média diluía 33 por mês em 20. Quem dimensiona
+  equipe com o número errado erra para menos.
+- **Título que não diz o formato não é uma categoria.** Aparece como "sem
+  formato no título", com o aviso de que não se conclui nada dali. Numa
+  conta cujo contrato é "redes sociais", o título nomeia o assunto.
+
+O vocabulário de formato é **da agência, não da indústria**. As regras
+nasceram lendo títulos de uma marca de alimentos e 89% das peças de uma
+construtora caíram em "outros". Quando o comando avisa que muitas peças
+não encaixaram, ele mostra exemplos: a correção é feita com prova, não
+por adivinhação.
+
+### O menu (`20-operand.cmd`)
+
+Dezesseis opções, e a ordem delas conta uma história: 1 a 4 diagnosticam
+a conexão, 5 a 8 ligam marca e cadastro, 9 a 13 trazem e resumem o
+trabalho, 14 a 16 são os atalhos do dia a dia. Para uma marca nova o
+caminho é **5** (achar o cadastro), **12** (ver as linhas dele) e **14**
+(ligar, sincronizar e montar o retrato de uma vez). As opções 2, 3, 4 e
+11 existem para quando algo quebrar, e cada uma responde a uma pergunta
+diferente sobre onde quebrou.
+
+Depois disso, `21-agendar.cmd` uma vez e ninguém mais toca: a tarefa roda
+todo dia às 6h40 e deixa o resultado em `operand-diario.txt`. **Se essa
+tarefa não existir, os retratos envelhecem em silêncio**, e é a falha mais
+provável desta parte do sistema, porque nada avisa.
+
+---
+
 ## Segurança — leia antes de mexer
 
 O isolamento entre marcas **não está no código da aplicação**. Está nas
@@ -131,13 +273,26 @@ Três papéis: `admin` (todas as marcas, gerencia pessoas), `staff` (as
 marcas em que for vinculado) e `client` (só o planejamento já liberado da
 própria marca).
 
-Dentro de cada marca, o vínculo tem nível (`brand_members.access`), e
-desde a migração 0013 ele **vale**: `viewer` lê e não escreve, `editor`
-escreve e aprova internamente, `owner` faz isso e é o único que libera o
-mês para o cliente. Quem recusa é a política do banco, mais dois
-gatilhos — `plans_guard` e `ideas_envio_guard` — para que trocar a coluna
-por fora também não passe. A tela esconde botões; isso é conforto, não
-segurança.
+**A permissão da equipe mudou de eixo na migração 0028.** Antes era por
+marca: a mesma pessoa podia ser `owner` numa e `viewer` noutra. Hoje é
+por ÁREA e vale na agência inteira: quem é da Alta enxerga todas as
+marcas, e o que se concede é o direito de ALTERAR cada parte (`base`,
+`planejamento`, `conteudo`, `midia`, `cliente`). Quem recusa continua
+sendo a política do banco, mais os gatilhos `plans_guard`,
+`ideas_envio_guard`, `midia_guard` e `investimento_guard`, para que
+trocar a coluna por fora também não passe. A tela esconde botões; isso é
+conforto, não segurança.
+
+Duas armadilhas dessa migração, registradas porque custaram caro:
+
+- **RLS protege linha, não coluna.** "Pode mexer no investimento mas não
+  no conteúdo" não se escreve em política: precisa de gatilho comparando
+  OLD e NEW, ou de tirar a coluna da tabela.
+- **Políticas permissivas se somam.** Duas políticas `FOR ALL` esquecidas
+  (`idea_content_staff_all`, `assets_staff_all`) davam escrita a qualquer
+  pessoa da equipe e anulavam a separação inteira, em silêncio. Só
+  apareceram porque um teste falhou. A 0028 termina com um bloco que
+  **recusa a migração** se alguma política assim voltar.
 
 Até a 0013 esses três níveis eram só um rótulo gravado que nenhuma regra
 lia. Vale registrar o tipo de erro: um controle que parece existir e não
@@ -197,15 +352,25 @@ Rode `10-seguranca.cmd` depois de qualquer mudança no banco.
 
 ## Testes
 
-Em `asp/` (fora deste repositório, com quem escreveu) há **181 casos em
+Em `asp/` (fora deste repositório, com quem escreveu) há **339 casos em
 SQL** que rodam contra um PostgreSQL local recriado do zero: isolamento
 entre marcas, versionamento de pauta, ciclo completo com o cliente,
-permissões de pessoas, os níveis de acesso à marca e a exclusão de
-planejamento, a varredura de concorrentes e a resposta à pergunta que
-mais importa nela: o cliente não vê o que pesquisamos sobre o mercado
-dele, a exclusão de pessoa e quem pode ver o nome de quem avaliou. Mais **149 casos em TypeScript** sobre as bibliotecas que não
-tocam o banco: `src/lib/estilo.ts` (30), `src/lib/medidas.ts` (46) e
-`src/lib/concorrencia.ts` (28), `src/lib/status.ts` (20), `src/lib/ordem.ts` (12) e a regra de exclusão da tela (13). Total: 330.
+permissões de pessoas, exclusão de planejamento e de pessoa, a varredura
+de concorrentes e a resposta à pergunta que mais importa nela (o cliente
+não vê o que pesquisamos sobre o mercado dele), as vistas que fecharam
+`content_ideas` ao cliente, o investimento em mídia e a cópia do Operand.
+
+Mais **597 casos em TypeScript e JavaScript** sobre o que não toca o
+banco. Os maiores: o retrato de produção (184), o cliente da API do
+Operand (171), a tela do Operand (34), as medidas (46), o estilo (30), a
+concorrência (28), o bloco de produção no prompt (29), a marca nova (29 e
+23), a pesquisa na internet (26), o texto de apoio (25) e a mídia (23).
+
+Total: **936**.
+
+Um padrão que vale imitar: quase todo teste novo destas últimas rodadas
+nasceu de um erro real, e o comentário acima dele diz qual foi. Teste que
+não conta o que impede vira linha a ser apagada na primeira refatoração.
 
 Eles provam que as regras **funcionam**; `10-seguranca.cmd` prova que
 elas **estão lá** em produção. As duas perguntas são diferentes.
@@ -232,6 +397,59 @@ pedidos de ajuste do cliente. Amostra com marca de pendência
 (`[A PREENCHER`, `[A CONFIRMAR`) é descartada: rascunho nosso não pode
 virar exemplo de estilo. Cada amostra entra com no máximo 600
 caracteres.
+
+### O que a agência já produziu (`src/lib/producao.ts`)
+
+O retrato do Operand entra no prompt do planejamento, da criação de
+conteúdo e do refino. É o bloco mais fácil de usar errado, porque traz
+número concreto sobre o passado, e número concreto tem uma autoridade que
+o resto do contexto não tem: é fácil ler "esta marca fez 83 vídeos" como
+"vídeo funciona aqui".
+
+Por isso o bloco entra dizendo quatro coisas, e cada uma existe por um
+jeito diferente de errar: é **uma fonte entre várias**; serve para
+**capacidade e vocabulário**; **ausência não é proibição** (formato que
+nunca apareceu pode nunca ter sido tentado, e propor inédito é permitido
+desde que se diga); e **não é prova de que funciona**, porque o sistema
+de produção registra esforço e entrega, nunca resultado.
+
+Retrato com mais de 45 dias se declara desatualizado em vez de sumir.
+Dado velho declarado vale mais que nenhum dado. Marca sem Operand ligado
+devolve nulo e o mês é gerado como sempre foi.
+
+### A pesquisa na internet (`src/lib/pesquisa.ts`)
+
+Ligada em toda geração de planejamento. Até cinco buscas, em dois
+assuntos e só dois: datas e sazonalidade do setor naquele mês, e
+referência de formato. Notícia do setor e movimento de concorrente ficam
+de fora por decisão da agência.
+
+A regra central é uma frase, e está em maiúsculas dentro do prompt:
+
+> O que você achar pode mudar COMO uma peça é feita, nunca POR QUE ela
+> existe.
+
+A razão de existir de cada pauta continua saindo da base. "Está em alta"
+não é âncora, e justificativa apoiada nisso é rejeitada. Um formato
+encontrado só entra numa pauta que já se justificava sem ele.
+
+Isso não é excesso de zelo: uma agência vende o contrário da média do
+setor, e deixar um modelo planejar a partir do que achou pesquisando é a
+maneira mais rápida de produzir o mês que qualquer concorrente
+produziria, com ar de fundamentado porque veio com link.
+
+**A auditoria é parte da funcionalidade.** Sem ela, uma afirmação vinda da
+internet fica indistinguível de uma inventada. A tela do planejamento
+mostra o que a IA disse ter tirado de cada página, com link, e, num
+detalhe recolhido, todas as páginas que a API registrou que ela leu. A
+divergência entre as duas listas é o que dá para conferir.
+
+Pesquisa que não muda nada é resultado legítimo, e a tela diz isso em vez
+de ficar em silêncio.
+
+Custo: US$ 0,01 por busca mais os tokens dos resultados, somados no mesmo
+número que já aparecia. Separar faria o planejamento parecer mais barato
+do que foi.
 
 ### A concorrência (`src/lib/concorrencia.ts`)
 
