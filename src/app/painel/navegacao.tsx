@@ -14,11 +14,22 @@ export function Navegacao({ admin }: { admin: boolean }) {
   const itens = [
     // As telas de marca (base, planejamento, calendário) contam como
     // "Painel": é de lá que a pessoa chega nelas.
-    { href: '/painel', texto: 'Painel', ativo: rota === '/painel' || rota.startsWith('/painel/marca') },
+    //
+    // A barra no fim de "/painel/marca/" não é descuido. Sem ela,
+    // "/painel/marcas", que é a administração, também casaria, e os
+    // dois itens do menu acenderiam ao mesmo tempo.
+    {
+      href: '/painel',
+      texto: 'Painel',
+      ativo: rota === '/painel' || rota.startsWith('/painel/marca/'),
+    },
     { href: '/painel/agenda', texto: 'Agenda', ativo: rota.startsWith('/painel/agenda') },
     { href: '/painel/qualidade', texto: 'Precisão', ativo: rota.startsWith('/painel/qualidade') },
     ...(admin
-      ? [{ href: '/painel/pessoas', texto: 'Pessoas', ativo: rota.startsWith('/painel/pessoas') }]
+      ? [
+          { href: '/painel/marcas', texto: 'Marcas', ativo: rota.startsWith('/painel/marcas') },
+          { href: '/painel/pessoas', texto: 'Pessoas', ativo: rota.startsWith('/painel/pessoas') },
+        ]
       : []),
   ]
 

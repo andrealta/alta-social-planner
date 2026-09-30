@@ -104,8 +104,13 @@ export const SECOES: Secao[] = [
   },
   {
     chave: 'platforms',
-    titulo: 'Escopo contratado',
-    resumo: 'Onde a agência opera e com que regras.',
+    // O nome era "Escopo contratado" e colidia com as COTAS mensais,
+    // que também se chamam assim e ficam noutro lugar (`brand_scope`,
+    // na administração de marcas). Duas telas com o mesmo título e
+    // conteúdos diferentes é como alguém edita a errada. A chave no
+    // banco continua `escopo`: ela é valor de enum e não se troca.
+    titulo: 'Canais e formatos',
+    resumo: 'Onde a agência opera, com que regras e com que nomes. As cotas mensais ficam na administração de marcas.',
     campos: [
       { id: 'pl_regras', rotulo: 'Regras próprias de cada canal', ajuda: 'O que vale num canal e não vale no outro.' },
       { id: 'pl_formatos', rotulo: 'Formatos praticados', ajuda: 'Como a equipe nomeia os formatos hoje.' },

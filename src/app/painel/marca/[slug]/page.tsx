@@ -40,7 +40,7 @@ export default async function BaseDaMarca({
   // isolamento acontecendo em produção, a cada carregamento.
   const { data: marca } = await supabase
     .from('brands')
-    .select('id, name, slug, segment, color')
+    .select('id, name, slug, segment, color, arquivada_em')
     .eq('slug', slug)
     .maybeSingle()
 
@@ -232,8 +232,36 @@ export default async function BaseDaMarca({
         </div>
       </header>
 
+      {marca.arquivada_em ? (
+        <div
+          style={{
+            marginTop: 16,
+            padding: '14px 18px',
+            border: '1px solid var(--line)',
+            borderLeft: '3px solid var(--warn)',
+            borderRadius: '0 var(--r) var(--r) 0',
+            background: 'var(--warn-wash)',
+            fontSize: 13.5,
+            lineHeight: 1.6,
+          }}
+        >
+          <b>Esta marca está arquivada.</b> Ela sumiu das listas, o cliente perdeu o acesso
+          ao portal e o planejamento não gera mais.{' '}
+          {papel === 'admin' ? (
+            <>
+              Para voltar a usá-la, reabra em <Link href="/painel/marcas">Marcas</Link>.
+            </>
+          ) : (
+            'Quem administra pode reabrir.'
+          )}
+        </div>
+      ) : null}
+
+      {/* As cotas mensais ficam na administração de marcas, e não aqui:
+          elas são restrição dura na geração, e quem mexe nelas muda o
+          que o próximo mês vai entregar. Aqui só se lê o número. */}
       {(escopo ?? []).length > 0 && (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 16 }}>
           {(escopo ?? []).map((e) => (
             <span
               key={e.label as string}
@@ -250,6 +278,14 @@ export default async function BaseDaMarca({
               <b style={{ color: 'var(--text)' }}>{Number(e.monthly_quota)}</b>
             </span>
           ))}
+          {papel === 'admin' ? (
+            <Link
+              href="/painel/marcas"
+              style={{ fontSize: 12.5, color: 'var(--muted)' }}
+            >
+              alterar cotas
+            </Link>
+          ) : null}
         </div>
       )}
 

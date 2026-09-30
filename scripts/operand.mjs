@@ -593,7 +593,8 @@ async function diario() {
 
   const marcas = await sql`
     select b.id, b.slug, b.name from public.brands b
-    where exists (select 1 from public.operand_ligacao l where l.brand_id = b.id)
+    where b.arquivada_em is null
+      and exists (select 1 from public.operand_ligacao l where l.brand_id = b.id)
     order by b.name
   `
   console.log('')
@@ -1089,22 +1090,36 @@ async function desligar(slug, qual) {
  */
 async function sincronizar(slug) {
   const marcas = slug
-    ? await sql`select id, name, slug, operand_padrao from public.brands
+    ? await sql`select id, name, slug, operand_padrao, arquivada_em from public.brands
                 where lower(slug) = lower(${String(slug).trim()})
                    or lower(name) = lower(${String(slug).trim()})`
-    : await sql`select id, name, slug, operand_padrao from public.brands order by name`
+    : await sql`select id, name, slug, operand_padrao, arquivada_em from public.brands
+                where arquivada_em is null order by name`
 
   if (marcas.length === 0) {
     console.log(slug ? `  A marca "${slug}" nao existe.` : '  Nao ha marca nenhuma.')
     return
   }
 
+  // Marca arquivada e contrato encerrado: nao adianta trazer job novo
+  // dela. Pedida pelo nome, o comando avisa em vez de fingir que fez;
+  // na varredura geral ela ja ficou de fora da consulta.
+  const arquivadas = marcas.filter((m) => m.arquivada_em)
+  const ativas = marcas.filter((m) => !m.arquivada_em)
+  if (ativas.length === 0) {
+    console.log(`  A marca "${slug}" esta arquivada. Reabra em Marcas, no painel, antes de sincronizar.`)
+    return
+  }
+  for (const m of arquivadas) {
+    console.log(`  ${m.name} esta arquivada, entao ficou de fora.`)
+  }
+
   const sessao = await comSessao()
-  await resolverPadroes(sessao, marcas)
+  await resolverPadroes(sessao, ativas)
 
   // Quais marcas, entre as pedidas, tem cadastro ligado.
   const aServir = []
-  for (const m of marcas) {
+  for (const m of ativas) {
     const ligacoes = await ligacoesDa(m.id)
     if (ligacoes.length > 0) aServir.push({ ...m, ligacoes })
   }

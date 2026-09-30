@@ -37,9 +37,12 @@ export default async function Painel() {
     .eq('id', user.id)
     .single()
 
+  // Arquivada sai das listas da equipe: é o que "arquivar" quer dizer.
+  // Ela continua no banco, e a administração a vê em Marcas.
   const { data: marcas } = await supabase
     .from('brands')
     .select('id, name, slug, segment, color')
+    .is('arquivada_em', null)
     .order('name')
 
   const { data: vinculos } = await supabase

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { clienteServidor } from '@/lib/supabase/server'
 import { arrumarSlug, conferirMarca, type LinhaDeEscopo } from '@/lib/marca'
+import { registrar, resumoDeEscopo } from '@/lib/registro-admin'
 
 export type Resultado = { ok: boolean; slug?: string; erro?: string }
 
@@ -32,10 +33,15 @@ export async function criarMarca(dados: {
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, erro: 'Sua sessão expirou. Entre de novo.' }
 
-  const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  const { data: perfil } = await supabase
+    .from('profiles')
+    .select('role, name')
+    .eq('id', user.id)
+    .single()
   if (perfil?.role !== 'admin') {
     return { ok: false, erro: 'Só quem administra pode criar marca.' }
   }
+  const quem = { id: user.id, nome: (perfil?.name as string) ?? user.email ?? 'sem nome' }
 
   const nome = (dados.nome ?? '').trim()
   const slug = arrumarSlug(dados.slug || dados.nome)
@@ -70,6 +76,14 @@ export async function criarMarca(dados: {
   if (error || !criada) {
     return { ok: false, erro: 'Não consegui criar a marca. ' + (error?.message ?? '') }
   }
+
+  // O registro é escrito antes do escopo: se o escopo falhar, a marca
+  // existe do mesmo jeito e a pergunta "quem criou isto" já tem resposta.
+  await registrar(supabase, quem, 'marca_criada', {
+    id: criada.id as string,
+    slug: criada.slug as string,
+    name: nome,
+  }, { escopo: resumoDeEscopo(escopo) })
 
   if (escopo.length > 0) {
     const { error: erroEscopo } = await supabase.from('brand_scope').insert(

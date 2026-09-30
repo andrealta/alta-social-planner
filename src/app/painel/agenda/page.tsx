@@ -62,7 +62,13 @@ export default async function Agenda({ searchParams }: { searchParams: Promise<B
   const inicio = `${chaveMes}-01`
   const fim = `${chaveMes}-${doisDigitos(new Date(ano, mes, 0).getDate())}`
 
-  const { data: marcas } = await supabase.from('brands').select('id, name, slug, color').order('name')
+  // Marca arquivada não publica nada: deixá-la no filtro seria oferecer
+  // uma escolha que só devolve tela vazia.
+  const { data: marcas } = await supabase
+    .from('brands')
+    .select('id, name, slug, color')
+    .is('arquivada_em', null)
+    .order('name')
   const filtro = (marcas ?? []).find((m) => m.slug === busca.marca) ?? null
 
   let consultaCanais = supabase

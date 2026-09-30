@@ -160,6 +160,18 @@ async function principal() {
         insert into public.brands (name, slug, segment)
         values (${nome.trim()}, ${slug}, ${segmento?.trim() || null})
       `
+      // Marca criada por aqui também entra no registro que a tela de
+      // administração mostra. Sem isto haveria um caminho para uma marca
+      // aparecer sem ninguém responder por ela, que é a única pergunta
+      // que um registro precisa saber responder.
+      const [nova] = await sql`select id from public.brands where slug = ${slug}`
+      await sql`
+        insert into public.registro_admin
+          (quem, quem_nome, acao, brand_id, marca_slug, marca_nome, detalhe)
+        values (null, 'linha de comando (23-marca.cmd)', 'marca_criada',
+                ${nova.id}, ${slug}, ${nome.trim()},
+                ${sql.json({ escopo: escopo.map((l) => `${l.label}=${l.quota}`).sort().join(', ') })})
+      `
       console.log(`  Marca criada: ${nome.trim()}  (slug: ${slug})`)
       if (segmento?.trim()) console.log(`  Segmento: ${segmento.trim()}`)
     }

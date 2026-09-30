@@ -71,16 +71,61 @@ resumo criptográfico se chegou idêntico. `_espelho/` fica fora do Git.
 
 ### Criar uma marca
 
-Pelo painel, em **+ nova marca** ao lado da lista de marcas, só para quem
-administra. Pede nome, endereço curto e o escopo contratado; a base fica
-vazia de propósito, para ser escrita na tela da marca por quem conhece a
-conta. Base preenchida às pressas parece pronta e ninguém volta para
-conferir.
+Pelo painel, em **+ nova marca**, só para quem administra. Pede nome,
+endereço curto e as cotas mensais; a base fica vazia de propósito, para
+ser escrita na tela da marca por quem conhece a conta. Base preenchida às
+pressas parece pronta e ninguém volta para conferir.
 
 `23-marca.cmd` faz o mesmo pela linha de comando. As duas usam a mesma
 validação (`src/lib/marca.ts`), e há um teste que importa a função de
 slug das duas cópias e compara resultado a resultado: elas precisam ser
 gêmeas e não há como uma importar a outra.
+
+### Administrar marcas (`/painel/marcas`, migração 0036)
+
+Item **Marcas** no menu, só para quem administra. É onde se alteram as
+cotas mensais, se arquiva, se reabre e se apaga, e onde fica o registro
+de quem fez o quê.
+
+**As cotas moram num lugar só.** Antes elas apareciam também na base da
+marca, e a seção da base se chamava "Escopo contratado" igual ao campo do
+cadastro: não era campo duplicado, era nome repetido, que é pior, porque
+parece que dá na mesma preencher num ou noutro. A seção da base virou
+**Canais e formatos** e continua com as regras de canal, os formatos e o
+que está fora do escopo, que é o material que alimenta a geração. As
+cotas, que são restrição dura (a IA fecha exatamente aqueles números),
+passaram a existir só aqui. Na tela da marca elas aparecem como número,
+com um link *alterar cotas* para quem administra.
+
+**Arquivar e apagar são decisões diferentes.** Arquivar resolve o caso
+comum, que é contrato encerrado: a marca some das listas, para de gerar
+planejamento, o cliente perde o acesso ao portal, e nada é apagado.
+Apagar leva junto, em cascata, planejamentos, pautas, conteúdos,
+aprovações, arquivos, a cópia do Operand e o histórico de custo; o backup
+é diário, então desfazer pode custar um dia de trabalho de todo mundo.
+Por isso **só se apaga o que já foi arquivado**, e um gatilho no banco
+garante essa ordem mesmo que alguém chame a exclusão por fora da tela. O
+segundo passo ainda pede o endereço curto digitado à mão, e mostra antes
+quantos planejamentos, pautas, vínculos e jobs vão embora.
+
+Esse gatilho mudou o comportamento de todo mundo que apaga marca:
+**dois testes antigos quebraram** no dia em que a 0036 entrou, os dois
+que provavam que apagar a marca leva a cópia do Operand junto. A correção
+foi arquivar antes de apagar, dentro do próprio teste. Vale saber disto
+antes de escrever qualquer rotina que apague marca.
+
+**O registro (`registro_admin`) sobrevive ao que registra.** A tabela não
+tem chave estrangeira para `brands` de propósito: um log que some junto
+com a marca apagada não serve para a única pergunta que importa depois,
+que é quem apagou. O nome de quem fez é copiado, não referenciado, porque
+a pessoa pode sair da agência e ter o cadastro apagado. E o registro não
+se altera nem se apaga, nem por quem administra: `update` e `delete`
+foram revogados na migração. Log que se edita não é log.
+
+A linha só entra se a ação já tiver acontecido, e falhar ao escrevê-la
+nunca desfaz a ação: uma marca arquivada com registro perdido é ruim, mas
+melhor que uma marca que não arquivou porque o log estava fora do ar. A
+tela avisa quando isso acontece.
 
 ### O backup (`17-exportar.cmd`)
 
@@ -352,21 +397,23 @@ Rode `10-seguranca.cmd` depois de qualquer mudança no banco.
 
 ## Testes
 
-Em `asp/` (fora deste repositório, com quem escreveu) há **339 casos em
+Em `asp/` (fora deste repositório, com quem escreveu) há **357 casos em
 SQL** que rodam contra um PostgreSQL local recriado do zero: isolamento
 entre marcas, versionamento de pauta, ciclo completo com o cliente,
 permissões de pessoas, exclusão de planejamento e de pessoa, a varredura
 de concorrentes e a resposta à pergunta que mais importa nela (o cliente
 não vê o que pesquisamos sobre o mercado dele), as vistas que fecharam
-`content_ideas` ao cliente, o investimento em mídia e a cópia do Operand.
+`content_ideas` ao cliente, o investimento em mídia, a cópia do Operand e
+o arquivamento de marca com o registro de quem mexeu.
 
-Mais **597 casos em TypeScript e JavaScript** sobre o que não toca o
+Mais **614 casos em TypeScript e JavaScript** sobre o que não toca o
 banco. Os maiores: o retrato de produção (184), o cliente da API do
 Operand (171), a tela do Operand (34), as medidas (46), o estilo (30), a
 concorrência (28), o bloco de produção no prompt (29), a marca nova (29 e
-23), a pesquisa na internet (26), o texto de apoio (25) e a mídia (23).
+23), a pesquisa na internet (26), o texto de apoio (25), a mídia (23) e a
+administração de marcas (17).
 
-Total: **936**.
+Total: **971**.
 
 Um padrão que vale imitar: quase todo teste novo destas últimas rodadas
 nasceu de um erro real, e o comentário acima dele diz qual foi. Teste que

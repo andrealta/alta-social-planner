@@ -107,3 +107,24 @@ export function conferirMarca(e: {
 
   return problemas
 }
+
+/**
+ * Quais linhas do escopo antigo deixam de valer.
+ *
+ * Existe como função separada, e recebe as duas listas prontas, por um
+ * motivo prático: a comparação por NOME é a parte fácil de errar. Uma
+ * linha que a pessoa renomeou de "Feed" para "Feed Instagram" é, para
+ * o banco, uma linha nova e uma linha que saiu, e é assim mesmo que
+ * tem de ser: os meses já gerados apontam para a linha antiga pelo id,
+ * e mexer nela mudaria o passado.
+ *
+ * O que sai é DESATIVADO, nunca apagado, e essa decisão fica na ação
+ * que chama. Aqui só se responde quem sai.
+ */
+export function escopoQueSai<T extends { label: string }>(
+  antes: T[],
+  agora: { label: string }[],
+): T[] {
+  const ficam = new Set(agora.map((l) => l.label))
+  return antes.filter((l) => !ficam.has(l.label))
+}
