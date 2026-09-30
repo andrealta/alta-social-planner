@@ -477,8 +477,8 @@ export default async function Plano({
           {(analise.buscas ?? 0) === 0 ? (
             <p style={{ fontSize: 13.8, color: 'var(--muted)', lineHeight: 1.6, margin: 0 }}>
               A busca estava disponível e a IA não usou. Ela julgou que a base da marca
-              bastava para decidir o mês. Isso e um resultado, nao uma falha, mas se
-              acontecer sempre vale conferir se a regra da pesquisa nao ficou restritiva
+              bastava para decidir o mês. Isso é um resultado, não uma falha, mas se
+              acontecer sempre vale conferir se a regra da pesquisa não ficou restritiva
               demais.
             </p>
           ) : (analise.fontes ?? []).length > 0 ? (
@@ -523,8 +523,8 @@ export default async function Plano({
             </ul>
           ) : (
             <p style={{ fontSize: 13.8, color: 'var(--muted)', lineHeight: 1.6, margin: 0 }}>
-              A IA pesquisou e nada do que achou mudou o planejamento. Isso e um resultado,
-              nao uma falha: o mes foi decidido pela base da marca.
+              A IA pesquisou e nada do que achou mudou o planejamento. Isso é um resultado,
+              não uma falha: o mês foi decidido pela base da marca.
             </p>
           )}
           {(analise.paginas_lidas ?? []).length > 0 && (
@@ -532,7 +532,7 @@ export default async function Plano({
               <summary
                 style={{ fontSize: 12.5, color: 'var(--faint)', cursor: 'pointer' }}
               >
-                Todas as {(analise.paginas_lidas ?? []).length} paginas lidas
+                Todas as {(analise.paginas_lidas ?? []).length} páginas lidas
               </summary>
               <ul
                 style={{
