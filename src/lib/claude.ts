@@ -30,7 +30,9 @@ export type Uso = {
   leituraCache: number
 }
 
-export type Fase = 'esperando' | 'pensando' | 'escrevendo'
+export type Fase = 'esperando' | 'pensando' | 'pesquisando' | 'escrevendo'
+
+export type Fonte = { url: string; titulo: string; idade?: string | null }
 
 export type Resposta = {
   texto: string
@@ -40,6 +42,16 @@ export type Resposta = {
   custoUsd: number
   latenciaMs: number
   motivoParada: string | null
+  /** Quantas pesquisas na internet o modelo fez durante esta resposta. */
+  buscas: number
+  /**
+   * As páginas que ele leu.
+   *
+   * Guardadas para o planejamento poder ser auditado: sem a lista, uma
+   * afirmação vinda da internet fica indistinguível de uma inventada,
+   * e a segunda é exatamente o risco de deixar o modelo pesquisar.
+   */
+  fontes: Fonte[]
 }
 
 export class ErroClaude extends Error {
@@ -65,11 +77,18 @@ export function chaveConfigurada(): boolean {
   return typeof process.env.ANTHROPIC_API_KEY === 'string' && process.env.ANTHROPIC_API_KEY.length > 20
 }
 
-function custo(modelo: string, uso: Uso): number {
+/** Dez dólares por mil pesquisas, cobrados à parte dos tokens. */
+export const PRECO_DA_BUSCA = 10 / 1000
+
+function custo(modelo: string, uso: Uso, buscas = 0): number {
   const p = PRECO[modelo] ?? PRECO[MODELO_PADRAO]
   // Cache de escrita custa 2x a entrada; leitura de cache, 0,1x.
   const entrada = uso.entrada + uso.escritaCache * 2 + uso.leituraCache * 0.1
-  return (entrada * p.entrada + uso.saida * p.saida) / 1_000_000
+  // A busca entra no mesmo número de propósito: separar o custo em dois
+  // lugares faria a tela mostrar um planejamento mais barato do que ele
+  // foi, e o resultado da pesquisa já está contado nos tokens de
+  // entrada. Aqui só falta a taxa por pesquisa.
+  return (entrada * p.entrada + uso.saida * p.saida) / 1_000_000 + buscas * PRECO_DA_BUSCA
 }
 
 /**
@@ -131,6 +150,14 @@ export type Opcoes = {
   sinal?: AbortSignal
   /** Segundos até desistir, quando `sinal` não é informado. Padrão: 480. */
   limiteSegundos?: number
+  /**
+   * Ferramentas de servidor, como a busca na internet.
+   *
+   * Vão cruas para a API porque o formato é dela, não nosso. Quem monta
+   * a configuração é `lib/pesquisa.ts`, que também explica o porquê de
+   * cada limite.
+   */
+  ferramentas?: unknown[]
 }
 
 export async function chamarClaude(prompt: string, opcoes: Opcoes = {}): Promise<Resposta> {
@@ -168,6 +195,9 @@ export async function chamarClaude(prompt: string, opcoes: Opcoes = {}): Promise
         temperature: opcoes.temperatura ?? 1,
         stream: true,
         ...(opcoes.system ? { system: opcoes.system } : {}),
+        ...(opcoes.ferramentas && opcoes.ferramentas.length
+          ? { tools: opcoes.ferramentas }
+          : {}),
         ...(opcoes.pensamento ? { thinking: opcoes.pensamento } : {}),
         messages: [{ role: 'user', content: prompt }],
       }),
@@ -201,6 +231,9 @@ export async function chamarClaude(prompt: string, opcoes: Opcoes = {}): Promise
   let texto = ''
   let pensamento = 0
   let motivoParada: string | null = null
+  let buscas = 0
+  const fontes: Fonte[] = []
+  const urlsVistas = new Set<string>()
 
   const leitor = resposta.body.getReader()
   const decodificador = new TextDecoder()
@@ -240,6 +273,28 @@ export async function chamarClaude(prompt: string, opcoes: Opcoes = {}): Promise
           uso.escritaCache = u.cache_creation_input_tokens ?? 0
           uso.leituraCache = u.cache_read_input_tokens ?? 0
         }
+      } else if (tipo === 'content_block_start') {
+        // Os blocos de ferramenta de servidor chegam inteiros aqui, e
+        // não em pedaços: a busca é executada do lado da API.
+        const bloco = evento.content_block as Record<string, unknown> | undefined
+        if (bloco?.type === 'server_tool_use' && bloco.name === 'web_search') {
+          buscas++
+          opcoes.aoReceber?.('pesquisando', buscas)
+        } else if (bloco?.type === 'web_search_tool_result') {
+          const achados = bloco.content
+          if (Array.isArray(achados)) {
+            for (const r of achados as Record<string, unknown>[]) {
+              const url = typeof r?.url === 'string' ? r.url : ''
+              if (!url || urlsVistas.has(url)) continue
+              urlsVistas.add(url)
+              fontes.push({
+                url,
+                titulo: typeof r.title === 'string' ? r.title : url,
+                idade: typeof r.page_age === 'string' ? r.page_age : null,
+              })
+            }
+          }
+        }
       } else if (tipo === 'content_block_delta') {
         const d = evento.delta as Record<string, unknown> | undefined
 
@@ -254,8 +309,14 @@ export async function chamarClaude(prompt: string, opcoes: Opcoes = {}): Promise
         }
         // signature_delta e input_json_delta não interessam aqui.
       } else if (tipo === 'message_delta') {
-        const u = evento.usage as Record<string, number> | undefined
-        if (u?.output_tokens) uso.saida = u.output_tokens
+        const u = evento.usage as Record<string, unknown> | undefined
+        if (typeof u?.output_tokens === 'number') uso.saida = u.output_tokens
+        // A API informa a contagem que ela vai COBRAR. Ela manda, e não
+        // a nossa: contar bloco é palpite, isto é a fatura.
+        const servidor = u?.server_tool_use as Record<string, number> | undefined
+        if (typeof servidor?.web_search_requests === 'number') {
+          buscas = servidor.web_search_requests
+        }
         const d = evento.delta as Record<string, unknown> | undefined
         if (typeof d?.stop_reason === 'string') motivoParada = d.stop_reason
       } else if (tipo === 'error') {
@@ -273,7 +334,7 @@ export async function chamarClaude(prompt: string, opcoes: Opcoes = {}): Promise
         : 'A resposta bateu no limite de tamanho no meio do texto. O planejamento saiu incompleto. Aumente o limite ou reduza o número de peças.',
     )
     e.uso = uso
-    e.custoUsd = custo(modelo, uso)
+    e.custoUsd = custo(modelo, uso, buscas)
     throw e
   }
 
@@ -290,9 +351,11 @@ export async function chamarClaude(prompt: string, opcoes: Opcoes = {}): Promise
     pensamento,
     modelo,
     uso,
-    custoUsd: custo(modelo, uso),
+    custoUsd: custo(modelo, uso, buscas),
     latenciaMs: Date.now() - inicio,
     motivoParada,
+    buscas,
+    fontes,
   }
 }
 

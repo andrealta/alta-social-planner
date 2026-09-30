@@ -120,6 +120,11 @@ export default async function Plano({
     alertas?: string[]
     achados?: Achado[]
     modelo?: string
+    /** O que a IA disse ter tirado da internet. Ver `lib/pesquisa.ts`. */
+    fontes?: string[]
+    /** O que a API registrou que ela leu, para conferir contra o de cima. */
+    paginas_lidas?: { url: string; titulo: string }[]
+    buscas?: number
   }
 
   const ordenadas = [...(pautas ?? [])].sort((a, b) => {
@@ -458,6 +463,92 @@ export default async function Plano({
               <li key={i}>{x}</li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {(analise.buscas ?? 0) > 0 && (
+        <section style={{ marginTop: 24 }}>
+          <Rotulo>
+            O que veio da internet ({analise.buscas} pesquisa
+            {(analise.buscas ?? 0) === 1 ? '' : 's'})
+          </Rotulo>
+          {(analise.fontes ?? []).length > 0 ? (
+            <ul
+              style={{
+                margin: 0,
+                paddingLeft: 18,
+                fontSize: 13.8,
+                lineHeight: 1.7,
+                color: 'var(--muted)',
+              }}
+            >
+              {(analise.fontes ?? []).map((x, i) => {
+                // A IA devolve "o que eu tirei dali | url". Quando ela
+                // nao segue o formato, mostra a linha inteira: texto
+                // torto e melhor que informacao sumida.
+                const corte = x.lastIndexOf('|')
+                const frase = corte > 0 ? x.slice(0, corte).trim() : x.trim()
+                const url = corte > 0 ? x.slice(corte + 1).trim() : ''
+                const valida = /^https?:\/\//.test(url)
+                return (
+                  <li key={i}>
+                    {frase}
+                    {valida ? (
+                      <>
+                        {' '}
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: 'var(--accent)' }}
+                        >
+                          fonte
+                        </a>
+                      </>
+                    ) : url ? (
+                      <span style={{ color: 'var(--faint)' }}> {url}</span>
+                    ) : null}
+                  </li>
+                )
+              })}
+            </ul>
+          ) : (
+            <p style={{ fontSize: 13.8, color: 'var(--muted)', lineHeight: 1.6, margin: 0 }}>
+              A IA pesquisou e nada do que achou mudou o planejamento. Isso e um resultado,
+              nao uma falha: o mes foi decidido pela base da marca.
+            </p>
+          )}
+          {(analise.paginas_lidas ?? []).length > 0 && (
+            <details style={{ marginTop: 10 }}>
+              <summary
+                style={{ fontSize: 12.5, color: 'var(--faint)', cursor: 'pointer' }}
+              >
+                Todas as {(analise.paginas_lidas ?? []).length} paginas lidas
+              </summary>
+              <ul
+                style={{
+                  margin: '8px 0 0',
+                  paddingLeft: 18,
+                  fontSize: 12.5,
+                  lineHeight: 1.6,
+                  color: 'var(--faint)',
+                }}
+              >
+                {(analise.paginas_lidas ?? []).map((f, i) => (
+                  <li key={i}>
+                    <a
+                      href={f.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: 'inherit' }}
+                    >
+                      {f.titulo}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
         </section>
       )}
 

@@ -15,6 +15,7 @@ import { registro } from '@/lib/registro'
 import { coletarEstilo, blocoDeEstilo } from '@/lib/estilo'
 import { coletarConcorrencia, blocoDeConcorrencia } from '@/lib/concorrencia'
 import { coletarProducao } from '@/lib/producao'
+import { BUSCA_NA_INTERNET } from '@/lib/pesquisa'
 import { chamarClaude, extrairJson, ErroClaude, MODELO_PADRAO, type Uso } from '@/lib/claude'
 import {
   montarPromptPautas,
@@ -302,6 +303,9 @@ export async function POST(req: Request) {
     estilo,
     concorrencia,
     producao,
+    // Ligada sempre, por decisao da agencia. Ver `lib/pesquisa.ts`
+    // para o que ela pode e o que ela nao pode influenciar.
+    pesquisar: true,
     escopo,
     mes,
     ano,
@@ -447,6 +451,7 @@ export async function POST(req: Request) {
           system: SISTEMA,
           modelo: MODELO_PADRAO,
           maxTokens: limiteDeTokens(totalPecas),
+          ferramentas: [BUSCA_NA_INTERNET],
           aoConectar: (status, ms) => {
             void log.passo('conectado na Anthropic', `HTTP ${status} em ${ms}ms`)
             enviar({ tipo: 'conectado' })
@@ -594,6 +599,13 @@ export async function POST(req: Request) {
             conferencia: plano.conferencia ?? {},
             nao_fazer: plano.nao_fazer ?? [],
             alertas: plano.alertas ?? [],
+            // O que a IA disse ter tirado da internet, e o que a API
+            // diz que ela leu. Os dois: o primeiro e a versao dela, o
+            // segundo e o registro de quem cobrou. Divergencia entre os
+            // dois e justamente o que da para auditar.
+            fontes: plano.fontes ?? [],
+            paginas_lidas: r.fontes.map((f) => ({ url: f.url, titulo: f.titulo })),
+            buscas: r.buscas,
             achados,
             gerado_em: new Date().toISOString(),
             modelo: r.modelo,

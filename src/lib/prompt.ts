@@ -11,8 +11,9 @@
  */
 
 import { SECOES } from './base'
+import { blocoDePesquisa } from './pesquisa'
 
-export const VERSAO_PROMPT = '2026-09-planejamento-2-producao'
+export const VERSAO_PROMPT = '2026-09-planejamento-3-pesquisa'
 
 export const MESES = [
   'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
@@ -57,6 +58,14 @@ export type Entrada = {
    * sincronização. Opcional: marca sem Operand ligado planeja igual.
    */
   producao?: string | null
+  /**
+   * A IA pesquisa na internet antes de planejar.
+   *
+   * Ligado sempre, por decisão da agência. Fica como opção porque a
+   * geração precisa continuar funcionando quando a busca falhar: nesse
+   * caso o mês sai sem ela, e o alerta diz isso.
+   */
+  pesquisar?: boolean
 }
 
 export function diasNoMes(ano: number, mes: number): number {
@@ -164,8 +173,16 @@ export function montarPromptPautas(e: Entrada): string {
       : 'Nenhum planejamento anterior registrado no sistema.'
 
   const producao = blocoDeProducao(e.producao)
+  const pesquisa = e.pesquisar
+    ? blocoDePesquisa({
+        nomeDaMarca: e.marca.nome,
+        segmento: e.marca.segmento,
+        nomeDoMes: nomeMes,
+        ano: e.ano,
+      })
+    : ''
 
-  return `${contextoDaMarca(e.marca, e.base)}${e.estilo ? '\n\n' + e.estilo : ''}${e.concorrencia ? '\n\n' + e.concorrencia : ''}${producao ? '\n\n' + producao : ''}
+  return `${contextoDaMarca(e.marca, e.base)}${e.estilo ? '\n\n' + e.estilo : ''}${e.concorrencia ? '\n\n' + e.concorrencia : ''}${producao ? '\n\n' + producao : ''}${pesquisa ? '\n\n' + pesquisa : ''}
 
 # HISTÓRICO RECENTE
 
@@ -281,7 +298,9 @@ Responda SOMENTE com JSON válido, nesta forma:
   }],
   "conferencia": {${e.escopo.map((c) => `"${c.label || 'linha'}":0`).join(', ')}},
   "nao_fazer": ["O que a estratégia decidiu NÃO fazer, e por quê."],
-  "alertas": ["Lacunas da base que limitaram o resultado."]
+  "alertas": ["Lacunas da base que limitaram o resultado."]${
+    e.pesquisar ? ',\n  "fontes": ["o que eu tirei dali, em uma frase | url"]' : ''
+  }
 }
 
 Os pesos dos territórios somam 100. "dia" é o número do dia no mês de ${nomeMes} de ${e.ano},
@@ -321,6 +340,8 @@ export type Planejamento = {
   conferencia?: Record<string, number>
   nao_fazer?: string[]
   alertas?: string[]
+  /** O que veio da internet e mudou alguma decisão. Ver `lib/pesquisa.ts`. */
+  fontes?: string[]
 }
 
 /**
