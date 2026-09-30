@@ -108,7 +108,16 @@ export function botao(forte: boolean, desligado = false): React.CSSProperties {
   }
 }
 
-/** Campo preenchido em vez de contornado: menos linha na tela. */
+/**
+ * Campo preenchido em vez de contornado: menos linha na tela.
+ *
+ * Não zere o `outline` aqui. Ele já esteve zerado, junto com mais seis
+ * cópias espalhadas pelas telas, e o efeito era outro: sumia o anel de
+ * foco do teclado, que é a única coisa que diz a quem navega por Tab em
+ * que campo está. O anel só aparece em `:focus-visible`, ou seja, nunca
+ * depois de um clique de mouse. Zerar não ganhava nada e custava a
+ * navegação inteira por teclado, inclusive a de quem usa leitor de tela.
+ */
 export const caixaTexto: React.CSSProperties = {
   width: '100%',
   resize: 'vertical',
@@ -120,7 +129,6 @@ export const caixaTexto: React.CSSProperties = {
   background: 'var(--surface-2)',
   border: '1px solid transparent',
   borderRadius: 'var(--r-sm)',
-  outline: 'none',
 }
 
 /** O cartão padrão: branco, sem moldura, sombra macia. */

@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { conferirMarca, type LinhaDeEscopo } from '@/lib/marca'
+import { conferirMarca, corValida, type LinhaDeEscopo } from '@/lib/marca'
 import { rotuloDaAcao } from '@/lib/registro-admin'
 import { Inicial, FioDaMarca } from '@/lib/inicial'
 // O sistema tem duas gerações de estilo convivendo: a antiga, com
@@ -13,6 +13,7 @@ import { Inicial, FioDaMarca } from '@/lib/inicial'
 import { botao, cartao, caixaTexto, pilula } from '@/lib/visual'
 import {
   arquivarMarca,
+  editarMarca,
   reabrirMarca,
   apagarMarca,
   contarDaMarca,
@@ -40,8 +41,17 @@ export type LinhaDoRegistro = {
   detalhe: Record<string, unknown>
 }
 
+/** Sem acento e sem caixa, para a busca achar o que a pessoa quis dizer. */
+function achatar(t: string): string {
+  return String(t ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+}
+
 /** Uma coisa aberta por vez. Duas gavetas abertas viram clique errado. */
-type Aberta = { slug: string; modo: 'escopo' | 'arquivar' | 'apagar' } | null
+type Aberta = { slug: string; modo: 'editar' | 'escopo' | 'arquivar' | 'apagar' } | null
 
 export function Marcas({
   marcas,
@@ -56,10 +66,34 @@ export function Marcas({
   const [erro, setErro] = useState<string | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
 
-  const ativas = marcas.filter((m) => !m.arquivadaEm)
-  const arquivadas = marcas.filter((m) => m.arquivadaEm)
+  /**
+   * A busca.
+   *
+   * Com oito marcas ela é dispensável, e é por isso que ela some
+   * sozinha abaixo de oito: campo de busca numa lista que cabe na tela
+   * é uma pergunta que ninguém fez. Acima disso a rolagem começa, e
+   * junto com ela o registro lá no fim sai de vista.
+   *
+   * Procura no nome, no endereço curto e no segmento, sem acento e sem
+   * caixa: quem digita "canto" acha "Canto de Minas", e quem digita
+   * "aliment" acha as três contas de alimentos.
+   */
+  const [busca, setBusca] = useState('')
+  const alvo = achatar(busca)
+  const cabe = (m: MarcaAdmin) =>
+    alvo === '' ||
+    achatar(m.nome).includes(alvo) ||
+    achatar(m.slug).includes(alvo) ||
+    achatar(m.segmento).includes(alvo)
 
-  function abrir(slug: string, modo: 'escopo' | 'arquivar' | 'apagar') {
+  const [verRegistro, setVerRegistro] = useState(false)
+
+  const ativas = marcas.filter((m) => !m.arquivadaEm && cabe(m))
+  const arquivadas = marcas.filter((m) => m.arquivadaEm && cabe(m))
+  const temBusca = marcas.length >= 8
+  const escondidas = marcas.filter((m) => !cabe(m)).length
+
+  function abrir(slug: string, modo: 'editar' | 'escopo' | 'arquivar' | 'apagar') {
     setErro(null)
     setAviso(null)
     setAberta((a) => (a && a.slug === slug && a.modo === modo ? null : { slug, modo }))
@@ -93,14 +127,27 @@ export function Marcas({
             : arquivadas.length === 1
               ? ', 1 arquivada'
               : `, ${arquivadas.length} arquivadas`}
+          {escondidas > 0 ? `, ${escondidas} fora da busca` : ''}
         </span>
+
+        {temBusca && (
+          <input
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Procurar por nome, endereço ou segmento"
+            aria-label="Procurar marca"
+            style={{ ...caixaTexto, maxWidth: 320, marginLeft: 'auto' }}
+          />
+        )}
       </div>
 
       <Titulo>Marcas ativas</Titulo>
 
       {ativas.length === 0 ? (
         <p style={{ color: 'var(--muted)', fontSize: 14 }}>
-          Nenhuma marca ativa. Crie a primeira em &quot;nova marca&quot;, aqui em cima.
+          {alvo
+            ? `Nenhuma marca ativa com "${busca.trim()}".`
+            : 'Nenhuma marca ativa. Crie a primeira em "nova marca", aqui em cima.'}
         </p>
       ) : (
         <div style={{ display: 'grid', gap: 12 }}>
@@ -121,10 +168,11 @@ export function Marcas({
                 <Cabecalho marca={m} />
 
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button style={botao(false)} onClick={() => abrir(m.slug, 'editar')}>
+                    {aberta?.slug === m.slug && aberta.modo === 'editar' ? 'fechar' : 'editar'}
+                  </button>
                   <button style={botao(false)} onClick={() => abrir(m.slug, 'escopo')}>
-                    {aberta?.slug === m.slug && aberta.modo === 'escopo'
-                      ? 'fechar'
-                      : 'alterar escopo'}
+                    {aberta?.slug === m.slug && aberta.modo === 'escopo' ? 'fechar' : 'escopo'}
                   </button>
                   <button style={botao(false)} onClick={() => abrir(m.slug, 'arquivar')}>
                     arquivar
@@ -137,6 +185,19 @@ export function Marcas({
                   </Link>
                 </div>
               </div>
+
+              {aberta?.slug === m.slug && aberta.modo === 'editar' && (
+                <Identidade
+                  marca={m}
+                  trabalhando={trabalhando}
+                  onCancelar={() => setAberta(null)}
+                  onSalvar={(dados) =>
+                    comecar(async () => {
+                      depois(await editarMarca(m.slug, dados), `${m.nome} atualizada.`)
+                    })
+                  }
+                />
+              )}
 
               {aberta?.slug === m.slug && aberta.modo === 'escopo' && (
                 <EditorDeEscopo
@@ -232,13 +293,24 @@ export function Marcas({
         </>
       )}
 
+      {/* O registro fica recolhido: ele cresce para sempre e empurra a
+          lista de marcas para cima da tela, que é o oposto do que
+          alguém veio fazer aqui. Quem precisa dele, abre. */}
       <Titulo>Registro</Titulo>
       <p style={{ color: 'var(--muted)', fontSize: 13.5, lineHeight: 1.6, marginBottom: 12 }}>
-        Quem criou, arquivou, apagou marca ou mexeu no escopo. Não se apaga e não se
-        corrige: linha errada fica, e a linha seguinte conta o que aconteceu.
+        Quem criou, editou, arquivou, apagou marca ou mexeu no escopo. Não se apaga e não
+        se corrige: linha errada fica, e a linha seguinte conta o que aconteceu.
       </p>
 
-      {registro.length === 0 ? (
+      {!verRegistro ? (
+        <button style={botao(false)} onClick={() => setVerRegistro(true)}>
+          {registro.length === 0
+            ? 'ver registro'
+            : registro.length === 1
+              ? 'ver registro (1 linha)'
+              : `ver registro (${registro.length} linhas)`}
+        </button>
+      ) : registro.length === 0 ? (
         <p style={{ color: 'var(--muted)', fontSize: 14 }}>
           Nada registrado ainda. A primeira alteração feita por aqui aparece nesta lista.
         </p>
@@ -272,6 +344,15 @@ export function Marcas({
             </li>
           ))}
         </ul>
+      )}
+
+      {verRegistro && (
+        <button
+          style={{ ...botao(false), marginTop: 12 }}
+          onClick={() => setVerRegistro(false)}
+        >
+          esconder o registro
+        </button>
       )}
     </div>
   )
@@ -331,6 +412,135 @@ function Cabecalho({ marca }: { marca: MarcaAdmin }) {
         )}
       </div>
     </div>
+  )
+}
+
+/**
+ * Quem a marca é: nome, segmento e cor.
+ *
+ * A cor morava numa tela própria dentro da página da marca, e saiu de
+ * lá. Ela é configuração de conta, feita uma vez, e o lugar de
+ * configuração de conta é a administração: na página da marca ela
+ * ficava no meio do caminho de quem só queria olhar o mês.
+ *
+ * O campo nativo de cor do navegador resolve sozinho a parte difícil,
+ * que é escolher. A caixa de texto ao lado existe para quem já tem o
+ * código da marca escrito em algum lugar e quer colar.
+ */
+function Identidade({
+  marca,
+  trabalhando,
+  onSalvar,
+  onCancelar,
+}: {
+  marca: MarcaAdmin
+  trabalhando: boolean
+  onSalvar: (dados: { nome: string; segmento: string; cor: string | null }) => void
+  onCancelar: () => void
+}) {
+  const [nome, setNome] = useState(marca.nome)
+  const [segmento, setSegmento] = useState(marca.segmento)
+  const [cor, setCor] = useState(marca.cor ?? '#2502D0')
+  const [semCor, setSemCor] = useState(marca.cor === null)
+
+  const problema =
+    conferirMarca({ nome, slug: marca.slug, escopo: [] }).find((p) => p.campo === 'nome')?.texto ??
+    (!semCor && !corValida(cor) ? 'A cor precisa estar no formato #RRGGBB.' : null)
+
+  const mudou =
+    nome !== marca.nome ||
+    segmento !== marca.segmento ||
+    (semCor ? marca.cor !== null : cor !== (marca.cor ?? ''))
+
+  return (
+    <Gaveta>
+      <div style={rotuloForte}>Quem é esta marca</div>
+      <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4, lineHeight: 1.6 }}>
+        O nome aparece nas telas da equipe e no portal do cliente. O endereço curto,
+        <span style={{ fontFamily: 'var(--mono)' }}> /{marca.slug}</span>, não muda: ele está
+        em todo link já salvo, no comando do Operand e no endereço que o cliente recebeu.
+      </div>
+
+      <div style={{ display: 'grid', gap: 14, marginTop: 14 }}>
+        <label style={{ display: 'block' }}>
+          <span style={rotuloForte}>Nome</span>
+          <input style={caixaTexto} value={nome} onChange={(e) => setNome(e.target.value)} />
+        </label>
+
+        <label style={{ display: 'block' }}>
+          <span style={rotuloForte}>Segmento</span>
+          <input
+            style={caixaTexto}
+            value={segmento}
+            onChange={(e) => setSegmento(e.target.value)}
+            placeholder="Alimentos"
+          />
+        </label>
+
+        <div>
+          <span style={rotuloForte}>Cor no portal do cliente</span>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <input
+              type="color"
+              value={corValida(cor) ? cor : '#2502D0'}
+              onChange={(e) => {
+                setCor(e.target.value)
+                setSemCor(false)
+              }}
+              aria-label="Escolher a cor da marca"
+              style={{
+                width: 46,
+                height: 38,
+                padding: 2,
+                border: 'none',
+                borderRadius: 10,
+                background: 'var(--surface-2)',
+                cursor: 'pointer',
+              }}
+            />
+            <input
+              style={{ ...caixaTexto, width: 130, fontFamily: 'var(--mono)' }}
+              value={semCor ? '' : cor}
+              placeholder="#2502D0"
+              onChange={(e) => {
+                setCor(e.target.value)
+                setSemCor(e.target.value.trim() === '')
+              }}
+              aria-label="Código da cor"
+            />
+            <Inicial nome={nome || marca.nome} cor={semCor ? null : cor} />
+            <button
+              style={botao(false)}
+              onClick={() => {
+                setSemCor(true)
+                setCor('#2502D0')
+              }}
+            >
+              usar o azul da Alta
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {problema ? (
+        <div style={{ color: 'var(--laranja)', fontSize: 13, marginTop: 10 }}>{problema}</div>
+      ) : null}
+
+      <div style={{ display: 'flex', gap: 9, marginTop: 16 }}>
+        <button
+          style={botao(true, !!problema || !mudou || trabalhando)}
+          disabled={!!problema || !mudou || trabalhando}
+          onClick={() =>
+            onSalvar({ nome: nome.trim(), segmento: segmento.trim(), cor: semCor ? null : cor })
+          }
+        >
+          {trabalhando ? 'Gravando…' : 'Gravar'}
+        </button>
+        <button style={botao(false)} onClick={onCancelar}>
+          cancelar
+        </button>
+      </div>
+    </Gaveta>
   )
 }
 

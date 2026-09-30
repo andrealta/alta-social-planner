@@ -3,7 +3,6 @@ import { notFound, redirect } from 'next/navigation'
 import { clienteServidor } from '@/lib/supabase/server'
 import { SECOES, situacao } from '@/lib/base'
 import { BaseRecolhida } from './base'
-import { Cor } from './cor'
 import { calcularStatusEquipe } from '@/lib/status'
 import { duracao } from '@/lib/medidas'
 import { Quadro, type Numero } from '@/lib/quadro'
@@ -232,13 +231,6 @@ export default async function BaseDaMarca({
               {atualizadaEm &&
                 ` · base alterada em ${new Date(atualizadaEm).toLocaleDateString('pt-BR')}`}
             </p>
-            <div style={{ marginTop: 10 }}>
-              <Cor
-                slug={slug}
-                inicial={(marca.color as string | null) ?? null}
-                podeTrocar={papel === 'admin'}
-              />
-            </div>
           </div>
         </div>
 

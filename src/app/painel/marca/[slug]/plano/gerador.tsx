@@ -218,7 +218,6 @@ export function Gerador({
           background: gerando ? 'var(--surface-2)' : 'var(--surface)',
           border: '1px solid var(--line-2)',
           borderRadius: 'var(--r)',
-          outline: 'none',
         }}
       />
 
@@ -266,7 +265,6 @@ export function Gerador({
                 background: gerando ? 'var(--surface-2)' : 'var(--surface)',
                 border: '1px solid var(--line-2)',
                 borderRadius: 'var(--r)',
-                outline: 'none',
               }}
             />
           </div>

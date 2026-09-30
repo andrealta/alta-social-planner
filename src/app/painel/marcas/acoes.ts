@@ -2,13 +2,20 @@
 
 import { revalidatePath } from 'next/cache'
 import { clienteServidor } from '@/lib/supabase/server'
-import { conferirMarca, escopoQueSai, type LinhaDeEscopo } from '@/lib/marca'
+import { conferirMarca, corValida, escopoQueSai, type LinhaDeEscopo } from '@/lib/marca'
 import { registrar, resumoDeEscopo } from '@/lib/registro-admin'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 export type Resultado = { ok: boolean; erro?: string; aviso?: string }
 
-type Marca = { id: string; name: string; slug: string; arquivada_em: string | null }
+type Marca = {
+  id: string
+  name: string
+  slug: string
+  segment: string | null
+  color: string | null
+  arquivada_em: string | null
+}
 
 /**
  * Só administração chega aqui.
@@ -45,7 +52,7 @@ async function comoAdmin(): Promise<
 async function acharMarca(supabase: SupabaseClient, slug: string): Promise<Marca | null> {
   const { data } = await supabase
     .from('brands')
-    .select('id, name, slug, arquivada_em')
+    .select('id, name, slug, segment, color, arquivada_em')
     .eq('slug', slug)
     .maybeSingle()
   return (data as Marca) ?? null
@@ -79,6 +86,82 @@ export async function arquivarMarca(slug: string, motivo: string): Promise<Resul
   revalidatePath('/painel')
   revalidatePath('/painel/marcas')
   return { ok: true, aviso: falhaLog ? 'Arquivou, mas o registro falhou: ' + falhaLog : undefined }
+}
+
+/**
+ * Nome, segmento e cor.
+ *
+ * Os três juntos numa ação só porque são a mesma coisa: quem a marca é.
+ * Antes disto nenhum deles se editava. A cor tinha uma tela própria
+ * dentro da página da marca, e o nome e o segmento não tinham nenhuma:
+ * um erro de digitação no nome ficava para sempre, e ele aparece no
+ * portal do cliente.
+ *
+ * O ENDEREÇO CURTO NÃO ENTRA
+ *
+ * Ele está em todo link que a equipe já salvou, no comando do Operand e
+ * no endereço que o cliente recebeu por e-mail. Trocar o slug quebraria
+ * os três de uma vez, em silêncio, e o ganho seria estético. Marca com
+ * o endereço errado se resolve criando a certa e arquivando a outra,
+ * que é uma decisão consciente em vez de um campo inocente.
+ */
+export async function editarMarca(
+  slug: string,
+  dados: { nome: string; segmento: string; cor: string | null },
+): Promise<Resultado> {
+  const sessao = await comoAdmin()
+  if (!sessao.ok) return { ok: false, erro: sessao.erro }
+  const { supabase, userId, nome: quemNome } = sessao
+
+  const marca = await acharMarca(supabase, slug)
+  if (!marca) return { ok: false, erro: 'Não achei esta marca.' }
+
+  const nome = (dados.nome ?? '').trim()
+  const segmento = (dados.segmento ?? '').trim()
+  const cor = (dados.cor ?? '').trim() || null
+
+  // O slug vai junto na conferência só para ela não reclamar de um
+  // campo que esta tela nem mostra.
+  const doNome = conferirMarca({ nome, slug: marca.slug, escopo: [] }).find(
+    (p) => p.campo === 'nome',
+  )
+  if (doNome) return { ok: false, erro: doNome.texto }
+  if (cor !== null && !corValida(cor)) {
+    return { ok: false, erro: 'A cor precisa estar no formato #RRGGBB, por exemplo #2502D0.' }
+  }
+
+  const antes = {
+    nome: marca.name,
+    segmento: marca.segment ?? '',
+    cor: marca.color ?? '',
+  }
+  const depois = { nome, segmento, cor: cor ?? '' }
+  const mudou = (Object.keys(depois) as (keyof typeof depois)[]).filter(
+    (k) => antes[k] !== depois[k],
+  )
+  if (mudou.length === 0) return { ok: true, aviso: 'Nada mudou.' }
+
+  const { error } = await supabase
+    .from('brands')
+    .update({ name: nome, segment: segmento || null, color: cor })
+    .eq('id', marca.id)
+  if (error) return { ok: false, erro: 'Não consegui gravar: ' + error.message }
+
+  // Só o que mudou vai para o registro. Uma linha listando os três
+  // campos toda vez esconderia qual deles alguém mexeu.
+  const falhaLog = await registrar(
+    supabase,
+    { id: userId, nome: quemNome },
+    'marca_editada',
+    { ...marca, name: nome },
+    Object.fromEntries(mudou.map((k) => [k, { de: antes[k] || null, para: depois[k] || null }])),
+  )
+
+  revalidatePath('/painel')
+  revalidatePath('/painel/marcas')
+  revalidatePath(`/painel/marca/${marca.slug}`)
+  revalidatePath('/cliente')
+  return { ok: true, aviso: falhaLog ? 'Gravou, mas o registro falhou: ' + falhaLog : undefined }
 }
 
 /** Reabrir: o contrato voltou, ou foi engano. */

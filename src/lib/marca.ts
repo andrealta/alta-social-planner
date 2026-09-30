@@ -28,7 +28,19 @@ export function arrumarSlug(bruto: string | null | undefined): string {
 
 export type LinhaDeEscopo = { label: string; quota: number }
 
-export type Problema = { campo: 'nome' | 'slug' | 'escopo'; texto: string }
+export type Problema = { campo: 'nome' | 'slug' | 'escopo' | 'cor'; texto: string }
+
+/**
+ * A cor da marca, como o banco a guarda.
+ *
+ * Seis dígitos com a cerquilha na frente, e nada além disso. O campo
+ * alimenta o portal do cliente, onde ela vira fundo de cabeçalho: um
+ * valor torto ali não dá erro, dá uma tela sem cor nenhuma, que é o
+ * tipo de defeito que ninguém liga a quem o causou.
+ */
+export function corValida(bruta: string | null | undefined): boolean {
+  return /^#[0-9a-fA-F]{6}$/.test(String(bruta ?? '').trim())
+}
 
 /** Nomes que não podem virar slug porque já são rota do sistema. */
 const RESERVADOS = new Set([

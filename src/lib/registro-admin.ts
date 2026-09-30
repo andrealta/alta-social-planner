@@ -18,6 +18,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 export type AcaoDeAdmin =
   | 'marca_criada'
+  | 'marca_editada'
   | 'marca_arquivada'
   | 'marca_reaberta'
   | 'marca_apagada'
@@ -26,6 +27,7 @@ export type AcaoDeAdmin =
 /** Como cada ação é lida por gente, na tela do registro. */
 export const ACOES: Record<string, string> = {
   marca_criada: 'criou a marca',
+  marca_editada: 'editou a marca',
   marca_arquivada: 'arquivou a marca',
   marca_reaberta: 'reabriu a marca',
   marca_apagada: 'APAGOU a marca',

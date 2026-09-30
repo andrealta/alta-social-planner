@@ -1131,7 +1131,6 @@ const campo: React.CSSProperties = {
   background: 'var(--surface)',
   border: '1px solid var(--line-2)',
   borderRadius: 8,
-  outline: 'none',
 }
 
 function botao(forte: boolean, desligado = false): React.CSSProperties {

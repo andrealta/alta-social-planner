@@ -1093,7 +1093,6 @@ function BlocoMidia({
                 background: podeEditar ? 'var(--surface)' : 'var(--surface-2)',
                 border: '1px solid var(--line-2)',
                 borderRadius: 'var(--r-sm)',
-                outline: 'none',
               }}
             />
           </div>

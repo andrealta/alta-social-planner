@@ -65,7 +65,6 @@ function Campo({
         background: 'var(--surface)',
         border: '1px solid var(--line-2)',
         borderRadius: 'var(--r)',
-        outline: 'none',
         overflow: 'hidden',
       }}
       onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--accent)')}

@@ -77,6 +77,14 @@ endereço curto e as cotas mensais; a base fica vazia de propósito, para
 ser escrita na tela da marca por quem conhece a conta. Base preenchida às
 pressas parece pronta e ninguém volta para conferir.
 
+**Editar depois** é na mesma tela de Marcas, no botão *editar*: nome,
+segmento e cor juntos, só para a administração. Antes disso nenhum dos
+três se editava pela interface, e um erro de digitação no nome ficava
+para sempre, aparecendo no portal do cliente. O endereço curto continua
+sem edição, e é decisão, não esquecimento: ele está em todo link que a
+equipe já salvou, no comando do Operand e no endereço que o cliente
+recebeu por e-mail. Trocar quebraria os três de uma vez e em silêncio.
+
 `23-marca.cmd` faz o mesmo pela linha de comando. As duas usam a mesma
 validação (`src/lib/marca.ts`), e há um teste que importa a função de
 slug das duas cópias e compara resultado a resultado: elas precisam ser
@@ -343,6 +351,15 @@ projeto que usa. Não é preguiça: vários links trazem
 `!important` na folha é a única coisa que vence inline. O seletor é
 estreito de propósito: um estado, um tipo de link, uma propriedade.
 
+**O foco pelo teclado já existia e estava quebrado num lugar só.** A
+regra do anel azul está no CSS desde o começo e funcionava em botão e em
+link. Só os campos de texto não mostravam nada, porque sete lugares
+traziam `outline: 'none'` no estilo inline, e inline vence folha. Aquilo
+não ganhava nada: o anel só aparece em `:focus-visible`, ou seja, nunca
+depois de um clique de mouse. Os sete saíram, e preencher uma base
+inteira pelo teclado deixou de ser às cegas. **Não reponha o
+`outline: 'none'`**: a linha está comentada em `lib/visual.ts`.
+
 Cartão clicável inteiro pede `.cartao-clicavel`, que levanta dois pixels
 e adensa a sombra. É a única marcação manual, e é de propósito: cartão
 que só mostra informação fica parado, e essa diferença é o que ensina
@@ -507,14 +524,14 @@ o arquivamento de marca com o registro de quem mexeu, as três últimas
 colunas internas que o cliente alcançava e a aprovação da nota de
 plataformas.
 
-Mais **680 casos em TypeScript e JavaScript** sobre o que não toca o
+Mais **695 casos em TypeScript e JavaScript** sobre o que não toca o
 banco. Os maiores: o retrato de produção (189), o cliente da API do
 Operand (171), a tela do Operand (34), as medidas (46), o estilo (30), a
-concorrência (28), o bloco de produção no prompt (29), a marca nova (29 e
+concorrência (28), o bloco de produção no prompt (29), a marca nova (44 e
 23), a pesquisa na internet (26), o texto de apoio (25), a mídia (23), a
 administração de marcas (17) e o estado das plataformas (36 e 25).
 
-Total: **1077**.
+Total: **1092**.
 
 Um padrão que vale imitar: quase todo teste novo destas últimas rodadas
 nasceu de um erro real, e o comentário acima dele diz qual foi. Teste que
