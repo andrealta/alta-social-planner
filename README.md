@@ -615,6 +615,16 @@ corrigiu:
   itens e os setores dos clientes no pedido, para regra de categoria que
   nenhum deles toca não entrar.
 
+E uma quarta, da corrida seguinte: **a nota seguia quem anunciou mais
+novidade, não onde o trabalho acontece.** O TikTok, com uma peça
+planejada, ganhou três itens; o Instagram, com 145, ganhou um. Hoje o
+volume de cada plataforma vai escrito no pedido, e plataforma com pouco
+trabalho ganha no máximo uma linha e uma busca. Vale registrar o erro de
+diagnóstico junto: eu tinha suposto que o LinkedIn fosse resquício
+aspiracional na base e filtrei por uso, e não era, eles publicam mesmo.
+O filtro estava certo e não resolvia nada, porque o problema era peso, e
+não presença.
+
 ### A concorrência (`src/lib/concorrencia.ts`)
 
 O jeito óbvio de usar a varredura é o errado. Despejar as legendas dos

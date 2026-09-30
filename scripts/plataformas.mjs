@@ -158,34 +158,78 @@ async function plataformasEmUso() {
   if (boas.length > 0) {
     console.log('  Plataformas, pelo que ja foi planejado:')
     for (const l of boas) console.log('    ' + String(l.n).padStart(5) + '  ' + l.p)
-    return boas.map((l) => l.p)
+    return boas.map((l) => ({ nome: l.p, pecas: l.n }))
   }
 
-  // Sem nada planejado ainda, vale a declaracao.
+  // Sem nada planejado ainda, vale a declaracao. Sem volume, entao
+  // todas pesam igual, que e o unico chute honesto possivel.
   const declaradas = await sql`
     select distinct platform::text as p from public.brand_platforms where platform is not null
   `
   const outras = declaradas.map((l) => l.p).filter((p) => FONTES[p])
   if (outras.length > 0) {
     console.log('  Nenhuma publicacao planejada ainda. Usando o que a base declara.')
-    return outras.sort()
+    return outras.sort().map((nome) => ({ nome, pecas: 0 }))
   }
   // Nem uma coisa nem outra: o padrao e onde a verba vai.
   console.log('  Nada gravado. Usando o padrao: Meta.')
-  return ['instagram', 'facebook']
+  return [{ nome: 'instagram', pecas: 0 }, { nome: 'facebook', pecas: 0 }]
 }
 
-/** Em que setores os clientes atuam. Serve para cortar regra que nao e deles. */
+/**
+ * Em que setores os clientes atuam. Serve para cortar regra de
+ * categoria que nao e de nenhum deles: cassino, aposta, adulto.
+ *
+ * O campo `segment` e texto livre, e algumas marcas escreveram uma
+ * frase inteira ali ("Mobiliario de alto padrao, design autoral e
+ * moveis para areas externas e internas"). Para esta pergunta basta a
+ * primeira ideia de cada um: o resto vira paredao de texto no pedido e
+ * nao muda a resposta.
+ */
 async function setores() {
   const linhas = await sql`
     select distinct segment from public.brands
     where arquivada_em is null and segment is not null and btrim(segment) <> ''
   `
-  return linhas.map((l) => String(l.segment).trim()).sort()
+  const vistos = new Set()
+  const curtos = []
+  for (const l of linhas) {
+    // Corta no primeiro separador: virgula, ponto e barra vertical
+    // separam ideias; o "e" nao, porque "Incorporacao e urbanismo" e
+    // uma coisa so.
+    const primeiro = String(l.segment).split(/[,;·|]/)[0].trim().slice(0, 40)
+    const chave = primeiro.toLowerCase()
+    if (!primeiro || vistos.has(chave)) continue
+    vistos.add(chave)
+    curtos.push(primeiro)
+  }
+  return curtos.sort().slice(0, 10)
 }
 
 function pergunta(plataformas, dias, ondeAtuam) {
-  const nomes = plataformas.join(', ')
+  const comVolume = plataformas.some((p) => p.pecas > 0)
+  const nomes = plataformas.map((p) => p.nome).join(', ')
+
+  /**
+   * O peso de cada plataforma, e e a parte que mais muda a nota.
+   *
+   * Na primeira corrida de verdade o TikTok, com UMA peca planejada,
+   * ganhou tres itens, e o Instagram, com 145, ganhou um. Sem o
+   * numero na frente, o modelo escreve sobre quem publicou mais
+   * novidade, nao sobre onde o trabalho acontece.
+   */
+  const peso = comVolume
+    ? `\n\nO trabalho NAO se divide igual entre elas. Nos ultimos meses a agencia planejou:\n` +
+      plataformas
+        .map((p) => `  ${p.nome}: ${p.pecas} ${p.pecas === 1 ? 'peca' : 'pecas'}`)
+        .join('\n') +
+      `\n
+A nota tem de seguir esse peso, e nao o de quem anunciou mais novidade no periodo.
+Plataforma com pouco trabalho ganha NO MAXIMO UMA LINHA, e so se a mudanca for grande o
+bastante para mudar aquela peca. Gaste no maximo uma busca nelas. As linhas e as buscas
+vao para onde o trabalho esta.`
+    : ''
+
   const setoresTexto =
     ondeAtuam.length > 0
       ? `\n\nOs clientes desta agencia atuam em: ${ondeAtuam.join(', ')}. Regra de publicidade de
@@ -197,7 +241,7 @@ politica e afins) NAO interessa e nao deve entrar.`
 dizer o que MUDOU nestas plataformas nos ultimos ${dias} dias, lendo apenas o que a
 propria plataforma publicou.
 
-Plataformas: ${nomes}.${setoresTexto}
+Plataformas: ${nomes}.${peso}${setoresTexto}
 
 A PERGUNTA, EXATA
 
@@ -226,8 +270,8 @@ NAO ENTRA, E ESTA E A PARTE QUE MAIS ERRA
 - previsao sobre o que vai acontecer
 - qualquer coisa sem data e sem link
 
-NO MAXIMO 8 ITENS, somando todas as plataformas. Se achar mais, escolha os que mais
-mudam o trabalho e deixe o resto de fora. Nota longa nao e nota melhor: ela entra no
+NO MAXIMO 8 ITENS, somando todas as plataformas, e distribuidos pelo peso acima. Se
+achar mais, escolha os que mais mudam o trabalho e deixe o resto de fora. Nota longa nao e nota melhor: ela entra no
 prompt de todos os planejamentos, e o que sobra ali empurra para fora o que importa.
 
 Se nao houve mudanca relevante no periodo, DIGA ISSO. "Nada relevante mudou" e uma
@@ -260,7 +304,7 @@ async function buscar(plataformas, dias, ondeAtuam) {
     )
   }
 
-  const dominios = [...new Set(plataformas.flatMap((p) => FONTES[p] ?? []))]
+  const dominios = [...new Set(plataformas.flatMap((p) => FONTES[p.nome] ?? []))]
   console.log('  Fontes travadas em: ' + dominios.join(', '))
   console.log('  Periodo: ultimos ' + dias + ' dias')
   console.log('  Modelo: ' + MODELO)
@@ -285,9 +329,11 @@ async function buscar(plataformas, dias, ondeAtuam) {
         {
           type: 'web_search_20250305',
           name: 'web_search',
-          // Oito cobre as seis plataformas com folga. O teto existe
-          // para uma busca nao virar uma sessao de navegacao.
-          max_uses: 8,
+          // Seis, e nao oito. A corrida de oito leu 71 paginas e custou
+          // US$ 1,46, sendo 24 delas de uma plataforma que rendeu uma
+          // linha dizendo que nada mudou. O custo aqui e quase todo de
+          // leitura, nao de busca: menos buscas e menos pagina lida.
+          max_uses: 6,
           allowed_domains: dominios,
         },
       ],
