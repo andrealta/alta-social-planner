@@ -101,15 +101,48 @@ export const FORMATOS = [
     rotulo: 'material de ponto de venda',
     // MPDV e como a casa escreve "material de ponto de venda". Sem
     // essa sigla, vinte e seis pecas caiam em "outros".
-    teste: /wobbler|moldura|\bframe\b|tampa|embalagem|rotulo|\bbanner\b|\bkv\b|flyer|cartaz|adesivo|\bdisplay\b|\bm?pdv\b/,
+    teste: /wobbler|moldura|\bframe\b|tampa|embalagem|rotulo|\bbanner\b|\bkv\b|flyer|cartaz|adesivo|\bdisplay\b|\bm?pdv\b|\bplacas?\b|\bfachada\b|\boutdoor\b|\bletreiro\b/,
   },
-  { chave: 'campanha', rotulo: 'ação e campanha', teste: /acao promocional|campanha|\bpromo/ },
+  // Daqui para baixo vieram da Habiarte, uma construtora. As regras
+  // originais foram escritas lendo titulos de uma marca de alimentos, e
+  // 89% das pecas dela cairam em "outros". Vocabulario de formato e da
+  // AGENCIA, nao da industria: cada conta chama o trabalho do seu
+  // jeito, e esta lista cresce quando uma conta nova mostra que cresce.
+  { chave: 'apresentacao', rotulo: 'apresentação', teste: /\bppt\b|apresentacao|\bslides?\b|\btelao\b/ },
+  { chave: 'blog', rotulo: 'blog e artigo', teste: /\bblog\b|\bartigo\b/ },
+  { chave: 'seo', rotulo: 'SEO', teste: /\bseo\b|palavras?-?chave|busca organica/ },
+  { chave: 'midia', rotulo: 'mídia paga', teste: /\bads\b|\bmidia\b|impulsiona|trafego pago/ },
+  // "Acao" sozinho conta. Na Habiarte os titulos sao do tipo
+  // "Outubro Rosa - Acao Use Rosa - LinkedIn": e campanha, e a palavra
+  // que diz isso e uma so.
+  { chave: 'campanha', rotulo: 'ação e campanha', teste: /\bacoes?\b|campanha|\bpromo|outubro rosa|novembro azul/ },
+  // "Redes sociais" fica por ultimo de proposito: e o rotulo mais
+  // generico que a agencia usa, e quase toda peca de social poderia
+  // cair nele. So pega o que nao disse nada mais especifico.
+  { chave: 'redessociais', rotulo: 'redes sociais', teste: /redes sociais|\bsociais\b|social media/ },
   { chave: 'post', rotulo: 'post de feed', teste: /\bpost\b|publicacao|\bfeed\b|\bcapa/ },
 ]
 
 /** O que é trabalho de bastidor e não peça de conteúdo. */
+// `\bnf\b` entrou porque a Habiarte escreve "Institucional | NF de
+// Junho", e isso e nota fiscal com outro nome.
 const ADMINISTRATIVO =
-  /relatorio|timesheet|nota fiscal|calculos de verba|orcamento|\bboleto\b|contrato|reuniao|simulacoes|faturamento/
+  /relatorio|timesheet|nota fiscal|\bnf\b|calculos de verba|orcamento|\bboletos?\b|contrato|reuniao|simulacoes|faturamento/
+
+/**
+ * Comunicação para DENTRO da empresa do cliente, não para o público.
+ *
+ * SIPAT, aniversariantes do mês, convite de confraternização, telão do
+ * refeitório. É trabalho de verdade e consome horas de verdade, mas
+ * não é conteúdo de marca, e misturar os dois faria a IA propor pauta
+ * de rede social inspirada na semana de prevenção de acidentes.
+ *
+ * Uma construtora com centenas de funcionários gera muito disso, e
+ * quem não separa acha que a marca fala de um assunto que ela nunca
+ * falou em público.
+ */
+const ENDOMARKETING =
+  /\bsipat\b|aniversariantes|endomarketing|comunicado interno|\bconvites?\b|integracao de|colaboradores|\bcracha\b|uniforme|confraternizacao|semana interna/
 const PLANEJAMENTO = /planejamento|\bpauta\b|estrategia|posicionamento|\bplano\b|briefing|cronograma/
 
 const CANAIS = [
@@ -134,9 +167,11 @@ export function classificar(titulo) {
 
   const natureza = ADMINISTRATIVO.test(t)
     ? 'administrativo'
-    : PLANEJAMENTO.test(t)
-      ? 'planejamento'
-      : 'conteudo'
+    : ENDOMARKETING.test(t)
+      ? 'endomarketing'
+      : PLANEJAMENTO.test(t)
+        ? 'planejamento'
+        : 'conteudo'
 
   let formato = 'outros'
   if (natureza === 'conteudo') {
@@ -144,6 +179,29 @@ export function classificar(titulo) {
       if (f.teste.test(t)) {
         formato = f.chave
         break
+      }
+    }
+    // Segunda tentativa no titulo INTEIRO, incluindo o pedaco antes da
+    // primeira barra.
+    //
+    // O padrao normal e "linha | formato | assunto", e por isso a
+    // primeira tentativa usa so o que vem depois da linha: sem isso, o
+    // nome do cliente entraria na classificacao. Mas a Habiarte
+    // escreve tambem "Habiarte - Redes Sociais - SEO | Areas de Lazer
+    // Cidade de Ouro Preto", com o formato DENTRO da linha, e esses
+    // caiam todos em "sem formato".
+    //
+    // A ordem importa: o pedaco depois da barra ganha sempre, porque e
+    // onde o formato esta quando esta declarado. O titulo inteiro so e
+    // consultado quando a primeira tentativa nao achou nada, e ai um
+    // acerto vale mais que a duvida.
+    if (formato === 'outros') {
+      const inteiro = achatar(String(titulo ?? ''))
+      for (const f of FORMATOS) {
+        if (f.teste.test(inteiro)) {
+          formato = f.chave
+          break
+        }
       }
     }
   }
@@ -154,7 +212,13 @@ export function classificar(titulo) {
 
 /** O rótulo em português de um formato. */
 export function rotuloDoFormato(chave) {
-  return FORMATOS.find((f) => f.chave === chave)?.rotulo ?? 'outros'
+  // "outros" lido numa lista de formatos parece uma categoria, e com
+  // ele em primeiro lugar a leitura vira "esta agencia faz sobretudo
+  // outros". Nao e categoria: e a ausencia de formato no titulo, que
+  // numa conta cujo contrato e "redes sociais" acontece o tempo todo,
+  // porque o titulo nomeia o ASSUNTO.
+  if (chave === 'outros') return 'sem formato no título'
+  return FORMATOS.find((f) => f.chave === chave)?.rotulo ?? 'sem formato no título'
 }
 
 /** O rótulo de um canal. */
@@ -226,7 +290,10 @@ const VAZIAS = new Set(
     'conteudo post posts foto fotos video videos reels story stories carrossel email mkt ' +
     'influ influenciador influenciadora arte peca pecas material ' +
     'layout capa capas destaque destaques mpdv pdv wobbler moldura frame banner ' +
-    'planejamento relatorio timesheet pauta briefing collab colab trend data mail')
+    'planejamento relatorio timesheet pauta briefing collab colab trend data mail ' +
+    // Mes no titulo e organizacao de entrega, nao assunto da marca.
+    'janeiro fevereiro marco abril maio junho julho agosto setembro outubro ' +
+    'novembro dezembro mes mensal semana semanal')
     .split(' ')
     .filter(Boolean),
 )
@@ -239,14 +306,20 @@ const VAZIAS = new Set(
  * repete aparece, e o que apareceu uma vez some. Serve para a IA saber
  * que "geleia", "receita" e "40 anos" são o vocabulário desta conta.
  */
-export function temasRecorrentes(titulos, { minimo = 3, teto = 20 } = {}) {
+export function temasRecorrentes(titulos, { minimo = 3, teto = 20, ignorar = [] } = {}) {
+  // Nome de marca e de empreendimento e IDENTIDADE, nao assunto. Numa
+  // construtora com trinta empreendimentos, o nome de cada um aparece
+  // dezenas de vezes e empurra para fora da lista os assuntos de
+  // verdade. Quem sao esses nomes o proprio dado diz: sao as linhas
+  // dos titulos.
+  const fora = new Set([...VAZIAS, ...ignorar.map((t) => achatar(t)).filter(Boolean)])
   const conta = new Map()
   for (const titulo of titulos) {
     const limpo = limparTitulo(titulo)
     const palavras = achatar(limpo)
       .replace(/[^\p{L}\p{N}\s]/gu, ' ')
       .split(/\s+/u)
-      .filter((p) => p.length >= 3 && !VAZIAS.has(p) && !/^\d+$/.test(p))
+      .filter((p) => p.length >= 3 && !fora.has(p) && !/^\d+$/.test(p))
     // Uma vez por job: título que repete a palavra três vezes não vale
     // por três marcas.
     for (const p of new Set(palavras)) conta.set(p, (conta.get(p) ?? 0) + 1)
@@ -275,6 +348,7 @@ export function mediana(numeros) {
 export function montarPerfil(jobs) {
   const limpos = jobs.map((j) => ({
     titulo: String(j.titulo ?? ''),
+    linha: j.linha ?? null,
     minutos: Number(j.tempo_trabalhado ?? j.tempoTrabalhado ?? 0) || 0,
     quando: comoData(j.prazo) ?? comoData(j.criado_em) ?? comoData(j.criadoEm),
     ...classificar(j.titulo),
@@ -284,7 +358,7 @@ export function montarPerfil(jobs) {
   const soma = (lista) => lista.reduce((t, j) => t + j.minutos, 0)
 
   const porNatureza = {}
-  for (const nat of ['conteudo', 'planejamento', 'administrativo']) {
+  for (const nat of ['conteudo', 'endomarketing', 'planejamento', 'administrativo']) {
     const q = limpos.filter((j) => j.natureza === nat)
     porNatureza[nat] = { jobs: q.length, minutos: soma(q) }
   }
@@ -330,6 +404,27 @@ export function montarPerfil(jobs) {
   }
   const influ = juntarInfluenciadores(influBruto)
 
+  // As frentes: quando a marca reune varios cadastros do Operand, a
+  // linha do titulo diz de qual empreendimento, produto ou unidade e
+  // cada trabalho. Numa construtora isso e a informacao mais util do
+  // retrato inteiro, porque diz onde o esforco esta concentrado.
+  const porFrente = new Map()
+  for (const j of limpos) {
+    if (!j.linha) continue
+    const f = porFrente.get(j.linha) ?? { nome: j.linha, jobs: 0, minutos: 0 }
+    f.jobs++
+    f.minutos += j.minutos
+    porFrente.set(j.linha, f)
+  }
+  const frentes = [...porFrente.values()].sort((a, b) => b.jobs - a.jobs)
+
+  const palavrasDaIdentidade = []
+  for (const f of frentes) {
+    for (const p of achatar(f.nome).replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/u)) {
+      if (p.length >= 3) palavrasDaIdentidade.push(p)
+    }
+  }
+
   const porMesOrdenado = [...porMes.values()].sort((a, b) => a.mes.localeCompare(b.mes))
   const hojeTexto = comoData(new Date())
   const aindaPorVir = limpos.filter((j) => j.quando && hojeTexto && j.quando > hojeTexto).length
@@ -351,7 +446,18 @@ export function montarPerfil(jobs) {
     // Só das peças: "relatório", "timesheet" e "planejamento" são
     // nomes de processo interno, não assunto da marca, e entupiam a
     // lista com palavras que não ensinam nada sobre o que ela fala.
-    temas: temasRecorrentes(conteudo.map((j) => j.titulo)),
+    // As linhas viram tanto a lista de frentes quanto a lista de
+    // palavras a ignorar nos assuntos.
+    frentes,
+    temas: temasRecorrentes(conteudo.map((j) => j.titulo), { ignorar: palavrasDaIdentidade }),
+    // Titulos que nao encaixaram em formato nenhum. Existem para a
+    // proxima correcao das regras ser feita com prova na mao, e nao
+    // por adivinhacao: foi adivinhando que eu escrevi regras de
+    // alimentos e apliquei numa construtora.
+    exemplosSemFormato: conteudo
+      .filter((j) => j.formato === 'outros')
+      .slice(0, 12)
+      .map((j) => j.titulo),
     tipico: volumeTipico(porMesOrdenado),
     aindaPorVir,
   }
@@ -429,12 +535,21 @@ export function perfilEmTexto(p, { nomeDaMarca = 'a marca' } = {}) {
   }
 
   const c = p.natureza.conteudo
+  const en = p.natureza.endomarketing ?? { jobs: 0, minutos: 0 }
   const pl = p.natureza.planejamento
   const ad = p.natureza.administrativo
   linhas.push(
-    `Desses, ${c.jobs} são peças de conteúdo (${horas(c.minutos)}), ` +
+    `Desses, ${c.jobs} são peças de conteúdo para o público (${horas(c.minutos)}), ` +
+      (en.jobs > 0
+        ? `${en.jobs} são comunicação interna do cliente, como SIPAT e aniversariantes ` +
+          `(${horas(en.minutos)}), `
+        : '') +
       `${pl.jobs} são planejamento (${horas(pl.minutos)}) e ` +
-      `${ad.jobs} são administrativo, como relatório e nota fiscal (${horas(ad.minutos)}).`,
+      `${ad.jobs} são administrativo, como relatório e nota fiscal (${horas(ad.minutos)}).` +
+      (en.jobs > 0
+        ? ' A comunicação interna não deve inspirar pauta de rede social: ela fala com os ' +
+          'funcionários do cliente, não com o público da marca.'
+        : ''),
   )
 
   if (p.formatos.length) {
@@ -444,6 +559,14 @@ export function perfilEmTexto(p, { nomeDaMarca = 'a marca' } = {}) {
         (f.medianaMinutos ? ` (tipicamente ${horas(f.medianaMinutos)} cada)` : ''),
     )
     linhas.push(`Formatos produzidos, do mais frequente ao menos: ${partes.join('; ')}.`)
+    const semFormato = p.formatos.find((f) => f.chave === 'outros')
+    if (semFormato && semFormato.jobs > p.natureza.conteudo.jobs * 0.2) {
+      linhas.push(
+        `"Sem formato no título" não é um tipo de peça: são ${semFormato.jobs} trabalhos ` +
+          'cujo título nomeia o assunto e não o formato. Não conclua nada sobre formato a ' +
+          'partir desse número.',
+      )
+    }
   }
 
   if (p.canais.length) {
@@ -459,6 +582,15 @@ export function perfilEmTexto(p, { nomeDaMarca = 'a marca' } = {}) {
       `Influenciadores que já trabalharam com a marca: ` +
         p.influenciadores.map((i) => `${i.nome}${i.jobs > 1 ? ` (${i.jobs}x)` : ''}`).join(', ') +
         '.',
+    )
+  }
+
+  if (p.frentes && p.frentes.length > 1) {
+    const topo = p.frentes.slice(0, 10)
+    linhas.push(
+      `O trabalho se divide em ${p.frentes.length} frentes. As maiores: ` +
+        topo.map((f) => `${f.nome} (${f.jobs})`).join(', ') +
+        (p.frentes.length > 10 ? ', entre outras.' : '.'),
     )
   }
 

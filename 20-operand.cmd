@@ -24,7 +24,7 @@ echo    4  cru            ver a resposta crua de uma rota
 echo.
 echo    5  clientes       listar ou procurar clientes no Operand
 echo    6  marcas         ver quais marcas ja estao ligadas
-echo    7  ligar          ligar uma marca daqui a um cliente de la
+echo    7  ligar          ligar uma marca a um ou varios cadastros de la
 echo    8  desligar       desfazer a ligacao de uma marca
 echo.
 echo    9  jobs           ver o que entraria de uma marca, sem gravar
@@ -35,6 +35,7 @@ echo   13  perfil         montar o retrato de producao da marca
 echo.
 echo   14  preparar       ligar + sincronizar + retrato, de uma vez so
 echo   15  diario         a rotina de todo dia, em todas as marcas
+echo   16  padrao         cadastro novo do Operand entra sozinho na marca
 echo.
 set /p "N=  Numero: "
 
@@ -53,6 +54,7 @@ if "%N%"=="12" goto pedirMarcaLinhas
 if "%N%"=="13" goto pedirMarcaPerfil
 if "%N%"=="14" goto pedirPreparar
 if "%N%"=="15" set "CMD=diario"
+if "%N%"=="16" goto pedirPadrao
 goto rodar
 
 :pedirLigar
@@ -73,7 +75,26 @@ goto rodar
 :pedirDesligar
 set "CMD=desligar"
 echo.
+echo  Sem informar cadastro, desliga a marca inteira do Operand e
+echo  apaga a copia dos jobs e o retrato dela.
 set /p "A=  Slug da marca: "
+set /p "B=  Um cadastro so? (o numero, ou Enter para desligar tudo): "
+goto rodar
+
+:pedirPadrao
+set "CMD=padrao"
+echo.
+echo  Serve para marca cujo cliente cadastra cada trabalho como uma
+echo  conta separada no Operand, como uma construtora com um cadastro
+echo  por empreendimento. Todo cadastro cujo nome contiver o texto
+echo  entra nesta marca sozinho, inclusive os que forem criados depois.
+echo.
+echo  Antes de guardar, ele mostra quais cadastros casam com o texto,
+echo  para voce conferir se nao pegou conta de outro cliente.
+echo.
+echo  Deixe em branco para REMOVER o padrao da marca.
+set /p "A=  Slug da marca: "
+set /p "B=  Texto procurado no nome (ex: Habiarte): "
 goto rodar
 
 :pedirPreparar
@@ -84,7 +105,10 @@ echo  Antes, use a opcao 5 para achar o numero do cliente no Operand,
 echo  e a opcao 12 com esse numero para ver quais linhas existem nele.
 echo.
 set /p "A=  Slug da marca aqui no planner: "
-set /p "B=  Numero do cliente no Operand: "
+echo.
+echo  Pode informar VARIOS numeros separados por virgula, quando a
+echo  marca reune mais de um cadastro. Exemplo: 700,701,702
+set /p "B=  Numero(s) do cliente no Operand: "
 echo.
 echo  Se esse cliente abriga mais de uma marca, diga quais linhas sao
 echo  desta. Separe por virgula.

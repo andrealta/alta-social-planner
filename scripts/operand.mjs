@@ -37,7 +37,10 @@
  *   node scripts/operand.mjs clientes              os clientes que têm job
  *   node scripts/operand.mjs clientes queens        procura pelo nome
  *   node scripts/operand.mjs marcas                mostra as ligações daqui
- *   node scripts/operand.mjs ligar queensberry 486 liga uma marca a um cliente
+ *   node scripts/operand.mjs ligar habiarte 700,701,702
+ *                                                  liga a marca a varios cadastros
+ *   node scripts/operand.mjs padrao habiarte Habiarte
+ *                                                  cadastro novo que casar entra sozinho
  *   node scripts/operand.mjs desligar queensberry  desfaz a ligação
  *   node scripts/operand.mjs jobs queensberry      o que viria, sem gravar
  *   node scripts/operand.mjs perfil queensberry    monta o retrato de producao
@@ -301,10 +304,9 @@ function horas(minutos) {
 /**
  * Mostra o que a sincronizacao TRARIA, sem gravar nada.
  *
- * Existe para a primeira vez: antes de escrever a producao da agencia
- * dentro do planner, vale olhar o que vem. Se vier coisa de 2020 ou
- * job de outro cliente, melhor descobrir com uma listagem do que com
- * uma tabela cheia.
+ * Percorre todos os cadastros do Operand ligados a marca, nao um so:
+ * uma construtora com dez empreendimentos tem dez cadastros e um
+ * planejamento.
  */
 async function jobs(slug) {
   if (!slug) {
@@ -312,27 +314,47 @@ async function jobs(slug) {
   }
   const marca = await acharMarca(slug)
   if (!marca) await marcaNaoAchada(slug)
-  if (!marca.operand_client_id) {
+
+  const ligacoes = await ligacoesDa(marca.id)
+  if (ligacoes.length === 0) {
     erroFatal(
-      `A marca "${slug}" ainda nao esta ligada a um cliente do Operand.`,
-      'Ligue pela opcao 7 do menu, ou: node scripts/operand.mjs ligar ' + slug + ' 1234',
+      `A marca "${marca.slug}" ainda nao esta ligada a cadastro nenhum do Operand.`,
+      'Ligue pela opcao 7 do menu.',
     )
   }
 
   const sessao = await comSessao()
-  const { jobs: lista, descartes, recebidos } = await listarJobs(
-    sessao,
-    Number(marca.operand_client_id),
-  )
+  const lista = []
+  let recebidos = 0
+  const descartes = {}
+
+  for (const lig of ligacoes) {
+    const r = await listarJobs(sessao, Number(lig.cliente_id))
+    recebidos += r.recebidos
+    for (const [k, v] of Object.entries(r.descartes)) descartes[k] = (descartes[k] ?? 0) + v
+    // So o que e desta marca: o cadastro pode ser compartilhado.
+    const donas = await marcasDoCliente(Number(lig.cliente_id))
+    for (const j of r.jobs) {
+      const dona = marcaDoJob(j.linha, donas)
+      if (dona && dona.id === marca.id) lista.push({ ...j, deOndeVeio: lig.nome ?? lig.cliente_id })
+    }
+  }
+
   if (lista.length === 0) {
-    console.log(`  ${marca.name}: nenhum job recente no Operand.`)
-    console.log('  Isso pode ser o cliente certo sem trabalho aberto, ou o id errado.')
+    console.log(`  ${marca.name}: nenhum job recente nos ${ligacoes.length} cadastro(s) ligado(s).`)
+    console.log('  ' + explicarDescartes(descartes))
     return
   }
 
-  console.log(`  ${marca.name}: ${lista.length} job(s) que entrariam, de ${recebidos} linha(s).`)
+  console.log(
+    `  ${marca.name}: ${lista.length} job(s) que entrariam, de ${recebidos} linha(s) ` +
+      `em ${ligacoes.length} cadastro(s).`,
+  )
   console.log('  ' + explicarDescartes(descartes) + '\n')
-  const porPrazo = [...lista].sort((a, b) => String(a.prazo ?? '9999').localeCompare(String(b.prazo ?? '9999')))
+
+  const porPrazo = [...lista].sort((a, b) =>
+    String(a.prazo ?? '9999').localeCompare(String(b.prazo ?? '9999')),
+  )
   for (const j of porPrazo.slice(0, 40)) {
     // "2h55 de 0h" nao quer dizer nada. Sem orcamento, mostra so o
     // que foi apontado, que e o unico numero que existe.
@@ -356,14 +378,17 @@ async function jobs(slug) {
       : `\n  Somando: ${horas(gasto)} apontadas. Nenhum job tem tempo orcado no Operand.`,
   )
 
-  // Os dois numeros lado a lado. O primeiro e o job no Operand; o
-  // segundo e como a equipe se refere a ele dentro do cliente.
-  console.log('\n  Numeros dos tres primeiros:')
-  for (const j of lista.slice(0, 3)) {
-    console.log(
-      `    job=${j.jobId}   numero no cliente=${j.itemId ?? '-'}   ${j.titulo.slice(0, 44)}`,
-    )
+  if (ligacoes.length > 1) {
+    const porCadastro = new Map()
+    for (const j of lista) {
+      porCadastro.set(j.deOndeVeio, (porCadastro.get(j.deOndeVeio) ?? 0) + 1)
+    }
+    console.log('\n  Por cadastro do Operand:')
+    for (const [nome, n] of [...porCadastro.entries()].sort((a, b) => b[1] - a[1])) {
+      console.log(`    ${String(n).padStart(4)}  ${nome}`)
+    }
   }
+
   console.log('\n  Nada foi gravado. Para gravar, use a opcao 10 do menu.')
 }
 
@@ -401,7 +426,7 @@ async function perfil(slug, gravar) {
   if (!marca) await marcaNaoAchada(slug)
 
   const jobs = await sql`
-    select titulo, tempo_trabalhado, prazo, criado_em
+    select titulo, linha, tempo_trabalhado, prazo, criado_em
     from public.operand_jobs where brand_id = ${marca.id}
   `
   if (jobs.length === 0) {
@@ -417,10 +442,21 @@ async function perfil(slug, gravar) {
   const outros = p.formatos.find((f) => f.chave === 'outros')
   if (outros && outros.jobs > p.natureza.conteudo.jobs * 0.3) {
     console.log(
-      `\n  [atencao]  ${outros.jobs} de ${p.natureza.conteudo.jobs} pecas nao encaixaram em`,
+      `\n  [atencao]  ${outros.jobs} de ${p.natureza.conteudo.jobs} pecas nao dizem o`,
     )
-    console.log('             formato nenhum. Isso e muito, e quer dizer que as regras de')
-    console.log('             leitura dos titulos precisam de ajuste, nao que o dado e ruim.')
+    console.log('             formato no titulo.')
+    console.log('')
+    console.log('             Isso PODE ser normal: numa conta cujo contrato e "redes')
+    console.log('             sociais", o titulo costuma nomear o assunto, e nao o')
+    console.log('             formato. Nesse caso nao ha nada a consertar.')
+    console.log('')
+    console.log('             Olhe os exemplos abaixo. Se ALGUM deles tiver o formato')
+    console.log('             escrito e mesmo assim caiu aqui, e regra faltando, e eu')
+    console.log('             conserto. Se nenhum tiver, e assim mesmo.')
+    if (p.exemplosSemFormato && p.exemplosSemFormato.length) {
+      console.log('')
+      for (const t of p.exemplosSemFormato) console.log('               ' + t.slice(0, 76))
+    }
   }
 
   const naoGravar = String(gravar ?? '').trim().toLowerCase() === 'ver'
@@ -445,12 +481,44 @@ async function acharMarca(alvo) {
   if (!alvo) return null
   const t = String(alvo).trim()
   const [m] = await sql`
-    select id, name, slug, operand_client_id, operand_linhas
+    select id, name, slug, operand_padrao
     from public.brands
     where lower(slug) = lower(${t}) or lower(name) = lower(${t})
     limit 1
   `
   return m ?? null
+}
+
+/**
+ * Os cadastros do Operand que alimentam uma marca.
+ *
+ * Desde a 0035 sao varios: a Habiarte cadastra cada empreendimento
+ * como um cliente separado, e o planejamento de redes sociais dela e
+ * um so.
+ */
+async function ligacoesDa(brandId) {
+  return await sql`
+    select cliente_id, linhas, nome, por_padrao
+    from public.operand_ligacao
+    where brand_id = ${brandId}
+    order by por_padrao, cliente_id
+  `
+}
+
+/**
+ * As marcas que disputam os jobs de um cadastro do Operand.
+ *
+ * Quase sempre uma so. Duas quando a conta e de fabricante e abriga
+ * mais de uma marca, e ai quem separa e a linha do titulo.
+ */
+async function marcasDoCliente(clienteId) {
+  const linhas = await sql`
+    select b.id, b.name, b.slug, l.linhas
+    from public.operand_ligacao l
+    join public.brands b on b.id = l.brand_id
+    where l.cliente_id = ${clienteId}
+  `
+  return linhas.map((m) => ({ ...m, linhas: m.linhas ?? [] }))
 }
 
 /**
@@ -524,14 +592,15 @@ async function diario() {
   await sincronizar()
 
   const marcas = await sql`
-    select id, slug, name from public.brands
-    where operand_client_id is not null order by name
+    select b.id, b.slug, b.name from public.brands b
+    where exists (select 1 from public.operand_ligacao l where l.brand_id = b.id)
+    order by b.name
   `
   console.log('')
   for (const marca of marcas) {
     try {
       const jobs = await sql`
-        select titulo, tempo_trabalhado, prazo, criado_em
+        select titulo, linha, tempo_trabalhado, prazo, criado_em
         from public.operand_jobs where brand_id = ${marca.id}
       `
       if (jobs.length === 0) {
@@ -548,53 +617,67 @@ async function diario() {
 }
 
 /**
- * Quais linhas existem dentro do cliente do Operand, e de quem sao.
+ * Quais linhas de titulo existem dentro de um cadastro do Operand.
  *
  * Pergunta ao Operand em vez de ler a copia, de proposito: a copia so
  * tem o que ja foi reivindicado, e a pergunta aqui e justamente
- * "o que existe que ninguem pegou ainda". E assim que se descobre que
- * a conta da fabricante tem uma marca inteira esperando.
+ * "o que existe que ninguem pegou ainda".
+ *
+ * Aceita o numero do cadastro direto, e nao so marca ja ligada: para
+ * saber quais linhas existem numa conta, seria absurdo ter de ligar a
+ * marca a ela antes de saber se ela e mesmo a conta certa.
  */
 async function linhas(alvo) {
-  if (!alvo) erroFatal('Falta a marca ou o numero do cliente.')
+  if (!alvo) erroFatal('Falta a marca ou o numero do cadastro.')
 
-  // Aceita numero de cliente tambem, e nao so marca ja ligada. Sem
-  // isso a ordem seria absurda: para saber quais linhas existem numa
-  // conta, seria preciso ligar a marca a ela antes de saber se ela e
-  // mesmo a conta certa.
   const numero = Number(alvo)
-  const marca = Number.isInteger(numero) && numero > 0
-    ? { id: null, name: `Cliente ${numero}`, operand_client_id: numero }
-    : await acharMarca(alvo)
+  let cadastros = []
+  let quem = ''
 
-  if (!marca) await marcaNaoAchada(alvo)
-  if (!marca.operand_client_id) erroFatal(`A marca "${alvo}" ainda nao esta ligada.`)
-
-  const concorrentes = (
-    await sql`select id, name, slug, operand_linhas from public.brands
-              where operand_client_id = ${marca.operand_client_id}`
-  ).map((m) => ({ ...m, linhas: m.operand_linhas ?? [] }))
+  if (Number.isInteger(numero) && numero > 0) {
+    cadastros = [numero]
+    quem = `Cadastro ${numero}`
+  } else {
+    const marca = await acharMarca(alvo)
+    if (!marca) await marcaNaoAchada(alvo)
+    const ligacoes = await ligacoesDa(marca.id)
+    if (ligacoes.length === 0) erroFatal(`A marca "${marca.slug}" ainda nao esta ligada.`)
+    cadastros = ligacoes.map((l) => Number(l.cliente_id))
+    quem = marca.name
+  }
 
   const sessao = await comSessao()
-  const { jobs } = await listarJobs(sessao, Number(marca.operand_client_id))
-  if (jobs.length === 0) erroFatal('Esse cliente do Operand nao tem job recente.')
-
   const grupos = new Map()
-  for (const j of jobs) {
-    const nome = j.linha ?? '(sem linha no titulo)'
-    // Agrupa ignorando caixa e acento, mas guarda a escrita mais usada:
-    // a mesma marca aparece como "Queens", "QUEENSBERRY" e
-    // "Queensberry" ao longo dos anos, e sao a mesma coisa.
-    const chave = nome
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-    const g = grupos.get(chave) ?? { escritas: new Map(), n: 0, minutos: 0, exemplo: j.titulo }
-    g.n++
-    g.minutos += Number(j.tempoTrabalhado ?? 0)
-    g.escritas.set(nome, (g.escritas.get(nome) ?? 0) + 1)
-    grupos.set(chave, g)
+  let total = 0
+
+  for (const clienteId of cadastros) {
+    const donas = await marcasDoCliente(clienteId)
+    const { jobs } = await listarJobs(sessao, clienteId)
+    total += jobs.length
+    for (const j of jobs) {
+      const nome = j.linha ?? '(sem linha no titulo)'
+      // Agrupa ignorando caixa e acento, mas guarda a escrita mais
+      // usada: a mesma marca aparece como "Queens", "QUEENSBERRY" e
+      // "Queensberry" ao longo dos anos, e sao a mesma coisa.
+      const chave = nome
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+      const g = grupos.get(chave) ?? {
+        escritas: new Map(),
+        n: 0,
+        minutos: 0,
+        exemplo: j.titulo,
+        donas,
+      }
+      g.n++
+      g.minutos += Number(j.tempoTrabalhado ?? 0)
+      g.escritas.set(nome, (g.escritas.get(nome) ?? 0) + 1)
+      grupos.set(chave, g)
+    }
   }
+
+  if (total === 0) erroFatal('Nao ha job recente nesse ou nesses cadastros.')
 
   const lista = [...grupos.values()]
     .map((g) => ({
@@ -602,17 +685,18 @@ async function linhas(alvo) {
       n: g.n,
       minutos: g.minutos,
       exemplo: g.exemplo,
+      donas: g.donas,
     }))
     .sort((a, b) => b.n - a.n)
 
   console.log(
-    `  Cliente ${marca.operand_client_id} do Operand: ${jobs.length} job(s) recente(s), ` +
+    `  ${quem}: ${total} job(s) recente(s) em ${cadastros.length} cadastro(s), ` +
       `em ${lista.length} linha(s).\n`,
   )
   console.log('   jobs      horas   linha                          vai para')
   let semDono = 0
   for (const l of lista) {
-    const dona = marcaDoJob(l.nome, concorrentes)
+    const dona = marcaDoJob(l.nome, l.donas)
     if (!dona) semDono += l.n
     console.log(
       `  ${String(l.n).padStart(5)}   ${horas(l.minutos).padStart(8)}   ` +
@@ -632,31 +716,21 @@ async function linhas(alvo) {
 /**
  * Pergunta ao proprio Operand qual dos dois numeros e o job.
  *
- * A listagem devolve dois identificadores por linha: `itemId`, que na
- * Queensberry vai de 1 a 28, e `id`, que e grande e espalhado. Um dos
- * dois e o job; o outro e outra coisa. Supor errado aqui e escolher a
- * chave errada da tabela, e chave errada so aparece quando ja tem dado
- * dentro.
- *
- * A primeira tentativa foi so bater na rota `/beta/jobs/<n>/tasks` e
- * ver qual era aceita. Nao serviu: os dois numeros foram aceitos. Uma
- * rota que aceita qualquer numero nao esta dizendo "este e um job",
- * esta dizendo "achei alguma coisa com esse numero".
- *
- * A prova de verdade e outra: o proprio job ja diz quantas tarefas
- * tem, em `openedTasks`, `closedTasks` e `canceledTasks`. O numero
- * certo e o que faz a rota devolver essa mesma quantidade. Um numero
- * que devolve outra coisa achou o item errado, mesmo respondendo 200.
+ * Ficou como registro do metodo. A resposta ja e conhecida (e o campo
+ * `id`), e esta funcao e o que permite conferir de novo se um dia a
+ * API mudar: o proprio job declara quantas tarefas tem, e a rota que
+ * devolver essa mesma quantidade esta achando o job certo.
  */
 async function provar(slug) {
   if (!slug) erroFatal('Falta a marca.', 'Exemplo: opcao 11 do menu, com o slug.')
   const marca = await acharMarca(slug)
   if (!marca) await marcaNaoAchada(slug)
-  if (!marca.operand_client_id) erroFatal(`A marca "${slug}" ainda nao esta ligada.`)
+  const ligacoes = await ligacoesDa(marca.id)
+  if (ligacoes.length === 0) erroFatal(`A marca "${marca.slug}" ainda nao esta ligada.`)
 
   const sessao = await comSessao()
-  const { jobs: lista } = await listarJobs(sessao, Number(marca.operand_client_id))
-  if (lista.length === 0) erroFatal('Essa marca nao tem job nenhum para testar.')
+  const { jobs: lista } = await listarJobs(sessao, Number(ligacoes[0].cliente_id))
+  if (lista.length === 0) erroFatal('Esse cadastro nao tem job para testar.')
 
   const quantas = async (numero) => {
     if (!numero) return '-'
@@ -691,49 +765,30 @@ async function provar(slug) {
 
   console.log(`\n  O numero do job acertou ${acertosJob} de ${amostra.length}.`)
   console.log(`  O numero no cliente acertou ${acertosItem} de ${amostra.length}.`)
-
-  // As tarefas costumam trazer de volta a que job pertencem. Se
-  // trouxerem, isso encerra a discussao sem precisar de contagem.
-  const alvo = amostra[0]
-  try {
-    const corpo = await sessao.pedir(`/beta/jobs/${alvo.jobId}/tasks`)
-    const tarefas = extrairRegistros(corpo)
-    if (tarefas.length > 0) {
-      console.log('\n  Campos de uma tarefa (o numero do job pode estar dentro):')
-      console.log('    ' + Object.keys(tarefas[0]).join(', '))
-      for (const [k, v] of Object.entries(tarefas[0])) {
-        if (/job|item|parent/i.test(k) && (typeof v === 'number' || typeof v === 'string')) {
-          console.log(`    ${k} = ${v}`)
-        }
-      }
-    }
-  } catch {
-    // Diagnostico nao precisa dar certo para o resto valer.
-  }
 }
 
 /**
- * Lista os clientes do Operand de um jeito que dá para usar.
+ * Lista os clientes do Operand de um jeito que da para usar.
  *
- * São mais de quinhentos nomes ali, a maioria cadastro antigo sem job
- * nenhum. Despejar tudo na tela não ajuda ninguém a achar a marca que
- * interessa. Então, sem termo de busca, mostra só quem tem job ou já
- * está ligado a uma marca daqui; com termo, procura no cadastro
+ * Sao mais de quinhentos nomes ali, a maioria cadastro antigo sem job
+ * nenhum. Despejar tudo na tela nao ajuda ninguem a achar a conta que
+ * interessa. Entao, sem termo de busca, mostra so quem tem job ou ja
+ * esta ligado a uma marca daqui; com termo, procura no cadastro
  * inteiro.
  */
 async function clientes(termo) {
   const sessao = await comSessao()
   const lista = await listarClientes(sessao)
   if (lista.length === 0) {
-    console.log('  Nenhum cliente no Operand, ou o token não alcança o cadastro de clientes.')
+    console.log('  Nenhum cliente no Operand, ou o token nao alcanca o cadastro de clientes.')
     return
   }
-  const marcas = await sql`
-    select slug, name, operand_client_id from public.brands order by name
+
+  const ligacoes = await sql`
+    select l.cliente_id, b.slug, l.por_padrao
+    from public.operand_ligacao l join public.brands b on b.id = l.brand_id
   `
-  const ligado = new Map(
-    marcas.filter((m) => m.operand_client_id).map((m) => [Number(m.operand_client_id), m.slug]),
-  )
+  const ligado = new Map(ligacoes.map((l) => [Number(l.cliente_id), l]))
 
   const interessa = (c) => c.jobs > 0 || c.atrasados > 0 || ligado.has(c.id)
   const mostrar = termo
@@ -755,219 +810,347 @@ async function clientes(termo) {
 
   const teto = 60
   for (const c of mostrar.slice(0, teto)) {
-    const marca = ligado.get(c.id)
+    const lig = ligado.get(c.id)
     const partes = []
     if (c.jobs > 0) partes.push(`${c.jobs} job(s)`)
     if (c.atrasados > 0) partes.push(`${c.atrasados} atrasado(s)`)
     if (c.situacao && c.situacao !== 'active') partes.push(c.situacao)
     const cauda = partes.length ? '   ' + partes.join(', ') : ''
     console.log(
-      `  ${String(c.id).padStart(6)}  ${c.nome}${cauda}` +
-        (marca ? `   -> ja ligado a "${marca}"` : ''),
+      `  ${String(c.id).padStart(7)}  ${c.nome}${cauda}` +
+        (lig ? `   -> "${lig.slug}"${lig.por_padrao ? ' (por padrao)' : ''}` : ''),
     )
   }
   if (mostrar.length > teto) {
     console.log(`\n  ...e mais ${mostrar.length - teto}. Procure por parte do nome para encurtar.`)
   }
-  console.log('\n  Para ligar, use a opcao 7 do menu: ela pede o slug e o id.')
+  console.log('\n  Para ligar, use a opcao 7 do menu: ela aceita varios numeros de uma vez.')
 }
 
 async function marcas() {
   const linhas = await sql`
-    select b.slug, b.name, b.operand_client_id, b.operand_linhas,
+    select b.id, b.slug, b.name, b.operand_padrao,
            public.operand_ultima_sync(b.id) as ultima,
-           (select count(*) from public.operand_jobs j where j.brand_id = b.id) as jobs
+           (select count(*) from public.operand_jobs j where j.brand_id = b.id) as jobs,
+           (select count(*) from public.operand_ligacao l where l.brand_id = b.id) as cadastros
     from public.brands b order by b.name
   `
-  console.log('  Marcas e ligação com o Operand:\n')
+  console.log('  Marcas e ligacao com o Operand:\n')
   for (const m of linhas) {
-    if (!m.operand_client_id) {
-      console.log(`  ${m.name}  (${m.slug})   sem ligação`)
+    if (Number(m.cadastros) === 0) {
+      console.log(`  ${m.name}  (${m.slug})   sem ligacao`)
       continue
     }
     const quando = m.ultima ? new Date(m.ultima).toLocaleString('pt-BR') : 'nunca'
     console.log(
-      `  ${m.name}  (${m.slug})   cliente ${m.operand_client_id}   ` +
-        `${m.jobs} job(s)   última sincronização: ${quando}`,
+      `  ${m.name}  (${m.slug})   ${m.cadastros} cadastro(s)   ` +
+        `${m.jobs} job(s)   ultima sincronizacao: ${quando}`,
     )
-    if (m.operand_linhas && m.operand_linhas.length) {
-      console.log(`      linhas: ${m.operand_linhas.join(', ')}`)
+    if (m.operand_padrao) console.log(`      padrao de nome: "${m.operand_padrao}"`)
+
+    const ligacoes = await ligacoesDa(m.id)
+    for (const l of ligacoes.slice(0, 12)) {
+      console.log(
+        `      ${String(l.cliente_id).padStart(7)}  ${l.nome ?? ''}` +
+          (l.linhas && l.linhas.length ? `   linhas: ${l.linhas.join(', ')}` : '') +
+          (l.por_padrao ? '   (por padrao)' : ''),
+      )
     }
+    if (ligacoes.length > 12) console.log(`      ...e mais ${ligacoes.length - 12} cadastro(s).`)
   }
   console.log('')
 }
 
-async function ligar(slug, id, termos) {
-  const clienteId = Number(id)
-  if (!slug || !Number.isInteger(clienteId) || clienteId <= 0) {
-    erroFatal('Uso: node scripts/operand.mjs ligar <slug> <id do cliente> [linhas]')
+/**
+ * Liga uma marca a um ou mais cadastros do Operand.
+ *
+ * Aceita varios numeros separados por virgula porque esse e o formato
+ * real da Habiarte: um cadastro por empreendimento, um planejamento
+ * so. E aceita linhas porque o formato real da Queensberry e o
+ * contrario: um cadastro, varias marcas dentro.
+ *
+ * As duas coisas juntas sao raras mas possiveis, e nao custa nada
+ * suportar: as linhas valem para todos os cadastros informados.
+ */
+async function ligar(slug, ids, termos) {
+  if (!slug || !ids) {
+    erroFatal('Uso: node scripts/operand.mjs ligar <slug> <ids do cliente> [linhas]')
   }
   const marca = await acharMarca(slug)
   if (!marca) await marcaNaoAchada(slug)
 
-  // Varias marcas podem dividir o mesmo cliente do Operand: uma conta
-  // de fabricante costuma abrigar mais de uma marca. O que nao pode e
-  // duas marcas sem linha declarada no mesmo cliente, porque as duas
-  // pegariam tudo e cada job apareceria em dobro.
+  const clientes = String(ids)
+    .split(',')
+    .map((t) => Number(String(t).trim()))
+    .filter((n) => Number.isInteger(n) && n > 0)
+  if (clientes.length === 0) {
+    erroFatal(`"${ids}" nao tem numero de cliente nenhum.`, 'Exemplo: 3535 ou 3535,3612,3704')
+  }
+
   const linhas = String(termos ?? '')
     .split(',')
     .map((t) => t.trim())
     .filter(Boolean)
 
-  const [vizinha] = await sql`
-    select slug, name, operand_linhas from public.brands
-    where operand_client_id = ${clienteId} and slug <> ${slug}
-    order by name limit 1
-  `
-  if (vizinha && linhas.length === 0) {
-    erroFatal(
-      `O cliente ${clienteId} já é da marca "${vizinha.slug}".`,
-      'Para dividir a conta, diga quais linhas são desta marca. Exemplo: Queens,Queensberry',
-    )
-  }
-  if (vizinha && (!vizinha.operand_linhas || vizinha.operand_linhas.length === 0)) {
-    erroFatal(
-      `A marca "${vizinha.slug}" está nesse cliente sem linha declarada, então pega tudo.`,
-      'Declare as linhas dela primeiro, senão os jobs entrariam nas duas.',
-    )
+  // O que nao pode e duas marcas SEM linha declarada no mesmo cadastro:
+  // as duas pegariam tudo e cada job apareceria em dobro.
+  for (const clienteId of clientes) {
+    const vizinhas = (await marcasDoCliente(clienteId)).filter((m) => m.id !== marca.id)
+    if (vizinhas.length === 0) continue
+    if (linhas.length === 0) {
+      erroFatal(
+        `O cadastro ${clienteId} ja e da marca "${vizinhas[0].slug}".`,
+        'Para dividir, diga quais linhas do titulo sao desta marca.',
+      )
+    }
+    const semLinha = vizinhas.find((m) => m.linhas.length === 0)
+    if (semLinha) {
+      erroFatal(
+        `A marca "${semLinha.slug}" esta no cadastro ${clienteId} sem linha declarada, entao pega tudo.`,
+        'Declare as linhas dela primeiro, senao os jobs entrariam nas duas.',
+      )
+    }
   }
 
-  await sql`
-    update public.brands
-    set operand_client_id = ${clienteId},
-        operand_linhas = ${linhas.length ? linhas : null}
-    where id = ${marca.id}
-  `
-  console.log(`  "${marca.name}" ligada ao cliente ${clienteId} do Operand.`)
+  for (const clienteId of clientes) {
+    await sql`
+      insert into public.operand_ligacao (brand_id, cliente_id, linhas, por_padrao)
+      values (${marca.id}, ${clienteId}, ${linhas.length ? linhas : null}, false)
+      on conflict (brand_id, cliente_id) do update set
+        linhas = excluded.linhas, por_padrao = false
+    `
+  }
+
+  console.log(
+    `  "${marca.name}" ligada a ${clientes.length} cadastro(s) do Operand: ${clientes.join(', ')}`,
+  )
   console.log(
     linhas.length
       ? `  Linhas desta marca: ${linhas.join(', ')}`
-      : '  Sem linha declarada: esta marca fica com todos os jobs do cliente.',
+      : '  Sem linha declarada: esta marca fica com todos os jobs desses cadastros.',
   )
+
+  const todas = await ligacoesDa(marca.id)
+  if (todas.length > clientes.length) {
+    console.log(`  Ao todo a marca reune ${todas.length} cadastro(s) agora.`)
+  }
   console.log('  Agora: a opcao 10 do menu, com o slug.')
 }
 
-async function desligar(slug) {
-  if (!slug) erroFatal('Uso: node scripts/operand.mjs desligar <slug-da-marca>')
+/**
+ * Os cadastros que um padrao de nome pega.
+ *
+ * Fora os desativados. No cadastro da Habiarte ha empreendimentos
+ * marcados como `disabled`, que sao obra entregue e conta encerrada.
+ * Uma REGRA automatica deve trazer o que esta vivo; trazer conta
+ * encerrada faria o retrato da marca envelhecer sozinho, porque o
+ * numero de cadastros cresceria para sempre e nenhum deles produziria
+ * nada.
+ *
+ * Quem quiser um desativado especifico liga ele a mao, e a ligacao
+ * manual nao e mexida por nenhum padrao.
+ */
+function cadastrosDoPadrao(todos, termo) {
+  const casam = todos.filter((c) => pareceCom(c.nome, termo))
+  return {
+    vivos: casam.filter((c) => !c.situacao || c.situacao === 'active'),
+    desativados: casam.filter((c) => c.situacao && c.situacao !== 'active'),
+  }
+}
+
+/**
+ * Guarda o padrao de nome que traz cadastro novo sozinho.
+ *
+ * O problema que ele resolve: a Habiarte abre empreendimento o tempo
+ * todo, e ligacao feita a mao envelhece no dia seguinte. O proximo
+ * lancamento entra no Operand e fica invisivel aqui, sem ninguem
+ * perceber, porque nada avisa que apareceu um cadastro novo.
+ *
+ * Com o padrao, a sincronizacao procura os cadastros cujo nome contem
+ * o texto e liga os que faltam, gravando a ligacao marcada como
+ * automatica. Gravar em vez de resolver na hora e o que permite olhar
+ * a lista e desfazer o que entrou errado.
+ */
+async function padrao(slug, termo) {
+  if (!slug) erroFatal('Falta a marca.', 'Exemplo: opcao 16 do menu, com o slug.')
   const marca = await acharMarca(slug)
   if (!marca) await marcaNaoAchada(slug)
 
-  // Os jobs copiados vão junto: guardar produção de uma marca que não
-  // está mais ligada é guardar dado que ninguém vai atualizar.
-  const apagados = await sql`delete from public.operand_jobs where brand_id = ${marca.id}`
-  await sql`update public.brands set operand_client_id = null where id = ${marca.id}`
-  console.log(`  "${marca.name}" desligada. ${apagados.count} job(s) copiado(s) foram removidos.`)
+  const t = String(termo ?? '').trim()
+
+  if (!t) {
+    await sql`update public.brands set operand_padrao = null where id = ${marca.id}`
+    const apagadas = await sql`
+      delete from public.operand_ligacao where brand_id = ${marca.id} and por_padrao
+    `
+    console.log(`  Padrao removido de "${marca.name}".`)
+    if (apagadas.count > 0) {
+      console.log(`  ${apagadas.count} ligacao(oes) que tinham entrado por regra sairam junto.`)
+      console.log('  As que foram feitas a mao continuam.')
+    }
+    return
+  }
+
+  if (t.length < 3) {
+    erroFatal(
+      `"${t}" e curto demais para servir de padrao.`,
+      'Com duas letras, quase todo cadastro da agencia entraria.',
+    )
+  }
+
+  // Mostra o que vai acontecer ANTES de guardar. Um padrao largo
+  // demais puxaria cadastro de outro cliente para dentro da marca, e
+  // isso e o tipo de erro que so aparece quando a base ja esta suja.
+  const sessao = await comSessao()
+  const todos = await listarClientes(sessao)
+  const { vivos, desativados } = cadastrosDoPadrao(todos, t)
+
+  console.log(`  Padrao "${t}" para a marca ${marca.name}.\n`)
+  if (vivos.length === 0 && desativados.length === 0) {
+    erroFatal('Nenhum cadastro do Operand tem esse texto no nome.', 'Confira a escrita.')
+  }
+  if (vivos.length === 0) {
+    erroFatal(
+      `Os ${desativados.length} cadastro(s) com esse texto estao todos desativados.`,
+      'Se algum deles importa, ligue a mao pela opcao 7.',
+    )
+  }
+
+  console.log(`  ${vivos.length} cadastro(s) ativo(s) casam com ele:\n`)
+  for (const c of vivos.slice(0, 40)) {
+    console.log(`  ${String(c.id).padStart(7)}  ${c.nome}` + (c.jobs ? `   ${c.jobs} job(s)` : ''))
+  }
+  if (vivos.length > 40) console.log(`  ...e mais ${vivos.length - 40}.`)
+
+  if (desativados.length > 0) {
+    console.log(
+      `\n  ${desativados.length} cadastro(s) desativado(s) ficam de fora: ` +
+        desativados.slice(0, 5).map((c) => c.nome).join(', ') +
+        (desativados.length > 5 ? ', ...' : ''),
+    )
+    console.log('  Se algum deles importar, ligue a mao pela opcao 7.')
+  }
+
+  await sql`update public.brands set operand_padrao = ${t} where id = ${marca.id}`
+  console.log('\n  Padrao guardado. Os cadastros entram na proxima sincronizacao,')
+  console.log('  e cada um fica marcado como automatico na lista de ligacoes.')
+  console.log('  Se algum ai em cima nao for desta marca, o padrao esta largo demais.')
+}
+
+/**
+ * Desfaz a ligacao: a marca toda, ou um cadastro so.
+ *
+ * Os jobs copiados saem junto, e e isso mesmo: cópia de origem que
+ * nao existe mais nao e informacao, e uma marca que "lembra" de
+ * trabalho que nao vem mais de lugar nenhum passa a mentir devagar.
+ */
+async function desligar(slug, qual) {
+  if (!slug) erroFatal('Uso: node scripts/operand.mjs desligar <slug> [id do cadastro]')
+  const marca = await acharMarca(slug)
+  if (!marca) await marcaNaoAchada(slug)
+
+  const um = Number(String(qual ?? '').trim())
+  if (Number.isInteger(um) && um > 0) {
+    const fora = await sql`
+      delete from public.operand_ligacao where brand_id = ${marca.id} and cliente_id = ${um}
+    `
+    if (fora.count === 0) {
+      erroFatal(`A marca "${marca.slug}" nao esta ligada ao cadastro ${um}.`)
+    }
+    const jobs = await sql`
+      delete from public.operand_jobs where brand_id = ${marca.id} and cliente_id = ${um}
+    `
+    console.log(`  "${marca.name}" nao usa mais o cadastro ${um}.`)
+    console.log(`  ${jobs.count} job(s) sairam da copia.`)
+    const restam = await ligacoesDa(marca.id)
+    console.log(`  Ainda reune ${restam.length} cadastro(s).`)
+    return
+  }
+
+  const fora = await sql`delete from public.operand_ligacao where brand_id = ${marca.id}`
+  await sql`update public.brands set operand_padrao = null where id = ${marca.id}`
+  const jobs = await sql`delete from public.operand_jobs where brand_id = ${marca.id}`
+  await sql`delete from public.operand_perfil where brand_id = ${marca.id}`
+  console.log(`  "${marca.name}" desligada do Operand.`)
+  console.log(`  ${fora.count} ligacao(oes), ${jobs.count} job(s) e o retrato sairam.`)
 }
 
 /**
  * Traz os jobs do Operand para dentro da copia local.
  *
- * Uma chamada por CLIENTE do Operand, nao por marca. Marcas que
- * dividem a mesma conta da fabricante sao servidas pela mesma
- * resposta, e cada job vai para a marca cuja linha casa com o titulo.
- * Job de linha que ninguem reivindicou nao e gravado: ele volta
- * sozinho na proxima sincronizacao, quando a marca existir.
+ * Uma chamada por CADASTRO do Operand, nao por marca. Marcas que
+ * dividem o mesmo cadastro sao servidas pela mesma resposta, e cada
+ * job vai para a marca cuja linha casa com o titulo. Marca que reune
+ * varios cadastros recebe a soma deles.
+ *
+ * Antes de tudo, os padroes de nome sao resolvidos: cadastro novo que
+ * casa com o padrao de alguma marca entra sozinho, e entra GRAVADO na
+ * tabela de ligacoes, para ficar visivel.
  */
 async function sincronizar(slug) {
-  const ligadas = slug
-    ? await sql`select id, name, slug, operand_client_id, operand_linhas
-                from public.brands where slug = ${slug} and operand_client_id is not null`
-    : await sql`select id, name, slug, operand_client_id, operand_linhas
-                from public.brands where operand_client_id is not null order by name`
+  const marcas = slug
+    ? await sql`select id, name, slug, operand_padrao from public.brands
+                where lower(slug) = lower(${String(slug).trim()})
+                   or lower(name) = lower(${String(slug).trim()})`
+    : await sql`select id, name, slug, operand_padrao from public.brands order by name`
 
-  if (ligadas.length === 0) {
+  if (marcas.length === 0) {
+    console.log(slug ? `  A marca "${slug}" nao existe.` : '  Nao ha marca nenhuma.')
+    return
+  }
+
+  const sessao = await comSessao()
+  await resolverPadroes(sessao, marcas)
+
+  // Quais marcas, entre as pedidas, tem cadastro ligado.
+  const aServir = []
+  for (const m of marcas) {
+    const ligacoes = await ligacoesDa(m.id)
+    if (ligacoes.length > 0) aServir.push({ ...m, ligacoes })
+  }
+
+  if (aServir.length === 0) {
     console.log(
       slug
-        ? `  A marca "${slug}" não existe ou não está ligada a um cliente do Operand.`
-        : '  Nenhuma marca está ligada a um cliente do Operand ainda.',
+        ? `  A marca "${slug}" nao esta ligada a cadastro nenhum do Operand.`
+        : '  Nenhuma marca esta ligada ao Operand ainda.',
     )
     console.log('  Ligue pela opcao 7 do menu.')
     return
   }
 
-  // Quem divide a conta precisa ser conhecido mesmo quando so uma
-  // marca foi pedida: sem isso, um job da Hero cairia na Queensberry
-  // por falta de concorrente.
-  const clientes = [...new Set(ligadas.map((m) => Number(m.operand_client_id)))]
-  const todasDoCliente = await sql`
-    select id, name, slug, operand_client_id, operand_linhas
-    from public.brands
-    where operand_client_id = any(${clientes})
-  `
+  const clientes = [...new Set(aServir.flatMap((m) => m.ligacoes.map((l) => Number(l.cliente_id))))]
 
-  const sessao = await comSessao()
+  // Uma corrida de sincronizacao por marca, nao por cadastro: quem le
+  // o registro depois quer saber se a MARCA esta em dia.
+  const corridas = new Map()
+  for (const m of aServir) {
+    const [c] = await sql`
+      insert into public.operand_sync (brand_id) values (${m.id}) returning id
+    `
+    corridas.set(m.id, c.id)
+  }
+
+  const colhido = new Map(aServir.map((m) => [m.id, []]))
+  const orfaos = new Map()
+  const descartes = {}
+  const falhas = new Map()
 
   for (const clienteId of clientes) {
-    const concorrentes = todasDoCliente
-      .filter((m) => Number(m.operand_client_id) === clienteId)
-      .map((m) => ({ ...m, linhas: m.operand_linhas ?? [] }))
-    const aGravar = concorrentes.filter((m) => ligadas.some((l) => l.id === m.id))
-
-    const corridas = new Map()
-    for (const m of aGravar) {
-      const [c] = await sql`
-        insert into public.operand_sync (brand_id) values (${m.id}) returning id
-      `
-      corridas.set(m.id, c.id)
-    }
-
+    const donas = await marcasDoCliente(clienteId)
     try {
-      const { jobs, descartes } = await listarJobs(sessao, clienteId)
+      const r = await listarJobs(sessao, clienteId)
+      for (const [k, v] of Object.entries(r.descartes)) descartes[k] = (descartes[k] ?? 0) + v
 
-      const porMarca = new Map(aGravar.map((m) => [m.id, []]))
-      const orfaos = new Map()
-      for (const j of jobs) {
-        const dona = marcaDoJob(j.linha, concorrentes)
+      for (const j of r.jobs) {
+        const dona = marcaDoJob(j.linha, donas)
         if (!dona) {
-          orfaos.set(j.linha ?? '(sem linha)', (orfaos.get(j.linha ?? '(sem linha)') ?? 0) + 1)
+          const nome = j.linha ?? '(sem linha)'
+          orfaos.set(nome, (orfaos.get(nome) ?? 0) + 1)
           continue
         }
-        if (!porMarca.has(dona.id)) continue // marca do cliente que nao foi pedida agora
-        porMarca.get(dona.id).push(j)
-      }
-
-      for (const marca of aGravar) {
-        const meus = porMarca.get(marca.id) ?? []
-        for (const j of meus) await gravarJob(marca.id, j)
-
-        // Job que sumiu da resposta saiu de ativo no Operand, ou mudou
-        // de dono para outra marca. Some da copia tambem, senao a
-        // analise carrega trabalho que nao e mais dali.
-        const vivos = meus.map((j) => j.jobId)
-        const sumidos = vivos.length
-          ? await sql`delete from public.operand_jobs
-                      where brand_id = ${marca.id} and job_id <> all(${vivos})`
-          : await sql`delete from public.operand_jobs where brand_id = ${marca.id}`
-
-        await sql`
-          update public.operand_sync
-          set terminou_em = now(), jobs = ${meus.length}, ok = true
-          where id = ${corridas.get(marca.id)}
-        `
-        const orcado = meus.reduce((t, j) => t + (j.tempoEstimado ?? 0), 0)
-        const gasto = meus.reduce((t, j) => t + (j.tempoTrabalhado ?? 0), 0)
-        console.log(
-          `  ${marca.name}: ${meus.length} job(s)` +
-            (sumidos.count > 0 ? `, ${sumidos.count} sairam da lista` : '') +
-            (orcado || gasto ? `, ${horas(orcado)} orcadas e ${horas(gasto)} apontadas` : ''),
-        )
-        if (porLinha.size > 0) {
-          const quais = [...porLinha.entries()]
-            .sort((x, y) => y[1] - x[1])
-            .map(([nome, n]) => `${nome} (${n})`)
-          console.log(`      linhas que entraram: ${quais.join(', ')}`)
-        }
-      }
-
-      console.log('    ' + explicarDescartes(descartes))
-      if (orfaos.size > 0) {
-        const total = [...orfaos.values()].reduce((a, b) => a + b, 0)
-        const quais = [...orfaos.entries()]
-          .sort((x, y) => y[1] - x[1])
-          .slice(0, 6)
-          .map(([nome, n]) => `${nome} (${n})`)
-        console.log(`    ${total} job(s) de linha sem marca, nao gravados: ${quais.join(', ')}`)
-        console.log('    Eles entram sozinhos quando alguma marca reivindicar essas linhas.')
+        if (!colhido.has(dona.id)) continue // marca que nao foi pedida agora
+        colhido.get(dona.id).push(j)
       }
     } catch (e) {
       const mensagem =
@@ -976,20 +1159,146 @@ async function sincronizar(slug) {
           : e && e.message
             ? e.message
             : String(e)
-      for (const marca of aGravar) {
-        await sql`
-          update public.operand_sync
-          set terminou_em = now(), ok = false, erro = ${mensagem.slice(0, 500)}
-          where id = ${corridas.get(marca.id)}
-        `
-        console.error(`  ${marca.name}: FALHOU. ${mensagem}`)
+      // Um cadastro que falha nao pode fazer a marca perder os outros.
+      for (const d of donas) {
+        if (!falhas.has(d.id)) falhas.set(d.id, [])
+        falhas.get(d.id).push(`cadastro ${clienteId}: ${mensagem}`)
       }
+      console.error(`  [falha]  cadastro ${clienteId}: ${mensagem}`)
     }
+  }
+
+  for (const marca of aServir) {
+    const meus = colhido.get(marca.id) ?? []
+    const problemas = falhas.get(marca.id) ?? []
+
+    // Com um cadastro fora do ar, apagar o que sumiu apagaria trabalho
+    // que existe. Entao grava o que veio e nao apaga nada.
+    if (problemas.length > 0 && meus.length === 0) {
+      await sql`
+        update public.operand_sync
+        set terminou_em = now(), ok = false, erro = ${problemas.join(' | ').slice(0, 500)}
+        where id = ${corridas.get(marca.id)}
+      `
+      console.error(`  ${marca.name}: FALHOU. ${problemas[0]}`)
+      continue
+    }
+
+    for (const j of meus) await gravarJob(marca.id, j)
+
+    let sumidos = { count: 0 }
+    if (problemas.length === 0) {
+      const vivos = meus.map((j) => j.jobId)
+      sumidos = vivos.length
+        ? await sql`delete from public.operand_jobs
+                    where brand_id = ${marca.id} and job_id <> all(${vivos})`
+        : await sql`delete from public.operand_jobs where brand_id = ${marca.id}`
+    }
+
+    await sql`
+      update public.operand_sync
+      set terminou_em = now(), jobs = ${meus.length}, ok = ${problemas.length === 0},
+          erro = ${problemas.length ? problemas.join(' | ').slice(0, 500) : null}
+      where id = ${corridas.get(marca.id)}
+    `
+
+    const orcado = meus.reduce((t, j) => t + (j.tempoEstimado ?? 0), 0)
+    const gasto = meus.reduce((t, j) => t + (j.tempoTrabalhado ?? 0), 0)
+    console.log(
+      `  ${marca.name}: ${meus.length} job(s) de ${marca.ligacoes.length} cadastro(s)` +
+        (sumidos.count > 0 ? `, ${sumidos.count} sairam da lista` : '') +
+        (orcado || gasto ? `, ${horas(orcado)} orcadas e ${horas(gasto)} apontadas` : ''),
+    )
+
+    // Quais linhas esta marca de fato capturou, com a contagem. Sem
+    // isso, um termo largo demais entra em silencio: o total sobe e
+    // ninguem percebe que entrou trabalho de outra conta.
+    const porLinha = new Map()
+    for (const j of meus) {
+      const nome = j.linha ?? '(sem linha)'
+      porLinha.set(nome, (porLinha.get(nome) ?? 0) + 1)
+    }
+    if (porLinha.size > 0 && porLinha.size <= 12) {
+      const quais = [...porLinha.entries()]
+        .sort((x, y) => y[1] - x[1])
+        .map(([nome, n]) => `${nome} (${n})`)
+      console.log(`      linhas que entraram: ${quais.join(', ')}`)
+    } else if (porLinha.size > 12) {
+      console.log(`      ${porLinha.size} linhas diferentes de titulo`)
+    }
+
+    if (problemas.length > 0) {
+      console.log(`      [atencao]  ${problemas.length} cadastro(s) falharam; nada foi apagado.`)
+    }
+  }
+
+  console.log('    ' + explicarDescartes(descartes))
+  if (orfaos.size > 0) {
+    const total = [...orfaos.values()].reduce((a, b) => a + b, 0)
+    const quais = [...orfaos.entries()]
+      .sort((x, y) => y[1] - x[1])
+      .slice(0, 6)
+      .map(([nome, n]) => `${nome} (${n})`)
+    console.log(`    ${total} job(s) de linha sem marca, nao gravados: ${quais.join(', ')}`)
   }
 
   if (sessao.entrouDeNovo() > 0) {
     console.log(
       `\n  [nota]  O token autenticado foi renovado ${sessao.entrouDeNovo()} vez(es) no meio.`,
+    )
+  }
+}
+
+/**
+ * Liga sozinha os cadastros novos que casam com o padrao de cada marca.
+ *
+ * So pede a lista de clientes quando alguma marca tem padrao: a
+ * chamada custa e a maioria das marcas nao precisa dela.
+ */
+async function resolverPadroes(sessao, marcas) {
+  const comPadrao = marcas.filter((m) => (m.operand_padrao ?? '').trim())
+  if (comPadrao.length === 0) return
+
+  const todos = await listarClientes(sessao)
+  for (const marca of comPadrao) {
+    const termo = String(marca.operand_padrao).trim()
+    const { vivos } = cadastrosDoPadrao(todos, termo)
+
+    const antes = await sql`
+      select cliente_id from public.operand_ligacao
+      where brand_id = ${marca.id} and por_padrao
+    `
+    const tinha = new Set(antes.map((l) => Number(l.cliente_id)))
+
+    for (const c of vivos) {
+      await sql`
+        insert into public.operand_ligacao (brand_id, cliente_id, nome, por_padrao)
+        values (${marca.id}, ${c.id}, ${c.nome}, true)
+        on conflict (brand_id, cliente_id) do update set nome = excluded.nome
+      `
+    }
+
+    // Cadastro que saiu do padrao (foi desativado, ou o nome mudou)
+    // deixa de alimentar a marca. So os que entraram por regra sao
+    // mexidos: ligacao feita a mao e decisao de alguem e fica.
+    const agora = new Set(vivos.map((c) => Number(c.id)))
+    const sairam = [...tinha].filter((id) => !agora.has(id))
+    for (const id of sairam) {
+      await sql`
+        delete from public.operand_ligacao
+        where brand_id = ${marca.id} and cliente_id = ${id} and por_padrao
+      `
+      await sql`
+        delete from public.operand_jobs where brand_id = ${marca.id} and cliente_id = ${id}
+      `
+    }
+
+    const novos = vivos.filter((c) => !tinha.has(Number(c.id))).length
+    console.log(
+      `  ${marca.name}: padrao "${termo}" reune ${vivos.length} cadastro(s) ativo(s)` +
+        (novos > 0 ? `, ${novos} novo(s)` : '') +
+        (sairam.length > 0 ? `, ${sairam.length} sairam` : '') +
+        '.',
     )
   }
 }
@@ -1045,16 +1354,17 @@ try {
   else if (comando === 'provar') await provar(a)
   else if (comando === 'linhas') await linhas(a)
   else if (comando === 'perfil') await perfil(a, b)
+  else if (comando === 'padrao') await padrao(a, b)
   else if (comando === 'preparar') await preparar(a, b, c)
   else if (comando === 'diario') await diario()
   else if (comando === 'conferir' || !comando) await conferir()
   else if (comando === 'clientes') await clientes(a)
   else if (comando === 'marcas') await marcas()
   else if (comando === 'ligar') await ligar(a, b, c)
-  else if (comando === 'desligar') await desligar(a)
+  else if (comando === 'desligar') await desligar(a, b)
   else if (comando === 'sincronizar') await sincronizar(a)
   else {
-    console.log('  Comandos: rede, conferir, sondar, cru, clientes, marcas, ligar, desligar, jobs, provar, linhas, perfil, preparar, diario, sincronizar')
+    console.log('  Comandos: rede, conferir, sondar, cru, clientes, marcas, ligar, desligar, jobs, provar, linhas, perfil, padrao, preparar, diario, sincronizar')
   }
 } catch (e) {
   // O erro de rede já vem com a causa aberta em `.rede`; os outros
