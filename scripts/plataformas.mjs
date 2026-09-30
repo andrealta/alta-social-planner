@@ -141,66 +141,118 @@ const FONTES = {
  * pesquisa e enche a nota de coisa que ninguem vai usar.
  */
 async function plataformasEmUso() {
-  const linhas = await sql`
-    select distinct platform::text as p from public.content_channels
-    where platform is not null
-    union
-    select distinct platform::text from public.brand_platforms
-    where platform is not null
+  // O que a agencia PUBLICA, primeiro. `brand_platforms` e declaracao,
+  // e declaracao envelhece: uma marca que um dia pensou em LinkedIn
+  // deixa a linha la para sempre. `content_channels` e o que foi de
+  // fato planejado, e so ele responde onde o trabalho acontece.
+  //
+  // Isso tem consequencia direta no custo: a primeira corrida leu 71
+  // paginas e cobrou US$ 1,32, sendo 19 delas de LinkedIn para uma
+  // agencia cujo trabalho e quase todo Instagram.
+  const publicadas = await sql`
+    select platform::text as p, count(*)::int as n
+    from public.content_channels where platform is not null
+    group by 1 order by 2 desc
   `
-  const achadas = linhas.map((l) => l.p).filter((p) => FONTES[p])
-  // Sem nenhuma gravada, o padrao e onde a verba vai: Meta.
-  return achadas.length > 0 ? achadas.sort() : ['instagram', 'facebook']
+  const boas = publicadas.filter((l) => FONTES[l.p])
+  if (boas.length > 0) {
+    console.log('  Plataformas, pelo que ja foi planejado:')
+    for (const l of boas) console.log('    ' + String(l.n).padStart(5) + '  ' + l.p)
+    return boas.map((l) => l.p)
+  }
+
+  // Sem nada planejado ainda, vale a declaracao.
+  const declaradas = await sql`
+    select distinct platform::text as p from public.brand_platforms where platform is not null
+  `
+  const outras = declaradas.map((l) => l.p).filter((p) => FONTES[p])
+  if (outras.length > 0) {
+    console.log('  Nenhuma publicacao planejada ainda. Usando o que a base declara.')
+    return outras.sort()
+  }
+  // Nem uma coisa nem outra: o padrao e onde a verba vai.
+  console.log('  Nada gravado. Usando o padrao: Meta.')
+  return ['instagram', 'facebook']
 }
 
-function pergunta(plataformas, dias) {
+/** Em que setores os clientes atuam. Serve para cortar regra que nao e deles. */
+async function setores() {
+  const linhas = await sql`
+    select distinct segment from public.brands
+    where arquivada_em is null and segment is not null and btrim(segment) <> ''
+  `
+  return linhas.map((l) => String(l.segment).trim()).sort()
+}
+
+function pergunta(plataformas, dias, ondeAtuam) {
   const nomes = plataformas.join(', ')
+  const setoresTexto =
+    ondeAtuam.length > 0
+      ? `\n\nOs clientes desta agencia atuam em: ${ondeAtuam.join(', ')}. Regra de publicidade de
+categoria que nenhum deles toca (cassino, apostas, adulto, horoscopo, farmaceutico,
+politica e afins) NAO interessa e nao deve entrar.`
+      : ''
+
   return `Voce e o pesquisador de uma agencia de comunicacao brasileira. Sua tarefa e uma so:
 dizer o que MUDOU nestas plataformas nos ultimos ${dias} dias, lendo apenas o que a
 propria plataforma publicou.
 
-Plataformas: ${nomes}.
+Plataformas: ${nomes}.${setoresTexto}
 
-O QUE INTERESSA
+A PERGUNTA, EXATA
 
-Mudanca que afeta COMO uma peca e feita ou QUAL formato e objetivo existem:
+"O que mudou no que a agencia PODE ENTREGAR?" Ou seja: o que muda o arquivo que sai
+daqui, o texto que o acompanha, ou a campanha que o impulsiona.
 
-- formato novo, formato aposentado, formato renomeado
+ENTRA
+
+- formato novo, aposentado ou renomeado
 - objetivo de campanha novo ou removido
-- limite que mudou: duracao, proporcao, numero de caracteres, tamanho de arquivo
-- recurso novo de publicacao ou de edicao
-- regra de publicidade ou de rotulagem que muda o que pode ir na peca
+- limite que mudou: duracao, proporcao, caracteres, tamanho de arquivo
+- recurso de PUBLICACAO que a agencia passa a poder usar (link em post organico,
+  agendamento, um tipo de peca que antes nao existia)
+- regra de direitos, publicidade ou rotulagem que muda o que pode ir na peca
 
-O QUE NAO INTERESSA, E VOCE NAO DEVE ESCREVER
+NAO ENTRA, E ESTA E A PARTE QUE MAIS ERRA
 
-- qualquer afirmacao sobre o que performa melhor, rende mais ou tem mais alcance
+- qualquer afirmacao sobre o que performa melhor, rende mais ou alcanca mais
 - "boas praticas", dicas, melhores horarios, numero ideal de hashtags
+- recurso de quem CONSOME: modo de assistir, tela de TV, tradução para o espectador,
+  legenda automatica para quem ve. Nada disso muda o que a agencia entrega.
+- assinatura, plano pago e preco, a menos que o recurso preso no plano seja de
+  publicacao. Nesse caso diga QUAL recurso e que ele esta dentro de plano pago.
+- evento, programa e acao de marketing da propria plataforma
+- ferramenta de IA da plataforma que nao muda o arquivo entregue
 - previsao sobre o que vai acontecer
-- lancamento de produto que nao muda o trabalho de quem publica
 - qualquer coisa sem data e sem link
+
+NO MAXIMO 8 ITENS, somando todas as plataformas. Se achar mais, escolha os que mais
+mudam o trabalho e deixe o resto de fora. Nota longa nao e nota melhor: ela entra no
+prompt de todos os planejamentos, e o que sobra ali empurra para fora o que importa.
 
 Se nao houve mudanca relevante no periodo, DIGA ISSO. "Nada relevante mudou" e uma
 resposta certa e util, e acontece na maioria das semanas. Encher a nota para parecer
-produtiva e o pior resultado possivel: ela entra no planejamento de todas as marcas.
+produtiva e o pior resultado possivel.
 
 COMO ESCREVER
 
 Portugues do Brasil. Nao use travessao (o sinal comprido) em lugar nenhum: use virgula,
-dois-pontos ou parenteses. Seja curto. Cada item em uma ou duas frases, com a data entre
-parenteses e o link. Sem adjetivo de propaganda.
+dois-pontos ou parenteses. Uma plataforma por paragrafo, comecando pelo nome dela. Cada
+item em UMA frase, com a data entre parenteses. Os links nao vao no texto: vao so na
+lista de fontes. Sem adjetivo de propaganda.
 
 RESPONDA SOMENTE COM JSON, nesta forma, e nada alem dele:
 
 {
   "mudou": true ou false,
-  "texto": "A nota inteira, ja pronta para ser lida por uma pessoa. Se mudou for false, uma frase dizendo que nada relevante mudou no periodo e nas plataformas olhadas.",
+  "texto": "A nota inteira, pronta para uma pessoa ler. No maximo 1500 caracteres.",
   "fontes": [{"titulo": "titulo da pagina", "url": "endereco exato"}]
 }
 
 Em "fontes" liste apenas paginas que voce realmente leu e usou no texto.`
 }
 
-async function buscar(plataformas, dias) {
+async function buscar(plataformas, dias, ondeAtuam) {
   if (!CHAVE) {
     erroFatal(
       'Nao achei ANTHROPIC_API_KEY no .env.local.',
@@ -209,7 +261,6 @@ async function buscar(plataformas, dias) {
   }
 
   const dominios = [...new Set(plataformas.flatMap((p) => FONTES[p] ?? []))]
-  console.log('  Plataformas: ' + plataformas.join(', '))
   console.log('  Fontes travadas em: ' + dominios.join(', '))
   console.log('  Periodo: ultimos ' + dias + ' dias')
   console.log('  Modelo: ' + MODELO)
@@ -224,7 +275,12 @@ async function buscar(plataformas, dias) {
     },
     body: JSON.stringify({
       model: MODELO,
-      max_tokens: 4000,
+      // Oito mil, e nao quatro. A primeira corrida de verdade bateu no
+      // teto de quatro mil e voltou cortada no meio de uma palavra, com
+      // o JSON sem fechar. O teto existe para o custo nao escapar, mas
+      // teto que corta a resposta nao economiza nada: paga a busca
+      // inteira e joga o resultado fora.
+      max_tokens: 8000,
       tools: [
         {
           type: 'web_search_20250305',
@@ -235,7 +291,7 @@ async function buscar(plataformas, dias) {
           allowed_domains: dominios,
         },
       ],
-      messages: [{ role: 'user', content: pergunta(plataformas, dias) }],
+      messages: [{ role: 'user', content: pergunta(plataformas, dias, ondeAtuam) }],
     }),
   })
 
@@ -263,6 +319,11 @@ async function buscar(plataformas, dias) {
     }
   }
 
+  // Resposta cortada nao e resposta. Sem esta checagem, o pedaco que
+  // chegou vira nota, e a unica pista seria o JSON aparecendo cru na
+  // tela, duas linhas acima de onde ninguem olha.
+  const cortada = dado.stop_reason === 'max_tokens'
+
   const buscas = Number(dado.usage?.server_tool_use?.web_search_requests ?? 0)
   const p = PRECO[MODELO] ?? PRECO['claude-opus-5']
   const custo =
@@ -270,7 +331,7 @@ async function buscar(plataformas, dias) {
     (Number(dado.usage?.output_tokens ?? 0) / 1e6) * p.saida +
     buscas * CUSTO_POR_BUSCA_USD
 
-  return { texto: ultimoTexto, lidas, buscas, custo, bruto: dado }
+  return { texto: ultimoTexto, lidas, buscas, custo, cortada }
 }
 
 function moldura(titulo) {
@@ -282,9 +343,11 @@ function moldura(titulo) {
 function mostrarNota(n) {
   const situacao = n.descartada_em
     ? 'DESCARTADA em ' + quando(n.descartada_em)
-    : n.aprovada_em
-      ? 'VALENDO desde ' + quando(n.aprovada_em) + (n.aprovada_nome ? ' por ' + n.aprovada_nome : '')
-      : 'PENDENTE, ainda nao vale para a geracao'
+    : n.problema
+      ? 'QUEBRADA, nao pode ser aprovada'
+      : n.aprovada_em
+        ? 'VALENDO desde ' + quando(n.aprovada_em) + (n.aprovada_nome ? ' por ' + n.aprovada_nome : '')
+        : 'PENDENTE, ainda nao vale para a geracao'
   moldura('Nota ' + n.id + '  ' + quando(n.quando) + '   [' + situacao + ']')
   for (const linha of String(n.texto).split('\n')) console.log('  ' + linha)
 
@@ -352,6 +415,9 @@ async function aPendente() {
   return n ?? null
 }
 
+/** Nota velha demais para continuar valendo sozinha. */
+const DIAS_ATE_ENVELHECER = 45
+
 /* ---------------------------------------------------------------- */
 
 async function ver() {
@@ -366,7 +432,7 @@ async function ver() {
   if (valendo) {
     const dias = Math.floor((Date.now() - new Date(valendo.quando).getTime()) / 86400000)
     mostrarNota(valendo)
-    if (dias > 45) {
+    if (dias > DIAS_ATE_ENVELHECER) {
       console.log('  [atencao]  Esta nota tem ' + dias + ' dias. Ela continua entrando em')
       console.log('             todo planejamento. Gere uma nova.\n')
     }
@@ -385,23 +451,42 @@ async function ver() {
 async function gerar(diasTexto) {
   const dias = Number(diasTexto) > 0 ? Math.min(365, Math.floor(Number(diasTexto))) : 30
   const plataformas = await plataformasEmUso()
-  const r = await buscar(plataformas, dias)
+  const ondeAtuam = await setores()
+  if (ondeAtuam.length > 0) console.log('  Setores dos clientes: ' + ondeAtuam.join(', '))
+  const r = await buscar(plataformas, dias, ondeAtuam)
   const nota = lerNota(r.texto)
 
-  if (nota.cru) {
-    console.log('  [atencao]  A resposta nao veio no formato esperado. Gravei o texto')
-    console.log('             cru, sem lista de fontes. Leia com mais cuidado.\n')
-  }
+  // Guardar mesmo quebrada, e marcar. Jogar fora perderia o que ja foi
+  // pago; deixar sem marca deixaria aprovar. O banco recusa aprovar
+  // nota com problema (migracao 0039), entao a marca e a trava.
+  const problema = r.cortada
+    ? 'a resposta foi cortada no teto de tokens'
+    : nota.cru
+      ? 'a resposta nao veio no formato esperado'
+      : null
 
   const [gravada] = await sql`
     insert into public.plataforma_nota
-      (periodo_dias, texto, fontes, lidas, buscas, custo_usd, modelo)
+      (periodo_dias, texto, fontes, lidas, buscas, custo_usd, modelo, problema)
     values (${dias}, ${nota.texto}, ${sql.json(nota.fontes)}, ${sql.json(r.lidas)},
-            ${r.buscas}, ${r.custo}, ${MODELO})
+            ${r.buscas}, ${r.custo}, ${MODELO}, ${problema})
     returning *
   `
 
   mostrarNota(gravada)
+
+  if (problema) {
+    console.log('  [PROBLEMA]  ' + problema + '.')
+    console.log('              Esta nota NAO pode ser aprovada, e o banco recusa se voce')
+    console.log('              tentar. Descarte (opcao 4) e gere outra.')
+    if (r.cortada) {
+      console.log('              Se repetir, peca um periodo menor: ' + dias + ' dias em')
+      console.log('              ' + plataformas.length + ' plataforma(s) pode ser muito texto.')
+    }
+    console.log('')
+    return
+  }
+
   console.log('  A nota esta PENDENTE: ela ainda nao entra em planejamento nenhum.')
   console.log('  Leia o texto acima. Se concordar, use a opcao de aprovar.')
   console.log('  Se nao concordar, descarte e gere outra.\n')
@@ -411,6 +496,11 @@ async function aprovar() {
   const pendente = await aPendente()
   if (!pendente) {
     console.log('\n  Nao ha nota pendente para aprovar.\n')
+    return
+  }
+  if (pendente.problema) {
+    console.log('\n  A nota ' + pendente.id + ' chegou quebrada: ' + pendente.problema + '.')
+    console.log('  Ela nao pode ser aprovada. Descarte (opcao 4) e gere outra.\n')
     return
   }
   await sql`

@@ -447,7 +447,7 @@ Rode `10-seguranca.cmd` depois de qualquer mudança no banco.
 
 ## Testes
 
-Em `asp/` (fora deste repositório, com quem escreveu) há **391 casos em
+Em `asp/` (fora deste repositório, com quem escreveu) há **397 casos em
 SQL** que rodam contra um PostgreSQL local recriado do zero: isolamento
 entre marcas, versionamento de pauta, ciclo completo com o cliente,
 permissões de pessoas, exclusão de planejamento e de pessoa, a varredura
@@ -465,7 +465,7 @@ concorrência (28), o bloco de produção no prompt (29), a marca nova (29 e
 23), a pesquisa na internet (26), o texto de apoio (25), a mídia (23), a
 administração de marcas (17) e o estado das plataformas (36 e 25).
 
-Total: **1071**.
+Total: **1077**.
 
 Um padrão que vale imitar: quase todo teste novo destas últimas rodadas
 nasceu de um erro real, e o comentário acima dele diz qual foi. Teste que
@@ -593,6 +593,27 @@ entrando em todo planejamento e nada nela denunciaria isso.
 As mesmas duas listas da pesquisa: o que a IA diz que usou e o que a API
 diz que foi lido. Endereço citado que não aparece em leitura nenhuma vira
 aviso na tela antes de você aprovar.
+
+**Três coisas que a primeira corrida de verdade ensinou**, e que a 0039
+corrigiu:
+
+- **Resposta cortada virou nota.** O teto de tokens estava em quatro mil,
+  a resposta bateu nele e voltou partida no meio de uma palavra, com o
+  JSON sem fechar. O script guardou o pedaço, que é o certo (a busca já
+  foi paga), e nada impedia aprovar aquilo. Hoje a nota quebrada nasce
+  marcada e **o banco recusa aprová-la**. Aviso impresso rola para fora
+  da tela; trava, não.
+- **A lista de plataformas vinha da declaração, não do uso.** Ela unia
+  `content_channels` com `brand_platforms`, e a segunda é aspiração que
+  envelhece: a corrida leu 19 páginas de LinkedIn para uma agência cujo
+  trabalho é quase todo Instagram, e custou US$ 1,32. Agora manda o que
+  já foi planejado, e a declaração só entra quando não há planejamento
+  nenhum.
+- **A nota falava de coisa que não muda o trabalho.** Recurso de quem
+  assiste, plano de assinatura, evento da plataforma. A pergunta ficou
+  exata ("o que mudou no que a agência pode entregar?"), com teto de oito
+  itens e os setores dos clientes no pedido, para regra de categoria que
+  nenhum deles toca não entrar.
 
 ### A concorrência (`src/lib/concorrencia.ts`)
 

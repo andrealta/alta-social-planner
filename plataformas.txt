@@ -1,0 +1,35 @@
+  Plataformas: instagram, linkedin, tiktok, youtube
+  Fontes travadas em: about.fb.com, business.instagram.com, creators.instagram.com, blog.linkedin.com, business.linkedin.com, newsroom.tiktok.com, ads.tiktok.com, blog.youtube, support.google.com
+  Periodo: ultimos 90 dias
+  Modelo: claude-opus-5
+
+  Buscando. Isso leva de trinta segundos a dois minutos.
+
+  [atencao]  A resposta nao veio no formato esperado. Gravei o texto
+             cru, sem lista de fontes. Leia com mais cuidado.
+
+
+  ------------------------------------------------------------------
+  Nota 1  30/09/2026, 15:50:24   [PENDENTE, ainda nao vale para a geracao]
+  ------------------------------------------------------------------
+
+  {
+    "mudou": true,
+    "texto": "NOTA DE MUDANCAS DE PLATAFORMA, periodo de 1 de julho a 30 de setembro de 2026. Base: apenas paginas oficiais das proprias plataformas.\n\nYOUTUBE\n1. Shorts series: passa a ser possivel organizar Shorts em temporadas e episodios, com thumbnail personalizada e reproducao sequencial, no web, no mobile e na TV (setembro de 2026, Made On YouTube). https://blog.youtube/news-and-events/made-on-youtube-creators-shorts-series-tv-features/\n2. Edicao por comando de texto: o Gemini entra como assistente de edicao conversacional no Shorts e no app YouTube Create, com acoes como cortar fala, sincronizar musica, inserir texto e reordenar frames (setembro de 2026). https://blog.youtube/madeonyoutube/\n3. Ao vivo: chegam Live showdowns (transmissoes ao vivo unidas entre dois canais), dublagem automatica em tempo real na live e ampliacao do Watch With para videos longos (setembro de 2026). https://blog.youtube/news-and-events/innovation-youtube-era-made-on-viewers-creators/\n4. Regra de direitos autorais que muda o que pode ir na peca: desde 24 de setembro de 2026, Shorts novos com mais de 1 minuto e menos de 3 minutos que tenham reivindicacao ativa de Content ID nao sao mais bloqueados automaticamente e podem seguir disponiveis. Para Shorts de menos de 1 minuto nada mudou. https://support.google.com/youtube/answer/15424877\n\nINSTAGRAM\n5. Meta One, lancado em 15 de setembro de 2026, coloca recursos de publicacao dentro de plano pago. No plano de negocios Advanced entram agendamento de stories com ate 30 dias de antecedencia, link em posts e reels organicos e exportacao de analytics. Ou seja, link em post organico existe hoje como recurso de assinatura, nao como recurso geral da conta. https://about.fb.com/news/2026/09/introducing-meta-one-subscription-service-more-features-ai/\n\nTIKTOK\n6. Regras de publicidade atualizadas no change log oficial: em julho de 2026 mudaram as politicas de horoscopo e adivinhacao, conteudo adulto, cassino online e apostas, fantasy sports e rewarded gaming; em agosto de 2026 mudaram alcool, lo
+
+  Paginas que a API diz que foram lidas, por fonte:
+     19  business.linkedin.com
+     18  newsroom.tiktok.com
+     16  about.fb.com
+      8  blog.youtube
+      4  creators.instagram.com
+      3  support.google.com
+      2  ads.tiktok.com
+      1  blog.linkedin.com
+
+  8 pesquisa(s), custo US$ 1.3206. Modelo: claude-opus-5
+
+  A nota esta PENDENTE: ela ainda nao entra em planejamento nenhum.
+  Leia o texto acima. Se concordar, use a opcao de aprovar.
+  Se nao concordar, descarte e gere outra.
+
