@@ -41,6 +41,9 @@
  *   node scripts/operand.mjs desligar queensberry  desfaz a ligação
  *   node scripts/operand.mjs jobs queensberry      o que viria, sem gravar
  *   node scripts/operand.mjs perfil queensberry    monta o retrato de producao
+ *   node scripts/operand.mjs preparar hero 3535 Hero,!Hero Brasil
+ *                                                  liga, sincroniza e monta, de uma vez
+ *   node scripts/operand.mjs diario                a rotina de todo dia
  *   node scripts/operand.mjs sincronizar           traz os jobs de todas
  *   node scripts/operand.mjs sincronizar queensberry
  */
@@ -307,10 +310,8 @@ async function jobs(slug) {
   if (!slug) {
     erroFatal('Falta a marca.', 'Exemplo: node scripts/operand.mjs jobs queensberry')
   }
-  const [marca] = await sql`
-    select id, name, slug, operand_client_id from public.brands where slug = ${slug}
-  `
-  if (!marca) erroFatal(`Nao achei a marca "${slug}".`)
+  const marca = await acharMarca(slug)
+  if (!marca) await marcaNaoAchada(slug)
   if (!marca.operand_client_id) {
     erroFatal(
       `A marca "${slug}" ainda nao esta ligada a um cliente do Operand.`,
@@ -396,8 +397,8 @@ async function conferir() {
  */
 async function perfil(slug, gravar) {
   if (!slug) erroFatal('Falta a marca.', 'Exemplo: opcao 13 do menu, com o slug.')
-  const [marca] = await sql`select id, name from public.brands where slug = ${slug}`
-  if (!marca) erroFatal(`Nao achei a marca "${slug}".`)
+  const marca = await acharMarca(slug)
+  if (!marca) await marcaNaoAchada(slug)
 
   const jobs = await sql`
     select titulo, tempo_trabalhado, prazo, criado_em
@@ -428,17 +429,122 @@ async function perfil(slug, gravar) {
     return
   }
 
+  await gravarPerfil(marca.id, p, texto)
+  console.log('\n  Retrato gravado. Ele ainda nao entra no prompt: isso e o passo seguinte,')
+  console.log('  e so faz sentido depois de voce ler o texto acima e concordar com ele.')
+}
+
+/**
+ * Acha a marca pelo slug, sem exigir que a pessoa acerte a digitacao.
+ *
+ * O slug e minusculo por convencao, mas quem digita "Hero" nao errou
+ * nada: errou a convencao. Aceita tambem o nome da marca, porque e
+ * assim que ela aparece na tela e e o que a pessoa tem na cabeca.
+ */
+async function acharMarca(alvo) {
+  if (!alvo) return null
+  const t = String(alvo).trim()
+  const [m] = await sql`
+    select id, name, slug, operand_client_id, operand_linhas
+    from public.brands
+    where lower(slug) = lower(${t}) or lower(name) = lower(${t})
+    limit 1
+  `
+  return m ?? null
+}
+
+/**
+ * O "nao achei", com a lista do que existe.
+ *
+ * Um "nao achei" seco obriga a pessoa a sair do programa para
+ * descobrir o que deveria ter digitado, e a causa mais comum nem e
+ * digitacao: e a marca ainda nao existir no planner.
+ */
+async function marcaNaoAchada(alvo) {
+  const todas = await sql`select slug, name from public.brands order by name`
+  console.error(`\n  Nao achei a marca "${alvo}".`)
+  if (todas.length === 0) {
+    console.error('  Nao existe marca nenhuma no planner ainda.')
+  } else {
+    console.error('\n  As marcas que existem, pelo slug:')
+    for (const m of todas) console.error(`    ${m.slug}   (${m.name})`)
+  }
+  console.error('\n  Se a que voce quer nao esta na lista, crie ela no painel do')
+  console.error('  planner primeiro. O Operand nao cria marca aqui.')
+  console.error('')
+  await sql.end({ timeout: 5 })
+  process.exit(1)
+}
+
+/** Grava o retrato. Separado porque a rotina diaria usa o mesmo. */
+async function gravarPerfil(marcaId, p, texto) {
   await sql`
     insert into public.operand_perfil (brand_id, gerado_em, de, ate, jobs, minutos, perfil, resumo)
-    values (${marca.id}, now(), ${p.de}, ${p.ate}, ${p.jobs}, ${p.minutos},
+    values (${marcaId}, now(), ${p.de}, ${p.ate}, ${p.jobs}, ${p.minutos},
             ${sql.json(p)}, ${texto})
     on conflict (brand_id) do update set
       gerado_em = now(), de = excluded.de, ate = excluded.ate,
       jobs = excluded.jobs, minutos = excluded.minutos,
       perfil = excluded.perfil, resumo = excluded.resumo
   `
-  console.log('\n  Retrato gravado. Ele ainda nao entra no prompt: isso e o passo seguinte,')
-  console.log('  e so faz sentido depois de voce ler o texto acima e concordar com ele.')
+}
+
+/**
+ * Liga a marca, traz os jobs e monta o retrato, de uma vez so.
+ *
+ * A primeira marca custou catorze rodadas porque cada passo era uma
+ * descoberta. Da segunda em diante nao ha nada a descobrir, e obrigar
+ * alguem a abrir o menu quatro vezes seguidas para fazer sempre a
+ * mesma sequencia e transformar conhecimento ja adquirido em trabalho
+ * manual.
+ *
+ * Se algum passo falhar, os anteriores ficam feitos: ligar e gravar
+ * sao idempotentes, entao rodar de novo conserta em vez de duplicar.
+ */
+async function preparar(slug, id, termos) {
+  console.log('  Passo 1 de 3: ligando a marca ao cliente do Operand.\n')
+  await ligar(slug, id, termos)
+
+  console.log('\n  Passo 2 de 3: trazendo os jobs.\n')
+  await sincronizar(slug)
+
+  console.log('\n  Passo 3 de 3: montando o retrato de producao.\n')
+  await perfil(slug)
+}
+
+/**
+ * A rotina de todo dia: sincroniza tudo e refaz os retratos.
+ *
+ * E o que a tarefa agendada do Windows chama. Uma marca que falhar nao
+ * pode derrubar as outras: a agencia tem varias contas e o problema de
+ * uma nao e motivo para as demais ficarem com dado de ontem.
+ */
+async function diario() {
+  console.log('  ' + new Date().toLocaleString('pt-BR') + '\n')
+  await sincronizar()
+
+  const marcas = await sql`
+    select id, slug, name from public.brands
+    where operand_client_id is not null order by name
+  `
+  console.log('')
+  for (const marca of marcas) {
+    try {
+      const jobs = await sql`
+        select titulo, tempo_trabalhado, prazo, criado_em
+        from public.operand_jobs where brand_id = ${marca.id}
+      `
+      if (jobs.length === 0) {
+        console.log(`  ${marca.name}: sem job gravado, retrato nao refeito.`)
+        continue
+      }
+      const p = montarPerfil(jobs)
+      await gravarPerfil(marca.id, p, perfilEmTexto(p, { nomeDaMarca: marca.name }))
+      console.log(`  ${marca.name}: retrato refeito com ${p.jobs} job(s).`)
+    } catch (e) {
+      console.error(`  ${marca.name}: retrato FALHOU. ${e && e.message ? e.message : String(e)}`)
+    }
+  }
 }
 
 /**
@@ -449,13 +555,20 @@ async function perfil(slug, gravar) {
  * "o que existe que ninguem pegou ainda". E assim que se descobre que
  * a conta da fabricante tem uma marca inteira esperando.
  */
-async function linhas(slug) {
-  if (!slug) erroFatal('Falta a marca.', 'Exemplo: opcao 12 do menu, com o slug.')
-  const [marca] = await sql`
-    select id, name, operand_client_id from public.brands where slug = ${slug}
-  `
-  if (!marca) erroFatal(`Nao achei a marca "${slug}".`)
-  if (!marca.operand_client_id) erroFatal(`A marca "${slug}" ainda nao esta ligada.`)
+async function linhas(alvo) {
+  if (!alvo) erroFatal('Falta a marca ou o numero do cliente.')
+
+  // Aceita numero de cliente tambem, e nao so marca ja ligada. Sem
+  // isso a ordem seria absurda: para saber quais linhas existem numa
+  // conta, seria preciso ligar a marca a ela antes de saber se ela e
+  // mesmo a conta certa.
+  const numero = Number(alvo)
+  const marca = Number.isInteger(numero) && numero > 0
+    ? { id: null, name: `Cliente ${numero}`, operand_client_id: numero }
+    : await acharMarca(alvo)
+
+  if (!marca) await marcaNaoAchada(alvo)
+  if (!marca.operand_client_id) erroFatal(`A marca "${alvo}" ainda nao esta ligada.`)
 
   const concorrentes = (
     await sql`select id, name, slug, operand_linhas from public.brands
@@ -537,10 +650,8 @@ async function linhas(slug) {
  */
 async function provar(slug) {
   if (!slug) erroFatal('Falta a marca.', 'Exemplo: opcao 11 do menu, com o slug.')
-  const [marca] = await sql`
-    select id, name, operand_client_id from public.brands where slug = ${slug}
-  `
-  if (!marca) erroFatal(`Nao achei a marca "${slug}".`)
+  const marca = await acharMarca(slug)
+  if (!marca) await marcaNaoAchada(slug)
   if (!marca.operand_client_id) erroFatal(`A marca "${slug}" ainda nao esta ligada.`)
 
   const sessao = await comSessao()
@@ -691,8 +802,8 @@ async function ligar(slug, id, termos) {
   if (!slug || !Number.isInteger(clienteId) || clienteId <= 0) {
     erroFatal('Uso: node scripts/operand.mjs ligar <slug> <id do cliente> [linhas]')
   }
-  const [marca] = await sql`select id, name from public.brands where slug = ${slug}`
-  if (!marca) erroFatal(`Não achei a marca "${slug}".`)
+  const marca = await acharMarca(slug)
+  if (!marca) await marcaNaoAchada(slug)
 
   // Varias marcas podem dividir o mesmo cliente do Operand: uma conta
   // de fabricante costuma abrigar mais de uma marca. O que nao pode e
@@ -738,8 +849,8 @@ async function ligar(slug, id, termos) {
 
 async function desligar(slug) {
   if (!slug) erroFatal('Uso: node scripts/operand.mjs desligar <slug-da-marca>')
-  const [marca] = await sql`select id, name from public.brands where slug = ${slug}`
-  if (!marca) erroFatal(`Não achei a marca "${slug}".`)
+  const marca = await acharMarca(slug)
+  if (!marca) await marcaNaoAchada(slug)
 
   // Os jobs copiados vão junto: guardar produção de uma marca que não
   // está mais ligada é guardar dado que ninguém vai atualizar.
@@ -840,6 +951,12 @@ async function sincronizar(slug) {
             (sumidos.count > 0 ? `, ${sumidos.count} sairam da lista` : '') +
             (orcado || gasto ? `, ${horas(orcado)} orcadas e ${horas(gasto)} apontadas` : ''),
         )
+        if (porLinha.size > 0) {
+          const quais = [...porLinha.entries()]
+            .sort((x, y) => y[1] - x[1])
+            .map(([nome, n]) => `${nome} (${n})`)
+          console.log(`      linhas que entraram: ${quais.join(', ')}`)
+        }
       }
 
       console.log('    ' + explicarDescartes(descartes))
@@ -928,6 +1045,8 @@ try {
   else if (comando === 'provar') await provar(a)
   else if (comando === 'linhas') await linhas(a)
   else if (comando === 'perfil') await perfil(a, b)
+  else if (comando === 'preparar') await preparar(a, b, c)
+  else if (comando === 'diario') await diario()
   else if (comando === 'conferir' || !comando) await conferir()
   else if (comando === 'clientes') await clientes(a)
   else if (comando === 'marcas') await marcas()
@@ -935,7 +1054,7 @@ try {
   else if (comando === 'desligar') await desligar(a)
   else if (comando === 'sincronizar') await sincronizar(a)
   else {
-    console.log('  Comandos: rede, conferir, sondar, cru, clientes, marcas, ligar, desligar, jobs, provar, linhas, perfil, sincronizar')
+    console.log('  Comandos: rede, conferir, sondar, cru, clientes, marcas, ligar, desligar, jobs, provar, linhas, perfil, preparar, diario, sincronizar')
   }
 } catch (e) {
   // O erro de rede já vem com a causa aberta em `.rede`; os outros

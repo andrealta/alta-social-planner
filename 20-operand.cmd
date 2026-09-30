@@ -33,6 +33,9 @@ echo   11  provar         descobrir qual numero o Operand chama de job
 echo   12  linhas         quais marcas existem dentro do cliente do Operand
 echo   13  perfil         montar o retrato de producao da marca
 echo.
+echo   14  preparar       ligar + sincronizar + retrato, de uma vez so
+echo   15  diario         a rotina de todo dia, em todas as marcas
+echo.
 set /p "N=  Numero: "
 
 if "%N%"=="1" set "CMD=conferir"
@@ -48,6 +51,8 @@ if "%N%"=="10" goto pedirMarcaSinc
 if "%N%"=="11" goto pedirMarcaProvar
 if "%N%"=="12" goto pedirMarcaLinhas
 if "%N%"=="13" goto pedirMarcaPerfil
+if "%N%"=="14" goto pedirPreparar
+if "%N%"=="15" set "CMD=diario"
 goto rodar
 
 :pedirLigar
@@ -71,6 +76,28 @@ echo.
 set /p "A=  Slug da marca: "
 goto rodar
 
+:pedirPreparar
+set "CMD=preparar"
+echo.
+echo  Isto faz tudo: liga a marca, traz os jobs e monta o retrato.
+echo  Antes, use a opcao 5 para achar o numero do cliente no Operand,
+echo  e a opcao 12 com esse numero para ver quais linhas existem nele.
+echo.
+set /p "A=  Slug da marca aqui no planner: "
+set /p "B=  Numero do cliente no Operand: "
+echo.
+echo  Se esse cliente abriga mais de uma marca, diga quais linhas sao
+echo  desta. Separe por virgula.
+echo.
+echo  ATENCAO ao sinal de exclamacao: ele EXCLUI a linha.
+echo     Hero            pega Hero, Hero Geleias E Hero Brasil
+echo     Hero,!Hero Brasil   pega Hero e Hero Geleias, sem a fabricante
+echo.
+echo  Um termo pega tambem tudo que comeca com ele. Entao "Hero" ja
+echo  inclui "Hero Geleias", e nao precisa listar as duas.
+set /p "C=  Linhas (ou Enter para pegar tudo): "
+goto rodar
+
 :pedirMarcaPerfil
 set "CMD=perfil"
 echo.
@@ -83,7 +110,7 @@ goto rodar
 :pedirMarcaLinhas
 set "CMD=linhas"
 echo.
-set /p "A=  Slug da marca: "
+set /p "A=  Slug da marca, ou o numero do cliente no Operand: "
 goto rodar
 
 :pedirMarcaProvar

@@ -1,0 +1,12 @@
+
+  Marca criada: Hero  (slug: hero)
+  Segmento: Alimentos
+
+  [atencao]  Esta marca ainda nao tem escopo, e sem escopo o
+             planejamento nao tem o que fechar. Rode de novo
+             informando as linhas, por exemplo: Feed=8,Story=12
+
+  Proximos passos:
+    1. Abra a marca no painel e preencha a base dela.
+    2. Se ela tem conta no Operand, use a opcao 14 do 20-operand.cmd.
+

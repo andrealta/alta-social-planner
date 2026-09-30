@@ -1,21 +1,36 @@
 
-  Queensberry: retrato montado a partir de 395 job(s).
+  Passo 1 de 3: ligando a marca ao cliente do Operand.
 
-  A agência registrou 395 trabalhos para Queensberry, com datas entre 2025-04-11 e 2027-01-06, somando 1460h56 apontadas. Desses, 15 têm prazo ainda por vir.
+  "Hero" ligada ao cliente 3535 do Operand.
+  Linhas desta marca: Hero, !Hero Brasil
+  Agora: a opcao 10 do menu, com o slug.
 
-  Num mês comum esta conta rende 30 trabalhos e 105h11 de trabalho apontado. É a mediana dos 12 meses entre 2025-09 e 2026-08, e é essa a medida de capacidade: a média do período inteiro engana, porque job aberto hoje pode ter prazo daqui a um ano.
+  Passo 2 de 3: trazendo os jobs.
 
-  Desses, 338 são peças de conteúdo (717h52), 21 são planejamento (583h15) e 36 são administrativo, como relatório e nota fiscal (159h49).
+  Hero: 152 job(s), 0h orcadas e 529h59 apontadas
+  Hero: FALHOU. porLinha is not defined
 
-  Formatos produzidos, do mais frequente ao menos: vídeo: 83 (tipicamente 1h36 cada); influenciador: 59 (tipicamente 1h38 cada); foto: 55 (tipicamente 1h38 cada); outros: 54 (tipicamente 3h cada); material de ponto de venda: 48 (tipicamente 1h06 cada); story e destaque: 14 (tipicamente 30min cada); e-mail marketing: 9 (tipicamente 3h20 cada); carrossel: 7 (tipicamente 1h08 cada); post de feed: 5 (tipicamente 3h02 cada); ação e campanha: 4 (tipicamente 3h14 cada).
+  Passo 3 de 3: montando o retrato de producao.
 
-  Canais citados nos trabalhos: Instagram (14), e-mail (9), mídia paga (7), YouTube (3), Facebook (2), TikTok (1).
+  Hero: retrato montado a partir de 152 job(s).
 
-  Influenciadores que já trabalharam com a marca: Tato Drink (6x), Vivian Carvalho (5x), Gean Uai (4x), Nathassia Pécora (4x), Silmara Receitas (4x), Lucas Nutri (3x), Nathassia Pécorra (2x), Karol Stefanini.
+  A agência registrou 152 trabalhos para Hero, com datas entre 2025-04-17 e 2027-01-06, somando 529h59 apontadas. Desses, 15 têm prazo ainda por vir.
 
-  Assuntos que mais se repetem nos títulos: geleia (51), maca (30), bacon (29), supermercados (27), rena (25), anos (23), tampas (23), drink (14), colecionaveis (12), casa (11), bolos (10), frutas (10), parceria (10), adesivo (8), instagram (8), linha (8), perfil (8), receita (8), tato (8), ceratti (7).
+  Num mês comum esta conta rende 11 trabalhos e 33h58 de trabalho apontado. É a mediana dos 12 meses entre 2025-09 e 2026-08, e é essa a medida de capacidade: a média do período inteiro engana, porque job aberto hoje pode ter prazo daqui a um ano.
+
+  Desses, 101 são peças de conteúdo (178h03), 17 são planejamento (278h08) e 34 são administrativo, como relatório e nota fiscal (73h48).
+
+  Formatos produzidos, do mais frequente ao menos: outros: 36 (tipicamente 2h06 cada); vídeo: 29 (tipicamente 1h45 cada); foto: 19 (tipicamente 1h15 cada); influenciador: 7 (tipicamente 1h25 cada); carrossel: 5 (tipicamente 1h44 cada); story e destaque: 3 (tipicamente 1h23 cada); post de feed: 2 (tipicamente 3h16 cada).
+
+  Canais citados nos trabalhos: Instagram (3).
+
+  Assuntos que mais se repetem nos títulos: hero (11), geleia (8), geracao (7), light (7), audios (6), meus (6), momentos (6), segundos (6), zen (6), alegrias (4), cafe (4), hora (4), pequenas (4), vibe (4), brilhou (3), combinacoes (3), combinou (3), compartilhados (3), corre (3), especiais (3).
 
   Este retrato é do que foi produzido, não do que deu certo: o sistema de produção registra esforço e entrega, não resultado. Use como medida de capacidade e de vocabulário da conta, não como prova de que um formato funciona.
+
+  [atencao]  36 de 101 pecas nao encaixaram em
+             formato nenhum. Isso e muito, e quer dizer que as regras de
+             leitura dos titulos precisam de ajuste, nao que o dado e ruim.
 
   Retrato gravado. Ele ainda nao entra no prompt: isso e o passo seguinte,
   e so faz sentido depois de voce ler o texto acima e concordar com ele.

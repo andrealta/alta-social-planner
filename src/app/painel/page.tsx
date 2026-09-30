@@ -222,19 +222,48 @@ export default async function Painel() {
       <FilaDeTrabalho itens={fila} marginTop={0} />
 
       <section>
-        <h2
+        <div
           style={{
-            fontFamily: 'var(--disp)',
-            fontSize: 13,
-            fontWeight: 500,
-            letterSpacing: '.16em',
-            textTransform: 'uppercase',
-            color: 'var(--faint)',
+            display: 'flex',
+            alignItems: 'baseline',
+            justifyContent: 'space-between',
+            gap: 12,
             marginBottom: 14,
+            flexWrap: 'wrap',
           }}
         >
-          Marcas que você alcança
-        </h2>
+          <h2
+            style={{
+              fontFamily: 'var(--disp)',
+              fontSize: 13,
+              fontWeight: 500,
+              letterSpacing: '.16em',
+              textTransform: 'uppercase',
+              color: 'var(--faint)',
+              margin: 0,
+            }}
+          >
+            Marcas que você alcança
+          </h2>
+          {papel === 'admin' ? (
+            <Link
+              href="/painel/marcas/nova"
+              style={{
+                fontFamily: 'inherit',
+                fontSize: 13,
+                fontWeight: 600,
+                padding: '7px 14px',
+                border: '1px solid var(--line-2)',
+                borderRadius: 8,
+                background: 'var(--surface)',
+                color: 'var(--text)',
+                textDecoration: 'none',
+              }}
+            >
+              + nova marca
+            </Link>
+          ) : null}
+        </div>
 
         {marcas && marcas.length > 0 ? (
           <ul
@@ -307,9 +336,9 @@ export default async function Painel() {
             <b style={{ color: 'var(--text)', display: 'block', marginBottom: 6 }}>
               Nenhuma marca ainda
             </b>
-            O banco está vazio. As marcas entram na próxima etapa. Se você
-            esperava ver alguma aqui, é porque o seu papel ou o seu vínculo
-            ainda não foi definido.
+            {papel === 'admin'
+              ? 'Crie a primeira em "nova marca", aqui em cima.'
+              : 'Se você esperava ver alguma aqui, é porque o seu papel ou o seu vínculo ainda não foi definido.'}
           </div>
         )}
       </section>
