@@ -125,6 +125,7 @@ export default async function Plano({
     /** O que a API registrou que ela leu, para conferir contra o de cima. */
     paginas_lidas?: { url: string; titulo: string }[]
     buscas?: number
+    pesquisa_ligada?: boolean
   }
 
   const ordenadas = [...(pautas ?? [])].sort((a, b) => {
@@ -466,13 +467,21 @@ export default async function Plano({
         </section>
       )}
 
-      {(analise.buscas ?? 0) > 0 && (
+      {(analise.pesquisa_ligada || (analise.buscas ?? 0) > 0) && (
         <section style={{ marginTop: 24 }}>
           <Rotulo>
-            O que veio da internet ({analise.buscas} pesquisa
-            {(analise.buscas ?? 0) === 1 ? '' : 's'})
+            {(analise.buscas ?? 0) > 0
+              ? `O que veio da internet (${analise.buscas} pesquisa${analise.buscas === 1 ? '' : 's'})`
+              : 'O que veio da internet (nenhuma pesquisa)'}
           </Rotulo>
-          {(analise.fontes ?? []).length > 0 ? (
+          {(analise.buscas ?? 0) === 0 ? (
+            <p style={{ fontSize: 13.8, color: 'var(--muted)', lineHeight: 1.6, margin: 0 }}>
+              A busca estava disponível e a IA não usou. Ela julgou que a base da marca
+              bastava para decidir o mês. Isso e um resultado, nao uma falha, mas se
+              acontecer sempre vale conferir se a regra da pesquisa nao ficou restritiva
+              demais.
+            </p>
+          ) : (analise.fontes ?? []).length > 0 ? (
             <ul
               style={{
                 margin: 0,

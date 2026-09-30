@@ -606,6 +606,13 @@ export async function POST(req: Request) {
             fontes: plano.fontes ?? [],
             paginas_lidas: r.fontes.map((f) => ({ url: f.url, titulo: f.titulo })),
             buscas: r.buscas,
+            // Que a pesquisa estava LIGADA, e nao so quantas houve.
+            //
+            // Sem isto, um mes em que a IA nao pesquisou fica igual a um
+            // mes gerado antes da pesquisa existir: os dois tem zero. E
+            // "ela nao precisou pesquisar" e informacao, enquanto "esta
+            // tela e antiga" e outra coisa.
+            pesquisa_ligada: true,
             achados,
             gerado_em: new Date().toISOString(),
             modelo: r.modelo,
