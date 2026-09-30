@@ -55,6 +55,7 @@ Rode com dois cliques, na ordem, na primeira vez:
 | `21-agendar.cmd` | Cria a tarefa do Windows que sincroniza o Operand todo dia |
 | `22-diario.cmd` | O que a tarefa chama. Rodar na mão também funciona |
 | `23-marca.cmd` | Cria uma marca nova pela linha de comando (a tela faz o mesmo) |
+| `24-plataformas.cmd` | **O estado das plataformas**: o que mudou no Meta e nos outros |
 
 Diagnóstico, quando algo quebra: `08-testar-ia.cmd` (fala com a API da
 Anthropic direto), `09-repetir-pedido.cmd` (repete o último pedido fora
@@ -446,24 +447,25 @@ Rode `10-seguranca.cmd` depois de qualquer mudança no banco.
 
 ## Testes
 
-Em `asp/` (fora deste repositório, com quem escreveu) há **376 casos em
+Em `asp/` (fora deste repositório, com quem escreveu) há **391 casos em
 SQL** que rodam contra um PostgreSQL local recriado do zero: isolamento
 entre marcas, versionamento de pauta, ciclo completo com o cliente,
 permissões de pessoas, exclusão de planejamento e de pessoa, a varredura
 de concorrentes e a resposta à pergunta que mais importa nela (o cliente
 não vê o que pesquisamos sobre o mercado dele), as vistas que fecharam
 `content_ideas` ao cliente, o investimento em mídia, a cópia do Operand,
-o arquivamento de marca com o registro de quem mexeu e as três últimas
-colunas internas que o cliente alcançava.
+o arquivamento de marca com o registro de quem mexeu, as três últimas
+colunas internas que o cliente alcançava e a aprovação da nota de
+plataformas.
 
-Mais **614 casos em TypeScript e JavaScript** sobre o que não toca o
-banco. Os maiores: o retrato de produção (184), o cliente da API do
+Mais **680 casos em TypeScript e JavaScript** sobre o que não toca o
+banco. Os maiores: o retrato de produção (189), o cliente da API do
 Operand (171), a tela do Operand (34), as medidas (46), o estilo (30), a
 concorrência (28), o bloco de produção no prompt (29), a marca nova (29 e
-23), a pesquisa na internet (26), o texto de apoio (25), a mídia (23) e a
-administração de marcas (17).
+23), a pesquisa na internet (26), o texto de apoio (25), a mídia (23), a
+administração de marcas (17) e o estado das plataformas (36 e 25).
 
-Total: **990**.
+Total: **1071**.
 
 Um padrão que vale imitar: quase todo teste novo destas últimas rodadas
 nasceu de um erro real, e o comentário acima dele diz qual foi. Teste que
@@ -547,6 +549,50 @@ de ficar em silêncio.
 Custo: US$ 0,01 por busca mais os tokens dos resultados, somados no mesmo
 número que já aparecia. Separar faria o planejamento parecer mais barato
 do que foi.
+
+### O que mudou nas plataformas (`24-plataformas.cmd`, migração 0038)
+
+A pergunta "o que o Meta mudou" e a pergunta "o que performa melhor"
+parecem a mesma e não são, e essa distinção é o arquivo inteiro.
+
+A primeira é fato: um formato novo, um objetivo aposentado, um limite de
+duração que mudou. Tem data, tem link, e a fonte autorizada é a própria
+plataforma. A segunda não é fato sobre o mundo: depende da oferta, da
+conta e do público, e a internet sobre esse assunto é quase toda blog de
+agência reciclando blog de agência. Jogar isso no prompt deixaria a
+sugestão **mais confiante sem deixar mais correta**, que é pior que não
+ter nada.
+
+Então o comando busca só a primeira, e busca **travado nas fontes de
+primeira mão** de cada plataforma (`about.fb.com`,
+`business.instagram.com`, `newsroom.tiktok.com` e as outras). Ele
+pergunta ao próprio banco quais plataformas a agência usa e não gasta
+busca com as que ninguém publica.
+
+**Por que a lista branca aqui e não na pesquisa da geração.** Parece
+contradição com `lib/pesquisa.ts`, que documenta o contrário, e não é.
+Lá a pergunta é aberta (o que é sazonal, o que está circulando) e o
+conjunto de boas fontes não dá para escrever de antemão: uma lista branca
+envelheceria e passaria a esconder o que ninguém lembrou de listar. Aqui
+a pergunta é fechada, existe uma fonte autorizada por plataforma, e a
+lista não é um palpite sobre qualidade: é a definição da pergunta.
+
+**A nota nasce pendente.** Ela entra no prompt de todos os planejamentos
+de todas as marcas, então é o texto de maior alcance do sistema: nota
+errada não estraga uma peça, estraga o mês de todo mundo. Alguém lê e
+aprova antes de ela valer, e a geração ignora nota pendente. O texto
+aprovado é o texto que vale: um gatilho recusa reescrever o conteúdo
+depois da aprovação, senão "aprovada" não queria dizer nada.
+
+Rodar toda semana. A resposta mais comum é "nada relevante mudou", e ela
+é um resultado, não uma falha: o bloco do prompt diz isso em letras para
+o modelo não forçar menção a plataforma nenhuma. A nota também se anuncia
+velha depois de 45 dias, porque uma apuração de oito meses continua
+entrando em todo planejamento e nada nela denunciaria isso.
+
+As mesmas duas listas da pesquisa: o que a IA diz que usou e o que a API
+diz que foi lido. Endereço citado que não aparece em leitura nenhuma vira
+aviso na tela antes de você aprovar.
 
 ### A concorrência (`src/lib/concorrencia.ts`)
 

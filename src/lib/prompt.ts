@@ -12,6 +12,7 @@
 
 import { SECOES } from './base'
 import { blocoDePesquisa } from './pesquisa'
+import { blocoDePlataformas, type NotaDePlataforma } from './plataformas'
 
 export const VERSAO_PROMPT = '2026-09-planejamento-3-pesquisa'
 
@@ -66,6 +67,11 @@ export type Entrada = {
    * caso o mês sai sem ela, e o alerta diz isso.
    */
   pesquisar?: boolean
+  /**
+   * O que mudou nas plataformas, apurado fora da geração e aprovado
+   * por alguém. Nulo é o estado normal: a geração roda igual sem ele.
+   */
+  plataformas?: NotaDePlataforma | null
 }
 
 export function diasNoMes(ano: number, mes: number): number {
@@ -173,6 +179,7 @@ export function montarPromptPautas(e: Entrada): string {
       : 'Nenhum planejamento anterior registrado no sistema.'
 
   const producao = blocoDeProducao(e.producao)
+  const plataformas = blocoDePlataformas(e.plataformas ?? null)
   const pesquisa = e.pesquisar
     ? blocoDePesquisa({
         nomeDaMarca: e.marca.nome,
@@ -182,7 +189,7 @@ export function montarPromptPautas(e: Entrada): string {
       })
     : ''
 
-  return `${contextoDaMarca(e.marca, e.base)}${e.estilo ? '\n\n' + e.estilo : ''}${e.concorrencia ? '\n\n' + e.concorrencia : ''}${producao ? '\n\n' + producao : ''}${pesquisa ? '\n\n' + pesquisa : ''}
+  return `${contextoDaMarca(e.marca, e.base)}${e.estilo ? '\n\n' + e.estilo : ''}${e.concorrencia ? '\n\n' + e.concorrencia : ''}${producao ? '\n\n' + producao : ''}${plataformas ? '\n\n' + plataformas : ''}${pesquisa ? '\n\n' + pesquisa : ''}
 
 # HISTÓRICO RECENTE
 
@@ -262,6 +269,10 @@ Como decidir:
   Cadastros sem formulário. Objetivo errado com muita verba entrega menos que objetivo
   certo com pouca.
 - Respeite o que a base e as obrigatoriedades disserem sobre onde o cliente quer investir.
+- Se houver bloco sobre o que mudou nas plataformas, ele diz o que a ferramenta ACEITA:
+  objetivo que passou a existir, formato aposentado, limite novo. Ele não diz, e você não
+  pode concluir dele, que um objetivo ou formato rende mais. Desempenho só se afirma com
+  dado da própria conta, e esse dado não está aqui.
 - Uma frase de justificativa por peça impulsionada, dizendo por que este objetivo e por
   que este valor. Peça sem verba leva "Sem impulsionamento", valor 0 e justificativa vazia.
 

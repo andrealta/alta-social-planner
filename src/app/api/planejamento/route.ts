@@ -15,6 +15,7 @@ import { registro } from '@/lib/registro'
 import { coletarEstilo, blocoDeEstilo } from '@/lib/estilo'
 import { coletarConcorrencia, blocoDeConcorrencia } from '@/lib/concorrencia'
 import { coletarProducao } from '@/lib/producao'
+import { lerNotaDePlataformas } from '@/lib/plataformas'
 import { BUSCA_NA_INTERNET } from '@/lib/pesquisa'
 import { chamarClaude, extrairJson, ErroClaude, MODELO_PADRAO, type Uso } from '@/lib/claude'
 import {
@@ -203,6 +204,16 @@ export async function POST(req: Request) {
     await log.passo('historico de producao lido', `${producao.length} caracteres do Operand`)
   }
 
+  // O que mudou nas plataformas. Diferente de todas as outras fontes
+  // deste arquivo, esta não é da marca: é a mesma para todo mundo,
+  // apurada uma vez por semana fora daqui e aprovada por alguém antes
+  // de valer. Nula é o estado normal, e o mês sai como sempre saiu.
+  const nota = await lerNotaDePlataformas(supabase)
+  await log.passo(
+    'estado das plataformas',
+    nota ? `nota ${nota.id}, apurada ha ${nota.dias} dia(s)` : 'nenhuma nota aprovada',
+  )
+
   // ---------- o mês já existe? ----------
   const { data: planoExistente } = await supabase
     .from('plans')
@@ -306,6 +317,7 @@ export async function POST(req: Request) {
     // Ligada sempre, por decisao da agencia. Ver `lib/pesquisa.ts`
     // para o que ela pode e o que ela nao pode influenciar.
     pesquisar: true,
+    plataformas: nota,
     escopo,
     mes,
     ano,

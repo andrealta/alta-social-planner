@@ -498,13 +498,38 @@ export function montarPerfil(jobs) {
   // linha do titulo diz de qual empreendimento, produto ou unidade e
   // cada trabalho. Numa construtora isso e a informacao mais util do
   // retrato inteiro, porque diz onde o esforco esta concentrado.
+  //
+  // Agrupa ignorando caixa e acento, e guarda a escrita mais usada. A
+  // mesma frente aparece como "NovaTero", "Novatero" e "NOVATERO" ao
+  // longo dos anos, e sao a mesma coisa: sem isto o retrato inventava
+  // tres frentes onde ha uma, e ainda tirava 12 jobs da maior delas.
+  //
+  // Caixa e acento so, e nada alem disso. Nao vale juntar nomes
+  // parecidos como se faz com influenciador: "Torre 1" e "Torre 2"
+  // tambem estao a uma letra de distancia e sao dois predios
+  // diferentes. Numa construtora, juntar os dois apagaria justamente a
+  // informacao mais util do retrato.
   const porFrente = new Map()
   for (const j of limpos) {
     if (!j.linha) continue
-    const f = porFrente.get(j.linha) ?? { nome: j.linha, jobs: 0, minutos: 0 }
+    const chave = achatar(j.linha)
+    const f = porFrente.get(chave) ?? { nome: j.linha, jobs: 0, minutos: 0, escritas: new Map() }
     f.jobs++
     f.minutos += j.minutos
-    porFrente.set(j.linha, f)
+    f.escritas.set(j.linha, (f.escritas.get(j.linha) ?? 0) + 1)
+    porFrente.set(chave, f)
+  }
+  for (const f of porFrente.values()) {
+    // A escrita mais usada vence. Empate fica com a que apareceu
+    // primeiro, que e a ordem em que o Map guardou.
+    let melhor = 0
+    for (const [escrita, n] of f.escritas) {
+      if (n > melhor) {
+        melhor = n
+        f.nome = escrita
+      }
+    }
+    delete f.escritas
   }
   const frentes = [...porFrente.values()].sort((a, b) => b.jobs - a.jobs)
 
