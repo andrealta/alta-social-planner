@@ -497,7 +497,159 @@ code {
   }
 }
 
+/* =========================================================
+   Resposta ao mouse
+   =========================================================
+
+   O sistema inteiro não tinha nenhuma: botão, linha de lista e
+   cartão clicável ficavam parados sob o cursor, e quem usa não
+   sabia o que era clicável até clicar.
+
+   O problema de fazer isso aqui: quase todo botão do projeto
+   monta o próprio estilo em objeto inline, e estilo inline ganha
+   de regra de CSS. Não adianta escrever `button:hover { background: X }`,
+   porque o `background` inline vence.
+
+   A saída é uma camada por cima, e não uma troca de cor. O
+   `::after` pinta o botão inteiro com a COR DO PRÓPRIO TEXTO a 7%.
+   Em botão claro com tinta escura isso escurece; em botão escuro
+   com tinta clara isso clareia. Um pedaço de CSS só, que se
+   adapta sozinho, sem nenhum arquivo de tela precisar saber que
+   existe, e que continua valendo em modo escuro.
+
+   `border-radius: inherit` copia o canto de quem recebe, inclusive
+   quando o canto veio do inline.
+
+   Quem não quiser a camada usa `.sem-camada`. */
+
+button,
+a[href],
+summary,
+[role='button'] {
+  transition:
+    background 0.12s ease,
+    color 0.12s ease,
+    border-color 0.12s ease,
+    box-shadow 0.16s ease,
+    transform 0.12s ease,
+    opacity 0.12s ease;
+}
+
+button:not(:disabled):not(.sem-camada),
+a[href]:not(.sem-camada),
+summary:not(.sem-camada),
+[role='button']:not(:disabled):not(.sem-camada) {
+  position: relative;
+}
+
+/* O link com cara de botão.
+
+   Um `<a>` pode ser texto no meio de uma frase ou o botão principal da
+   tela, e a camada serve ao segundo e estraga o primeiro. A diferença
+   entre os dois está escrita no atributo `style`: botão tem fundo,
+   texto não. `[style*='background']` lê exatamente isso.
+
+   Assim nenhuma tela precisa lembrar de marcar nada, e o link de
+   voltar continua sendo só um link. */
+button:not(:disabled):not(.sem-camada):hover::after,
+a[href][style*='background']:not(.sem-camada):hover::after,
+summary:not(.sem-camada):hover::after,
+[role='button']:not(:disabled):not(.sem-camada):hover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: currentColor;
+  opacity: 0.07;
+  pointer-events: none;
+}
+
+button:not(:disabled):active,
+[role='button']:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+/* Botão desligado não responde: é a única forma de o "não dá para
+   clicar" chegar a quem usa mouse antes de ele tentar. */
+button:disabled,
+[role='button'][aria-disabled='true'] {
+  cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------
+   Link de texto
+
+   Sublinhado ao passar o mouse, e só o de texto: quem tem fundo
+   é botão e já recebeu a camada acima.
+
+   O `!important` aqui não é preguiça, é a única saída. Vários
+   links do projeto trazem `text-decoration: none` no atributo
+   `style` para não ficarem sublinhados parados, e estilo inline
+   vence qualquer regra de folha, exceto esta. O seletor é
+   estreito de propósito: um estado, um tipo de link, uma
+   propriedade.
+   --------------------------------------------------------- */
+a[href]:not([style*='background']):not(.sem-camada):hover {
+  text-decoration: underline !important;
+}
+
+/* ---------------------------------------------------------
+   Linha de lista que é um link inteiro
+
+   O padrão do projeto é `<li><a>…</a></li>` ocupando a linha
+   toda. `:has` deixa a linha reagir sem a tela precisar de
+   classe nova. Vale no painel, no portal do cliente e em
+   qualquer lista futura com a mesma forma.
+   --------------------------------------------------------- */
+li:has(> a[href]):hover,
+li:has(> button:not(:disabled)):hover {
+  background: var(--surface-2);
+}
+
+/* ---------------------------------------------------------
+   Cartão que leva a algum lugar
+
+   Levanta um fio e adensa a sombra. Reservado para o cartão
+   que é clicável inteiro: cartão que só mostra informação fica
+   parado, e é essa diferença que ensina onde dá para clicar.
+   --------------------------------------------------------- */
+.cartao-clicavel {
+  transition:
+    transform 0.14s ease,
+    box-shadow 0.16s ease,
+    border-color 0.14s ease;
+}
+
+.cartao-clicavel:hover {
+  transform: translateY(-2px);
+  border-color: var(--line-2);
+  box-shadow: var(--shadow-alta);
+}
+
+.cartao-clicavel:active {
+  transform: translateY(0);
+}
+
+/* Quem prefere o computador quieto não recebe movimento nenhum.
+   A mudança de cor fica: ela é informação, não enfeite. */
+@media (prefers-reduced-motion: reduce) {
+  button,
+  a[href],
+  summary,
+  [role='button'],
+  .cartao-clicavel {
+    transition: none;
+  }
+
+  .cartao-clicavel:hover,
+  button:not(:disabled):active,
+  [role='button']:not(:disabled):active {
+    transform: none;
+  }
+}
+
 /* O PDF do mês sai sem a barra do topo. */
+
 @media print {
   .topo-equipe {
     display: none !important;

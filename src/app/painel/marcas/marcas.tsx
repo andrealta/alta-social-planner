@@ -5,6 +5,12 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { conferirMarca, type LinhaDeEscopo } from '@/lib/marca'
 import { rotuloDaAcao } from '@/lib/registro-admin'
+import { Inicial, FioDaMarca } from '@/lib/inicial'
+// O sistema tem duas gerações de estilo convivendo: a antiga, com
+// contorno cinza e canto quadrado, e a de `lib/visual.ts`, com botão
+// redondo no azul da marca e cartão sem moldura. Esta tela nasceu
+// copiando a antiga, da tela de pessoas. Passa para a nova.
+import { botao, cartao, caixaTexto, pilula } from '@/lib/visual'
 import {
   arquivarMarca,
   reabrirMarca,
@@ -18,6 +24,8 @@ export type MarcaAdmin = {
   nome: string
   slug: string
   segmento: string
+  /** A mesma cor que o cliente vê no portal dele. */
+  cor: string | null
   arquivadaEm: string | null
   escopo: { label: string; quota: number }[]
   planejamentos: number
@@ -97,24 +105,37 @@ export function Marcas({
       ) : (
         <div style={{ display: 'grid', gap: 12 }}>
           {ativas.map((m) => (
-            <Cartao key={m.id}>
-              <Cabecalho marca={m} />
+            <Cartao key={m.id} cor={m.cor}>
+              {/* Identificação à esquerda, ação à direita. Numa tela
+                  larga a linha inteira trabalha; numa estreita os
+                  botões descem sozinhos, sem regra de tela. */}
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 16,
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <Cabecalho marca={m} />
 
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-                <button style={botao(false)} onClick={() => abrir(m.slug, 'escopo')}>
-                  {aberta?.slug === m.slug && aberta.modo === 'escopo'
-                    ? 'fechar'
-                    : 'alterar escopo'}
-                </button>
-                <button style={botao(false)} onClick={() => abrir(m.slug, 'arquivar')}>
-                  arquivar
-                </button>
-                <Link
-                  href={`/painel/marca/${m.slug}`}
-                  style={{ ...botao(false), textDecoration: 'none' }}
-                >
-                  abrir a marca
-                </Link>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button style={botao(false)} onClick={() => abrir(m.slug, 'escopo')}>
+                    {aberta?.slug === m.slug && aberta.modo === 'escopo'
+                      ? 'fechar'
+                      : 'alterar escopo'}
+                  </button>
+                  <button style={botao(false)} onClick={() => abrir(m.slug, 'arquivar')}>
+                    arquivar
+                  </button>
+                  <Link
+                    href={`/painel/marca/${m.slug}`}
+                    style={{ ...botao(true), textDecoration: 'none' }}
+                  >
+                    abrir a marca
+                  </Link>
+                </div>
               </div>
 
               {aberta?.slug === m.slug && aberta.modo === 'escopo' && (
@@ -161,9 +182,18 @@ export function Marcas({
           <div style={{ display: 'grid', gap: 12 }}>
             {arquivadas.map((m) => (
               <Cartao key={m.id} apagada>
-                <Cabecalho marca={m} />
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: 16,
+                    alignItems: 'flex-start',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <Cabecalho marca={m} />
 
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <button
                     style={botao(false, trabalhando)}
                     disabled={trabalhando}
@@ -175,9 +205,10 @@ export function Marcas({
                   >
                     reabrir
                   </button>
-                  <button style={botao(false)} onClick={() => abrir(m.slug, 'apagar')}>
-                    apagar de vez
-                  </button>
+                    <button style={botao(false)} onClick={() => abrir(m.slug, 'apagar')}>
+                      apagar de vez
+                    </button>
+                  </div>
                 </div>
 
                 {aberta?.slug === m.slug && aberta.modo === 'apagar' && (
@@ -248,47 +279,57 @@ export function Marcas({
 
 /* ------------------------------------------------------------------ */
 
+/**
+ * O topo de cada cartão.
+ *
+ * O selo colorido com a inicial vem antes do nome porque, numa lista
+ * de oito contas, é ele que encontra a marca: a cor chega ao olho
+ * antes da palavra. É a mesma cor que o cliente vê no portal dele, e
+ * o mesmo selo que já aparecia no painel.
+ */
 function Cabecalho({ marca }: { marca: MarcaAdmin }) {
   const total = marca.escopo.reduce((s, l) => s + l.quota, 0)
 
   return (
-    <div>
-      <div style={{ display: 'flex', gap: 10, alignItems: 'baseline', flexWrap: 'wrap' }}>
-        <span style={{ fontWeight: 700, fontSize: 16 }}>{marca.nome}</span>
-        <span style={{ color: 'var(--faint)', fontFamily: 'var(--mono)', fontSize: 12 }}>
-          /{marca.slug}
-        </span>
-        {marca.segmento ? (
-          <span style={{ color: 'var(--muted)', fontSize: 13 }}>{marca.segmento}</span>
-        ) : null}
-      </div>
+    <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', flex: '1 1 340px' }}>
+      <Inicial nome={marca.nome} cor={marca.cor} tamanho="g" />
 
-      <div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
-        {marca.planejamentos === 0
-          ? 'nenhum planejamento gerado'
-          : marca.planejamentos === 1
-            ? '1 planejamento gerado'
-            : `${marca.planejamentos} planejamentos gerados`}
-        {marca.arquivadaEm ? ` · arquivada em ${quando(marca.arquivadaEm)}` : ''}
-      </div>
-
-      {marca.escopo.length > 0 ? (
-        <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginTop: 10 }}>
-          {marca.escopo.map((l) => (
-            <span key={l.label} style={pilula}>
-              {l.label} <b style={{ color: 'var(--text)' }}>{l.quota}</b>
-            </span>
-          ))}
-          <span style={{ ...pilula, border: 'none', color: 'var(--faint)' }}>
-            {total} por mês
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ display: 'flex', gap: 9, alignItems: 'baseline', flexWrap: 'wrap' }}>
+          <span style={{ fontFamily: 'var(--disp)', fontWeight: 600, fontSize: 19 }}>
+            {marca.nome}
+          </span>
+          <span style={{ color: 'var(--faint)', fontFamily: 'var(--mono)', fontSize: 12 }}>
+            /{marca.slug}
           </span>
         </div>
-      ) : (
-        <div style={{ color: 'var(--laranja)', fontSize: 13, marginTop: 10 }}>
-          Sem escopo. O planejamento desta marca não roda enquanto não houver ao menos uma
-          linha.
+
+        <div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 3 }}>
+          {marca.segmento ? marca.segmento + ' · ' : ''}
+          {marca.planejamentos === 0
+            ? 'nenhum planejamento gerado'
+            : marca.planejamentos === 1
+              ? '1 planejamento gerado'
+              : `${marca.planejamentos} planejamentos gerados`}
+          {marca.arquivadaEm ? ` · arquivada em ${quando(marca.arquivadaEm)}` : ''}
         </div>
-      )}
+
+        {marca.escopo.length > 0 ? (
+          <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginTop: 11, alignItems: 'center' }}>
+            {marca.escopo.map((l) => (
+              <span key={l.label} style={pilula('var(--surface-2)')}>
+                {l.label} <b style={{ color: 'var(--text)' }}>{l.quota}</b>
+              </span>
+            ))}
+            <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>{total} por mês</span>
+          </div>
+        ) : (
+          <div style={{ color: 'var(--laranja)', fontSize: 13, marginTop: 11 }}>
+            Sem escopo. O planejamento desta marca não roda enquanto não houver ao menos
+            uma linha.
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -343,14 +384,14 @@ function EditorDeEscopo({
         {linhas.map((l, i) => (
           <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <input
-              style={{ ...campo, flex: 1 }}
+              style={{ ...caixaTexto, flex: 1 }}
               value={l.label}
               onChange={(e) => mudar(i, 'label', e.target.value)}
               placeholder={i === 0 ? 'Feed' : 'Nome da linha'}
               aria-label={`Nome da linha ${i + 1}`}
             />
             <input
-              style={{ ...campo, width: 92 }}
+              style={{ ...caixaTexto, width: 92 }}
               inputMode="numeric"
               value={l.quota}
               onChange={(e) => mudar(i, 'quota', e.target.value.replace(/[^0-9]/g, ''))}
@@ -441,7 +482,7 @@ function Arquivamento({
         </label>
         <input
           id={`motivo-${marca.slug}`}
-          style={campo}
+          style={caixaTexto}
           value={motivo}
           onChange={(e) => setMotivo(e.target.value)}
           placeholder="Contrato encerrado em setembro"
@@ -542,7 +583,7 @@ function Exclusao({
         </label>
         <input
           id={`confirma-${marca.slug}`}
-          style={{ ...campo, fontFamily: 'var(--mono)' }}
+          style={{ ...caixaTexto, fontFamily: 'var(--mono)' }}
           value={digitado}
           onChange={(e) => setDigitado(e.target.value)}
           autoComplete="off"
@@ -647,16 +688,30 @@ function Titulo({ children }: { children: React.ReactNode }) {
   )
 }
 
-function Cartao({ children, apagada }: { children: React.ReactNode; apagada?: boolean }) {
+function Cartao({
+  children,
+  apagada,
+  cor,
+}: {
+  children: React.ReactNode
+  apagada?: boolean
+  cor?: string | null
+}) {
   return (
     <section
       style={{
-        border: '1px solid var(--line)',
-        borderRadius: 'var(--r-lg)',
+        ...cartao,
+        position: 'relative',
+        overflow: 'hidden',
         background: apagada ? 'var(--surface-2)' : 'var(--surface)',
-        padding: '16px 18px',
+        boxShadow: apagada ? 'none' : cartao.boxShadow,
+        padding: '18px 20px 18px 24px',
+        // A arquivada perde a cor de propósito: ela sai das listas, e
+        // o cartão dela aqui é histórico, não conta ativa.
+        opacity: apagada ? 0.82 : 1,
       }}
     >
+      <FioDaMarca cor={apagada ? null : (cor ?? null)} />
       {children}
     </section>
   )
@@ -691,7 +746,6 @@ function Caixa({ cor, children }: { cor: 'warn' | 'accent' | 'ok'; children: Rea
       style={{
         marginBottom: 16,
         padding: '13px 17px',
-        border: '1px solid var(--line)',
         borderLeft: `3px solid var(--${cor})`,
         borderRadius: '0 var(--r) var(--r) 0',
         background: `var(--${cor}-wash)`,
@@ -704,48 +758,9 @@ function Caixa({ cor, children }: { cor: 'warn' | 'accent' | 'ok'; children: Rea
   )
 }
 
-const pilula: React.CSSProperties = {
-  fontSize: 12.5,
-  padding: '4px 11px',
-  borderRadius: 99,
-  border: '1px solid var(--line-2)',
-  background: 'var(--surface)',
-  color: 'var(--muted)',
-}
-
-// Os mesmos estilos da tela de pessoas. O projeto não tem classe de
-// botão nem de campo no CSS: o padrão é objeto de estilo no arquivo da
-// tela, e inventar uma classe nova aqui criaria dois padrões.
 const rotuloForte: React.CSSProperties = {
   display: 'block',
   fontWeight: 700,
   fontSize: 13,
   marginBottom: 5,
-}
-
-const campo: React.CSSProperties = {
-  width: '100%',
-  padding: '9px 11px',
-  fontFamily: 'inherit',
-  fontSize: 14,
-  color: 'var(--text)',
-  background: 'var(--surface)',
-  border: '1px solid var(--line-2)',
-  borderRadius: 8,
-  outline: 'none',
-}
-
-function botao(forte: boolean, desligado = false): React.CSSProperties {
-  return {
-    fontFamily: 'inherit',
-    fontSize: 13.5,
-    fontWeight: forte ? 700 : 600,
-    padding: '9px 17px',
-    border: forte ? 'none' : '1px solid var(--line-2)',
-    borderRadius: 8,
-    background: forte ? 'var(--text)' : 'var(--surface)',
-    color: forte ? 'var(--paper)' : 'var(--text)',
-    cursor: desligado ? 'not-allowed' : 'pointer',
-    opacity: desligado ? 0.45 : 1,
-  }
 }

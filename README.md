@@ -304,6 +304,55 @@ provável desta parte do sistema, porque nada avisa.
 
 ---
 
+## Como a tela responde ao mouse
+
+Estava tudo parado: botão, linha de lista e cartão clicável não davam
+sinal nenhum sob o cursor, e quem usava só descobria o que era clicável
+clicando.
+
+**A dificuldade, e ela explica o desenho todo:** quase todo botão do
+projeto monta o próprio estilo em objeto inline, e estilo inline vence
+regra de folha. `button:hover { background: X }` não faz nada, porque o
+`background` inline ganha.
+
+Por isso a resposta não é trocar cor, é pôr uma camada por cima. O
+`::after` pinta o elemento inteiro com a **cor do próprio texto** a 7%.
+Em botão claro com tinta escura isso escurece; em botão escuro com tinta
+clara isso clareia. Um pedaço de CSS só, que se adapta sozinho, que
+continua valendo no modo escuro, e que nenhuma tela precisa saber que
+existe.
+
+Quatro regras, em `globals.css`, e nenhum arquivo de tela foi tocado:
+
+| O quê | Como reage | Como o CSS acha |
+|---|---|---|
+| Botão | camada de 7% | `button:not(:disabled)` |
+| Link com cara de botão | camada de 7% | `a[href][style*='background']` |
+| Link de texto | sublinha | `a[href]:not([style*='background'])` |
+| Linha de lista clicável | fundo muda | `li:has(> a[href])` |
+
+O truque do meio é o que vale registrar: **a diferença entre um link de
+texto e um botão está escrita no atributo `style`**. Botão tem fundo,
+texto não. Ler isso com `[style*='background']` separa os dois sem
+nenhuma tela precisar marcar nada, e sem o link de voltar ganhar uma
+caixa em volta.
+
+O sublinhado do link de texto usa `!important`, e é o único lugar do
+projeto que usa. Não é preguiça: vários links trazem
+`text-decoration: none` no inline para não ficarem sublinhados parados, e
+`!important` na folha é a única coisa que vence inline. O seletor é
+estreito de propósito: um estado, um tipo de link, uma propriedade.
+
+Cartão clicável inteiro pede `.cartao-clicavel`, que levanta dois pixels
+e adensa a sombra. É a única marcação manual, e é de propósito: cartão
+que só mostra informação fica parado, e essa diferença é o que ensina
+onde dá para clicar.
+
+Quem escolheu computador sem animação (`prefers-reduced-motion`) não
+recebe movimento nenhum. A mudança de cor fica: ela é informação.
+
+---
+
 ## Segurança — leia antes de mexer
 
 O isolamento entre marcas **não está no código da aplicação**. Está nas

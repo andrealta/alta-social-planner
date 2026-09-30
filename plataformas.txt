@@ -3,50 +3,42 @@
        33  linkedin
         2  youtube
         1  tiktok
-  Setores dos clientes: Agência de publicidade e comunicação · B2B, Alimentos, Geleias premium · Alimentos, Incorporação e urbanismo, Jardinagem, paisagismo e decoração, Laticínios e alimentos, Mobiliário de alto padrão, design autoral e móveis para áreas externas e internas, fertilizantes biológicos
+  Setores dos clientes: Agência de publicidade e comunicação, Alimentos, Geleias premium, Incorporação e urbanismo, Jardinagem, Laticínios e alimentos, Mobiliário de alto padrão, fertilizantes biológicos
   Fontes travadas em: about.fb.com, business.instagram.com, creators.instagram.com, blog.linkedin.com, business.linkedin.com, blog.youtube, support.google.com, newsroom.tiktok.com, ads.tiktok.com
-  Periodo: ultimos 90 dias
+  Periodo: ultimos 30 dias
   Modelo: claude-opus-5
 
   Buscando. Isso leva de trinta segundos a dois minutos.
 
 
   ------------------------------------------------------------------
-  Nota 2  30/09/2026, 16:40:42   [PENDENTE, ainda nao vale para a geracao]
+  Nota 3  30/09/2026, 17:07:20   [PENDENTE, ainda nao vale para a geracao]
   ------------------------------------------------------------------
 
-  Instagram: o Meta One reorganizou os planos pagos e o pacote de criador e negócios (a partir de US$ 14,99/mês) prende recursos de publicação novos, como perfil ampliado com site e localizações, botão de seguir destacado nos reels e convites para seguir (15/09/2026).
+  Instagram: com o lançamento do Meta One, recursos de publicação que mudam a entrega passam a ficar presos em plano pago, o plano de negócios Advanced (a partir de US$ 49,99/mês) inclui link em posts e reels orgânicos, agendamento de stories com até 30 dias de antecedência e exportação de analytics (15/09/2026). Instagram: os planos de negócios também trazem perfil ampliado exibindo site e endereços e acesso de equipe à conta sem compartilhar senha, o que muda quem opera a publicação e o que cabe no perfil (15/09/2026).
   
-  YouTube: Shorts agora podem ser estruturados em temporadas e episódios, o que muda como uma série de vídeos curtos é montada, nomeada e entregue (setembro de 2026); o teste A/B de vídeo passa a comparar até três cortes diferentes da mesma peça, ou seja, a entrega pode incluir três versões do mesmo vídeo (setembro de 2026).
+  LinkedIn: nada relevante mudou, nenhuma alteração de formato, limite, objetivo de campanha ou regra de publicidade foi publicada pela própria plataforma nos últimos 30 dias.
   
-  TikTok: o comentário virou peça produzível, com comentário em áudio de até 60 segundos (contas 18+), carrossel de até 9 fotos em um único comentário e comentário com Live Photo (03/09/2026); na mídia, o TopReach Max Reach une TopView e TopFeed em uma compra só e o TopView passa a ser contratado direto no Ads Manager (julho de 2026).
+  YouTube: o Studio passa a permitir teste A/B de até três cortes diferentes do mesmo vídeo e geração de thumbnails no estilo do canal, ou seja, a entrega pode exigir mais de uma versão do arquivo (28/09/2026).
   
-  LinkedIn: nada relevante publicado no período nos canais oficiais consultados.
+  TikTok: nada relevante mudou no período.
 
   Fontes citadas na nota:
     Introducing Meta One: A Subscription Service With More Features and AI to Create, Connect, and Stand Out
       https://about.fb.com/news/2026/09/introducing-meta-one-subscription-service-more-features-ai/
-    Made On YouTube 2026 (hub de anúncios)
-      https://blog.youtube/madeonyoutube/
-    Made on YouTube: new tools to power the creation journey
-      https://blog.youtube/news-and-events/made-on-youtube-new-tools-power-creation-journey/
-    Say More in the Comments: Introducing Voice, Polls, and Carousels on TikTok
-      https://newsroom.tiktok.com/say-more-in-the-comments?lang=en
-    TikTok Product Preview: What's New For Brands In Q3 2026
-      https://ads.tiktok.com/business/en-US/blog/tiktok-product-preview
+    Made On YouTube 2026: All Announcements & New Features
+      https://blog.youtube/news-and-events/innovation-youtube-era-made-on-viewers-creators/
 
   Paginas que a API diz que foram lidas, por fonte:
-     24  business.linkedin.com
-     17  about.fb.com
-      8  blog.youtube
+     28  about.fb.com
+     19  business.linkedin.com
       8  newsroom.tiktok.com
-      6  blog.linkedin.com
-      3  creators.instagram.com
-      2  ads.tiktok.com
-      2  support.google.com
-    64 pagina(s) lida(s) nao entraram na nota, o que e normal.
+      3  support.google.com
+      1  blog.youtube
+      1  creators.instagram.com
+    56 pagina(s) lida(s) nao entraram na nota, o que e normal.
 
-  7 pesquisa(s), custo US$ 1.4594. Modelo: claude-opus-5
+  6 pesquisa(s), custo US$ 0.6736. Modelo: claude-opus-5
 
   A nota esta PENDENTE: ela ainda nao entra em planejamento nenhum.
   Leia o texto acima. Se concordar, use a opcao de aprovar.

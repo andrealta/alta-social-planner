@@ -29,7 +29,7 @@ export default async function AdministrarMarcas() {
     await Promise.all([
       supabase
         .from('brands')
-        .select('id, name, slug, segment, arquivada_em')
+        .select('id, name, slug, segment, color, arquivada_em')
         .order('name'),
       supabase
         .from('brand_scope')
@@ -66,6 +66,7 @@ export default async function AdministrarMarcas() {
     nome: m.name as string,
     slug: m.slug as string,
     segmento: (m.segment as string) ?? '',
+    cor: (m.color as string) ?? null,
     arquivadaEm: (m.arquivada_em as string) ?? null,
     escopo: porMarca.get(m.id as string) ?? [],
     planejamentos: planosPorMarca.get(m.id as string) ?? 0,

@@ -2,11 +2,28 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { clienteServidor } from '@/lib/supabase/server'
 import { SECOES, situacao } from '@/lib/base'
-import { Editor } from './editor'
+import { BaseRecolhida } from './base'
 import { Cor } from './cor'
 import { calcularStatusEquipe } from '@/lib/status'
 import { duracao } from '@/lib/medidas'
 import { Quadro, type Numero } from '@/lib/quadro'
+import { Inicial } from '@/lib/inicial'
+import { botao, cartao, ponto } from '@/lib/visual'
+import { MESES } from '@/lib/prompt'
+
+/**
+ * A situação do mês, como ela aparece nas telas da equipe. As mesmas
+ * palavras da lista de meses: duas telas mostrando o mesmo estado com
+ * nomes diferentes é como se aprende errado o que cada um quer dizer.
+ */
+const SITUACAO: Record<string, { rotulo: string; cor: string }> = {
+  draft: { rotulo: 'rascunho', cor: 'var(--faint)' },
+  generating: { rotulo: 'gerando', cor: 'var(--warn)' },
+  internal_review: { rotulo: 'em revisão interna', cor: 'var(--warn)' },
+  sent_to_client: { rotulo: 'com o cliente', cor: 'var(--accent)' },
+  approved: { rotulo: 'aprovado', cor: 'var(--ok)' },
+  archived: { rotulo: 'arquivado', cor: 'var(--faint)' },
+}
 
 export default async function BaseDaMarca({
   params,
@@ -58,7 +75,10 @@ export default async function BaseDaMarca({
 
   // O status desta marca: a mesma conta da tela inicial, só com ela.
   const [{ data: planos }, { data: pautas }, { data: decisoes }] = await Promise.all([
-    supabase.from('plans').select('id, brand_id').eq('brand_id', marca.id),
+    supabase
+      .from('plans')
+      .select('id, brand_id, month, year, status, client_released_at, approved_at')
+      .eq('brand_id', marca.id),
     supabase.from('content_ideas').select('id, plan_id, status').eq('brand_id', marca.id),
     supabase
       .from('approvals')
@@ -113,6 +133,36 @@ export default async function BaseDaMarca({
     .at(-1)
 
   const proibidas = situacao(iniciais['voice']?.['v_nao'])
+
+  // Os meses mais recentes, do mais novo para o mais velho. Quatro
+  // cabem numa linha em tela larga e é o horizonte que alguém olha
+  // de fato: quem quer o histórico inteiro vai na lista de meses.
+  const pautasPorPlano = new Map<string, number>()
+  for (const p of pautas ?? []) {
+    const id = p.plan_id as string
+    pautasPorPlano.set(id, (pautasPorPlano.get(id) ?? 0) + 1)
+  }
+  const ultimos = [...(planos ?? [])]
+    .sort(
+      (a, b) =>
+        Number(b.year) - Number(a.year) || Number(b.month) - Number(a.month),
+    )
+    .slice(0, 4)
+    .map((p) => {
+      const mes = Number(p.month)
+      const nome = MESES[mes - 1] ?? ''
+      return {
+        id: p.id as string,
+        ano: Number(p.year),
+        mes,
+        nome: nome.charAt(0).toUpperCase() + nome.slice(1),
+        situacao: SITUACAO[(p.status as string) ?? ''] ?? {
+          rotulo: (p.status as string) ?? 'sem situação',
+          cor: 'var(--faint)',
+        },
+        pautas: pautasPorPlano.get(p.id as string) ?? 0,
+      }
+    })
 
   // A última varredura dos concorrentes. Fica aqui, e não numa tela
   // própria, porque ela pertence à base: é consequência do campo
@@ -171,34 +221,24 @@ export default async function BaseDaMarca({
           borderBottom: '2px solid var(--text)',
         }}
       >
-        <div style={{ flex: 1, minWidth: 240 }}>
-          <div
-            style={{
-              fontFamily: 'var(--disp)',
-              fontSize: 11,
-              fontWeight: 500,
-              letterSpacing: '.2em',
-              textTransform: 'uppercase',
-              color: 'var(--accent)',
-              marginBottom: 6,
-            }}
-          >
-            Base da marca
-          </div>
-          <h1 style={{ fontFamily: 'var(--disp)', fontSize: 34, fontWeight: 600, lineHeight: 1.08 }}>
-            {marca.name as string}
-          </h1>
-          <p style={{ color: 'var(--muted)', fontSize: 14, marginTop: 4 }}>
-            {(marca.segment as string) ?? 'sem segmento definido'}
-            {atualizadaEm &&
-              ` · última alteração em ${new Date(atualizadaEm).toLocaleDateString('pt-BR')}`}
-          </p>
-          <div style={{ marginTop: 10 }}>
-            <Cor
-              slug={slug}
-              inicial={(marca.color as string | null) ?? null}
-              podeTrocar={papel === 'admin'}
-            />
+        <div style={{ flex: 1, minWidth: 240, display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+          <Inicial nome={marca.name as string} cor={(marca.color as string | null) ?? null} tamanho="g" />
+          <div style={{ minWidth: 0 }}>
+            <h1 style={{ fontFamily: 'var(--disp)', fontSize: 34, fontWeight: 600, lineHeight: 1.08 }}>
+              {marca.name as string}
+            </h1>
+            <p style={{ color: 'var(--muted)', fontSize: 14, marginTop: 4 }}>
+              {(marca.segment as string) ?? 'sem segmento definido'}
+              {atualizadaEm &&
+                ` · base alterada em ${new Date(atualizadaEm).toLocaleDateString('pt-BR')}`}
+            </p>
+            <div style={{ marginTop: 10 }}>
+              <Cor
+                slug={slug}
+                inicial={(marca.color as string | null) ?? null}
+                podeTrocar={papel === 'admin'}
+              />
+            </div>
           </div>
         </div>
 
@@ -212,21 +252,21 @@ export default async function BaseDaMarca({
             </div>
           )}
           {podeEditar && (
+            // A ação principal da tela, e é só uma. Ela leva à página
+            // onde o mês é gerado, não a uma lista: o nome diz o que
+            // acontece quando se clica.
             <Link
               href={`/painel/marca/${slug}/plano`}
               style={{
+                ...botao(true),
                 display: 'inline-block',
-                padding: '10px 18px',
-                fontSize: 14,
-                fontWeight: 700,
-                color: 'var(--paper)',
-                background: 'var(--text)',
-                borderRadius: 8,
+                fontSize: 14.5,
+                padding: '13px 24px',
                 textDecoration: 'none',
                 whiteSpace: 'nowrap',
               }}
             >
-              Planejamento
+              Novo planejamento
             </Link>
           )}
         </div>
@@ -287,6 +327,87 @@ export default async function BaseDaMarca({
             </Link>
           ) : null}
         </div>
+      )}
+
+      {/* Os últimos meses vêm antes de tudo: é o que a pessoa abriu a
+          tela para ver. A base fica embaixo, recolhida. */}
+      {ultimos.length > 0 && (
+        <section style={{ marginTop: 26 }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'baseline',
+              justifyContent: 'space-between',
+              gap: 12,
+              marginBottom: 12,
+            }}
+          >
+            <h2
+              style={{
+                fontFamily: 'var(--disp)',
+                fontSize: 13,
+                fontWeight: 500,
+                letterSpacing: '.16em',
+                textTransform: 'uppercase',
+                color: 'var(--faint)',
+                margin: 0,
+              }}
+            >
+              Últimos planejamentos
+            </h2>
+            <Link
+              href={`/painel/marca/${slug}/plano`}
+              style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 600 }}
+            >
+              ver todos os meses
+            </Link>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gap: 12,
+              gridTemplateColumns: 'repeat(auto-fill, minmax(215px, 1fr))',
+            }}
+          >
+            {ultimos.map((m) => (
+              <Link
+                key={m.id}
+                href={`/painel/marca/${slug}/plano/${m.ano}/${String(m.mes).padStart(2, '0')}`}
+                className="cartao-clicavel"
+                style={{
+                  ...cartao,
+                  display: 'block',
+                  padding: '15px 17px',
+                  textDecoration: 'none',
+                  color: 'inherit',
+                  border: '1px solid transparent',
+                }}
+              >
+                <div style={{ fontFamily: 'var(--disp)', fontSize: 17, fontWeight: 600 }}>
+                  {m.nome}
+                </div>
+                <div style={{ color: 'var(--faint)', fontSize: 12.5, marginTop: 1 }}>{m.ano}</div>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 7,
+                    marginTop: 12,
+                    fontSize: 12.5,
+                    color: 'var(--muted)',
+                  }}
+                >
+                  <span style={ponto(m.situacao.cor)} aria-hidden />
+                  {m.situacao.rotulo}
+                </div>
+                <div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 3 }}>
+                  {m.pautas === 1 ? '1 pauta' : `${m.pautas} pautas`}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
       )}
 
       {status.meses > 0 && <Quadro titulo="Status da marca" numeros={numeros} minimo={108} />}
@@ -375,7 +496,7 @@ export default async function BaseDaMarca({
         </div>
       )}
 
-      <Editor slug={slug} iniciais={iniciais} podeEditar={podeEditar} />
+      <BaseRecolhida slug={slug} iniciais={iniciais} podeEditar={podeEditar} />
     </main>
   )
 }

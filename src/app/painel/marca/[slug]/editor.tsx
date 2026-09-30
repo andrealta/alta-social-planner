@@ -9,6 +9,7 @@ import {
   type Situacao,
 } from '@/lib/base'
 import { salvarBase } from './acoes'
+import { CapaDaBase } from './base'
 
 type Valores = Record<string, Record<string, string>>
 
@@ -77,10 +78,19 @@ export function Editor({
   slug,
   iniciais,
   podeEditar,
+  aberta = true,
+  aoAbrir,
 }: {
   slug: string
   iniciais: Valores
   podeEditar: boolean
+  /**
+   * A base começa fechada na tela da marca, e aberta em qualquer
+   * outro lugar que use este componente. O padrão `true` mantém
+   * quem já usava sem precisar saber que isto existe.
+   */
+  aberta?: boolean
+  aoAbrir?: () => void
 }) {
   const [valores, setValores] = useState<Valores>(() => clonar(iniciais))
   const [gravados, setGravados] = useState<Valores>(() => clonar(iniciais))
@@ -165,35 +175,71 @@ export function Editor({
     }))
   }
 
-  return (
-    <div style={{ marginTop: 26, paddingBottom: sujas.size > 0 ? 96 : 24 }}>
-      {/* barra de completude */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 16,
-          flexWrap: 'wrap',
-          padding: '14px 18px',
-          border: '1px solid var(--line)',
-          borderRadius: 'var(--r-lg)',
-          background: 'var(--surface)',
-          boxShadow: 'var(--shadow)',
-          marginBottom: 20,
-        }}
-      >
-        <div style={{ flex: 1, minWidth: 200 }}>
-          <div style={{ display: 'flex', height: 8, borderRadius: 99, overflow: 'hidden', background: 'var(--surface-3)' }}>
-            <div style={{ width: `${(total.ok / total.total) * 100}%`, background: 'var(--ok)' }} />
-            <div style={{ width: `${(total.pendente / total.total) * 100}%`, background: 'var(--warn)' }} />
-          </div>
-          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 7 }}>
-            {total.ok} resolvidos · {total.pendente} a confirmar · {total.vazio} vazios ·{' '}
-            {total.total} campos
-          </div>
+  /**
+   * A barra de completude. Ela é o resumo da base, e por isso continua
+   * visível mesmo com os campos fechados: é a única coisa desta tela
+   * que diz, de longe, se a conta está pronta para gerar.
+   */
+  const barra = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+      <div style={{ flex: 1, minWidth: 200 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, marginBottom: 9 }}>
+          <span style={{ fontFamily: 'var(--disp)', fontSize: 17, fontWeight: 600 }}>
+            Base da marca
+          </span>
+          {sujas.size > 0 && (
+            <span style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 600 }}>
+              alterações não salvas
+            </span>
+          )}
+        </div>
+        <div style={{ display: 'flex', height: 8, borderRadius: 99, overflow: 'hidden', background: 'var(--surface-3)' }}>
+          <div style={{ width: `${(total.ok / total.total) * 100}%`, background: 'var(--ok)' }} />
+          <div style={{ width: `${(total.pendente / total.total) * 100}%`, background: 'var(--warn)' }} />
+        </div>
+        <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 7 }}>
+          {total.ok} {total.ok === 1 ? 'resolvido' : 'resolvidos'} · {total.pendente} a
+          confirmar · {total.vazio} {total.vazio === 1 ? 'vazio' : 'vazios'} ·{' '}
+          {total.total} campos
         </div>
       </div>
+      {aoAbrir && (
+        <span
+          style={{
+            fontSize: 13.5,
+            fontWeight: 700,
+            color: 'var(--accent)',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {aberta ? 'fechar' : podeEditar ? 'abrir e preencher' : 'abrir'} {aberta ? '↑' : '↓'}
+        </span>
+      )}
+    </div>
+  )
 
+  return (
+    <div style={{ paddingBottom: sujas.size > 0 ? 96 : 24 }}>
+      {aoAbrir ? (
+        <CapaDaBase aberta={aberta} aoAbrir={aoAbrir}>
+          {barra}
+        </CapaDaBase>
+      ) : (
+        <div
+          style={{
+            padding: '14px 18px',
+            border: '1px solid var(--line)',
+            borderRadius: 'var(--r-lg)',
+            background: 'var(--surface)',
+            boxShadow: 'var(--shadow)',
+            marginBottom: 20,
+          }}
+        >
+          {barra}
+        </div>
+      )}
+
+      {!aberta ? null : (
       <div style={{ display: 'flex', gap: 22, alignItems: 'flex-start', flexWrap: 'wrap' }}>
         {/* abas */}
         <nav
@@ -335,6 +381,7 @@ export function Editor({
           })}
         </section>
       </div>
+      )}
 
       {/* barra de salvar */}
       {podeEditar && (sujas.size > 0 || aviso) && (

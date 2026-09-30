@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { clienteServidor } from '@/lib/supabase/server'
+import { Inicial } from '@/lib/inicial'
 import { calcularStatusEquipe, type Fila } from '@/lib/status'
 import { duracao } from '@/lib/medidas'
 import { Quadro, Icone, type Numero } from '@/lib/quadro'
@@ -366,30 +367,6 @@ export default async function Painel() {
         vaza dado de cliente.
       </section>
     </main>
-  )
-}
-
-/** A inicial da marca num círculo com a cor dela, como no portal do cliente. */
-function Inicial({ nome, cor }: { nome: string; cor: string | null }) {
-  return (
-    <div
-      aria-hidden
-      style={{
-        width: 40,
-        height: 40,
-        flexShrink: 0,
-        borderRadius: 99,
-        background: cor ?? 'var(--accent)',
-        color: '#fff',
-        display: 'grid',
-        placeItems: 'center',
-        fontFamily: 'var(--disp)',
-        fontWeight: 600,
-        fontSize: 16,
-      }}
-    >
-      {nome.trim().charAt(0).toUpperCase()}
-    </div>
   )
 }
 
