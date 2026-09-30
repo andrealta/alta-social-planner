@@ -101,13 +101,15 @@ export const FORMATOS = [
     rotulo: 'material de ponto de venda',
     // MPDV e como a casa escreve "material de ponto de venda". Sem
     // essa sigla, vinte e seis pecas caiam em "outros".
-    teste: /wobbler|moldura|\bframe\b|tampa|embalagem|rotulo|\bbanner\b|\bkv\b|flyer|cartaz|adesivo|\bdisplay\b|\bm?pdv\b|\bplacas?\b|\bfachada\b|\boutdoor\b|\bletreiro\b/,
+    teste: /wobbler|moldura|\bframe\b|tampa|embalagem|rotulo|\bbanner\b|\bkv\b|flyer|cartaz|adesivo|\bdisplay\b|\bm?pdv\b|\bplacas?\b|\bfachada\b|\boutdoor\b|\bletreiro\b|\bstopper\b|\bgondola\b|\btesteira\b|\bclip ?strip\b/,
   },
   // Daqui para baixo vieram da Habiarte, uma construtora. As regras
   // originais foram escritas lendo titulos de uma marca de alimentos, e
   // 89% das pecas dela cairam em "outros". Vocabulario de formato e da
   // AGENCIA, nao da industria: cada conta chama o trabalho do seu
   // jeito, e esta lista cresce quando uma conta nova mostra que cresce.
+  { chave: 'layout', rotulo: 'layout de arte', teste: /\blayout\b|\bdiagramacao\b|\barte final\b/ },
+  { chave: 'marca', rotulo: 'identidade e naming', teste: /\bnaming\b|identidade visual|\blogo(tipo)?\b|rebranding|manual da marca|\bbranding\b/ },
   { chave: 'apresentacao', rotulo: 'apresentação', teste: /\bppt\b|apresentacao|\bslides?\b|\btelao\b/ },
   { chave: 'blog', rotulo: 'blog e artigo', teste: /\bblog\b|\bartigo\b/ },
   { chave: 'seo', rotulo: 'SEO', teste: /\bseo\b|palavras?-?chave|busca organica/ },
@@ -115,7 +117,7 @@ export const FORMATOS = [
   // "Acao" sozinho conta. Na Habiarte os titulos sao do tipo
   // "Outubro Rosa - Acao Use Rosa - LinkedIn": e campanha, e a palavra
   // que diz isso e uma so.
-  { chave: 'campanha', rotulo: 'ação e campanha', teste: /\bacoes?\b|campanha|\bpromo|outubro rosa|novembro azul/ },
+  { chave: 'campanha', rotulo: 'ação e campanha', teste: /\bacoes?\b|campanha|\bpromo|outubro rosa|novembro azul|\bserie\b/ },
   // "Redes sociais" fica por ultimo de proposito: e o rotulo mais
   // generico que a agencia usa, e quase toda peca de social poderia
   // cair nele. So pega o que nao disse nada mais especifico.
@@ -130,6 +132,25 @@ const ADMINISTRATIVO =
   /relatorio|timesheet|nota fiscal|\bnf\b|calculos de verba|orcamento|\bboletos?\b|contrato|reuniao|simulacoes|faturamento/
 
 /**
+ * Anúncio de vaga, não conteúdo de marca.
+ *
+ * A Canto de Minas publica vaga no LinkedIn pela agência: "Vendedor
+ * Sênior BH", "Analista de Suprimentos SR", "Vendedor Jr". É trabalho
+ * de verdade, consome horas de verdade, e não tem nada a ver com o que
+ * a marca fala para quem compra iogurte.
+ *
+ * Fica separado do endomarketing porque é o contrário dele: a
+ * comunicação interna fala com quem já trabalha lá, a vaga fala com
+ * quem ainda não. As duas só têm em comum não serem conteúdo de marca.
+ *
+ * O risco aqui é o inverso do de sempre: nome de cargo é palavra comum,
+ * e uma regra larga classificaria peça de conteúdo como vaga. Por isso
+ * a lista é de cargos, e não de palavras que aparecem perto de cargos.
+ */
+const RECRUTAMENTO =
+  /\bvagas?\b|recrutamento|contratacao|\bestagi|\btrainee\b|banco de talentos|\bvendedor(a|es|as)?\b|\bpromotor(a|es|as)?\b|\banalista\b|\bassistente\b|\bauxiliar\b|\bcoordenador|\bsupervis(or|ao)|\boperador|\brepositor|\bmanutencao eletrica\b/
+
+/**
  * Comunicação para DENTRO da empresa do cliente, não para o público.
  *
  * SIPAT, aniversariantes do mês, convite de confraternização, telão do
@@ -142,7 +163,7 @@ const ADMINISTRATIVO =
  * falou em público.
  */
 const ENDOMARKETING =
-  /\bsipat\b|aniversariantes|endomarketing|comunicado interno|\bconvites?\b|integracao de|colaboradores|\bcracha\b|uniforme|confraternizacao|semana interna/
+  /\bsipat\b|aniversariantes|endomarketing|comunicado interno|\bconvites?\b|integracao de|colaboradores|\bcracha\b|uniforme|confraternizacao|semana interna|tv corp/
 const PLANEJAMENTO = /planejamento|\bpauta\b|estrategia|posicionamento|\bplano\b|briefing|cronograma/
 
 const CANAIS = [
@@ -167,11 +188,13 @@ export function classificar(titulo) {
 
   const natureza = ADMINISTRATIVO.test(t)
     ? 'administrativo'
-    : ENDOMARKETING.test(t)
-      ? 'endomarketing'
-      : PLANEJAMENTO.test(t)
-        ? 'planejamento'
-        : 'conteudo'
+    : RECRUTAMENTO.test(t)
+      ? 'recrutamento'
+      : ENDOMARKETING.test(t)
+        ? 'endomarketing'
+        : PLANEJAMENTO.test(t)
+          ? 'planejamento'
+          : 'conteudo'
 
   let formato = 'outros'
   if (natureza === 'conteudo') {
@@ -256,6 +279,10 @@ export function influenciadorDoTitulo(titulo) {
 const NAO_SAO_NOMES = new Set([
   'carnaval', 'natal', 'pascoa', 'festas', 'fim de ano', 'dia das maes',
   'dia dos pais', 'black friday', 'verao', 'inverno', 'receita', 'receitas',
+  // De "influenciadores pagos" e "influenciadores organicos": e o tipo
+  // de contratacao, nao gente.
+  'pago', 'paga', 'pagos', 'pagas', 'organico', 'organica', 'organicos',
+  'organicas', 'digital', 'digitais', 'local', 'locais', 'nacional',
 ])
 
 /**
@@ -275,12 +302,41 @@ export function juntarInfluenciadores(contagem) {
     const curto = achatar(nome)
     const maior = [...destino.keys()].find((m) => {
       const c = achatar(m)
-      return c === curto || c.startsWith(curto + ' ')
+      if (c === curto || c.startsWith(curto + ' ')) return true
+      // "Rayane" e "Rayanne" sao a mesma pessoa com uma letra a mais.
+      // Nome proprio digitado a mao ao longo de anos varia assim, e
+      // contar as duas grafias separadas diria que a marca trabalhou
+      // com duas pessoas quando trabalhou com uma.
+      //
+      // So a partir de seis letras: em nome curto, uma letra de
+      // diferenca e outra pessoa ("Ana" e "Ane").
+      return c.length >= 6 && curto.length >= 6 && umaLetraDeDiferenca(c, curto)
     })
     const alvo = maior ?? nome
     destino.set(alvo, (destino.get(alvo) ?? 0) + (contagem.get(nome) ?? 0))
   }
   return destino
+}
+
+/** Dois nomes que diferem por uma letra a mais, a menos ou trocada. */
+export function umaLetraDeDiferenca(a, b) {
+  if (a === b) return false
+  if (Math.abs(a.length - b.length) > 1) return false
+  const [curto, longo] = a.length <= b.length ? [a, b] : [b, a]
+  let i = 0
+  let j = 0
+  let erros = 0
+  while (i < curto.length && j < longo.length) {
+    if (curto[i] === longo[j]) {
+      i++
+      j++
+      continue
+    }
+    if (++erros > 1) return false
+    if (curto.length === longo.length) i++
+    j++
+  }
+  return erros + (longo.length - j) <= 1
 }
 
 /** Palavras que não dizem nada sobre o assunto. */
@@ -297,6 +353,22 @@ const VAZIAS = new Set(
     .split(' ')
     .filter(Boolean),
 )
+
+/**
+ * A peça é de data comemorativa?
+ *
+ * Não vira formato: data comemorativa é ASSUNTO, e misturar com forma
+ * estragaria as duas listas. Mas vale contar à parte, porque é uma
+ * decisão de estratégia visível: uma marca que faz trinta datas por ano
+ * tem um calendário editorial preso ao almanaque, e quem for planejar
+ * o mês seguinte precisa saber disso antes de propor.
+ */
+const DATA_COMEMORATIVA =
+  /\bdia (mundial|nacional|internacional|d[oa])\b|\bnatal\b|\bano novo\b|\bpascoa\b|\bcarnaval\b|black friday|dia das criancas|dia das maes|dia dos pais|\bnamorados\b|\bconsumidor\b/
+
+export function ehDataComemorativa(titulo) {
+  return DATA_COMEMORATIVA.test(achatar(limparTitulo(titulo)))
+}
 
 /**
  * Os assuntos que voltam.
@@ -358,7 +430,7 @@ export function montarPerfil(jobs) {
   const soma = (lista) => lista.reduce((t, j) => t + j.minutos, 0)
 
   const porNatureza = {}
-  for (const nat of ['conteudo', 'endomarketing', 'planejamento', 'administrativo']) {
+  for (const nat of ['conteudo', 'endomarketing', 'recrutamento', 'planejamento', 'administrativo']) {
     const q = limpos.filter((j) => j.natureza === nat)
     porNatureza[nat] = { jobs: q.length, minutos: soma(q) }
   }
@@ -402,7 +474,25 @@ export function montarPerfil(jobs) {
       influBruto.set(nome, (influBruto.get(nome) ?? 0) + 1)
     }
   }
+  // Segunda passada: uma vez que se sabe QUEM sao os influenciadores da
+  // marca, da para contar as pecas que citam o nome deles sem escrever
+  // "influ". "Rayane Campea Olimpica" e "Rayane - Training Camp" sao
+  // conteudo com a mesma pessoa, e sem isso a conta ficava pela metade.
+  //
+  // So nomes de cinco letras ou mais, e so palavra inteira: nome curto
+  // casaria com pedaco de outra palavra e inflaria tudo.
   const influ = juntarInfluenciadores(influBruto)
+  for (const [nome, quantos] of influ) {
+    const primeiro = achatar(nome).split(' ')[0]
+    if (!primeiro || primeiro.length < 5) continue
+    const procura = new RegExp(`\\b${primeiro.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`)
+    let extras = 0
+    for (const j of limpos) {
+      if (influenciadorDoTitulo(j.titulo)) continue // ja contado na primeira passada
+      if (procura.test(achatar(j.titulo))) extras++
+    }
+    if (extras > 0) influ.set(nome, quantos + extras)
+  }
 
   // As frentes: quando a marca reune varios cadastros do Operand, a
   // linha do titulo diz de qual empreendimento, produto ou unidade e
@@ -449,6 +539,13 @@ export function montarPerfil(jobs) {
     // As linhas viram tanto a lista de frentes quanto a lista de
     // palavras a ignorar nos assuntos.
     frentes,
+    datas: (() => {
+      const daData = conteudo.filter((j) => ehDataComemorativa(j.titulo))
+      return {
+        jobs: daData.length,
+        exemplos: [...new Set(daData.map((j) => limparTitulo(j.titulo)))].slice(0, 6),
+      }
+    })(),
     temas: temasRecorrentes(conteudo.map((j) => j.titulo), { ignorar: palavrasDaIdentidade }),
     // Titulos que nao encaixaram em formato nenhum. Existem para a
     // proxima correcao das regras ser feita com prova na mao, e nao
@@ -536,6 +633,7 @@ export function perfilEmTexto(p, { nomeDaMarca = 'a marca' } = {}) {
 
   const c = p.natureza.conteudo
   const en = p.natureza.endomarketing ?? { jobs: 0, minutos: 0 }
+  const re = p.natureza.recrutamento ?? { jobs: 0, minutos: 0 }
   const pl = p.natureza.planejamento
   const ad = p.natureza.administrativo
   linhas.push(
@@ -544,11 +642,13 @@ export function perfilEmTexto(p, { nomeDaMarca = 'a marca' } = {}) {
         ? `${en.jobs} são comunicação interna do cliente, como SIPAT e aniversariantes ` +
           `(${horas(en.minutos)}), `
         : '') +
+      (re.jobs > 0 ? `${re.jobs} são anúncio de vaga (${horas(re.minutos)}), ` : '') +
       `${pl.jobs} são planejamento (${horas(pl.minutos)}) e ` +
       `${ad.jobs} são administrativo, como relatório e nota fiscal (${horas(ad.minutos)}).` +
-      (en.jobs > 0
-        ? ' A comunicação interna não deve inspirar pauta de rede social: ela fala com os ' +
-          'funcionários do cliente, não com o público da marca.'
+      (en.jobs > 0 || re.jobs > 0
+        ? ' Nada disso deve inspirar pauta de rede social: a comunicação interna fala com ' +
+          'os funcionários do cliente e o anúncio de vaga fala com candidatos, não com o ' +
+          'público da marca.'
         : ''),
   )
 
@@ -582,6 +682,17 @@ export function perfilEmTexto(p, { nomeDaMarca = 'a marca' } = {}) {
       `Influenciadores que já trabalharam com a marca: ` +
         p.influenciadores.map((i) => `${i.nome}${i.jobs > 1 ? ` (${i.jobs}x)` : ''}`).join(', ') +
         '.',
+    )
+  }
+
+  if (p.datas && p.datas.jobs > 0) {
+    const fatia = Math.round((p.datas.jobs / Math.max(1, p.natureza.conteudo.jobs)) * 100)
+    linhas.push(
+      `${p.datas.jobs} peças (${fatia}% do conteúdo) são de data comemorativa: ` +
+        p.datas.exemplos.join(', ') +
+        (p.datas.exemplos.length >= 6 ? ', entre outras.' : '.') +
+        ' Isso diz o quanto o calendário desta conta depende do almanaque, e é uma ' +
+        'decisão de estratégia, não um acaso.',
     )
   }
 

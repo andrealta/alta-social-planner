@@ -1,23 +1,51 @@
 
-  Queensberry: retrato montado a partir de 392 job(s).
+  Canto de Minas: retrato montado a partir de 780 job(s).
 
-  A agência registrou 392 trabalhos para Queensberry, com datas entre 2025-04-11 e 2027-01-06, somando 1424h31 apontadas. Desses, 13 têm prazo ainda por vir.
+  A agência registrou 780 trabalhos para Canto de Minas, com datas entre 2024-12-06 e 2027-01-07, somando 2403h35 apontadas. Desses, 35 têm prazo ainda por vir.
 
-  Num mês comum esta conta rende 30 trabalhos e 105h11 de trabalho apontado. É a mediana dos 12 meses entre 2025-09 e 2026-08, e é essa a medida de capacidade: a média do período inteiro engana, porque job aberto hoje pode ter prazo daqui a um ano.
+  Num mês comum esta conta rende 54 trabalhos e 158h25 de trabalho apontado. É a mediana dos 12 meses entre 2025-09 e 2026-08, e é essa a medida de capacidade: a média do período inteiro engana, porque job aberto hoje pode ter prazo daqui a um ano.
 
-  Desses, 334 são peças de conteúdo para o público (701h20), 2 são comunicação interna do cliente, como SIPAT e aniversariantes (7h10), 20 são planejamento (556h12) e 36 são administrativo, como relatório e nota fiscal (159h49). A comunicação interna não deve inspirar pauta de rede social: ela fala com os funcionários do cliente, não com o público da marca.
+  Desses, 666 são peças de conteúdo para o público (2018h), 18 são comunicação interna do cliente, como SIPAT e aniversariantes (18h17), 31 são anúncio de vaga (31h42), 18 são planejamento (120h03) e 47 são administrativo, como relatório e nota fiscal (215h33). Nada disso deve inspirar pauta de rede social: a comunicação interna fala com os funcionários do cliente e o anúncio de vaga fala com candidatos, não com o público da marca.
 
-  Formatos produzidos, do mais frequente ao menos: vídeo: 83 (tipicamente 1h36 cada); influenciador: 64 (tipicamente 1h37 cada); foto: 55 (tipicamente 1h38 cada); material de ponto de venda: 48 (tipicamente 1h06 cada); sem formato no título: 42 (tipicamente 3h20 cada); story e destaque: 14 (tipicamente 30min cada); e-mail marketing: 9 (tipicamente 2h37 cada); carrossel: 7 (tipicamente 1h08 cada); post de feed: 5 (tipicamente 3h02 cada); ação e campanha: 3 (tipicamente 2h18 cada); redes sociais: 2 (tipicamente 5h30 cada); mídia paga: 2 (tipicamente 3h32 cada).
+  Formatos produzidos, do mais frequente ao menos: sem formato no título: 275 (tipicamente 1h26 cada); material de ponto de venda: 87 (tipicamente 1h59 cada); vídeo: 77 (tipicamente 52min cada); foto: 75 (tipicamente 30min cada); layout de arte: 51 (tipicamente 43min cada); influenciador: 29 (tipicamente 3h33 cada); apresentação: 17 (tipicamente 1h08 cada); carrossel: 11 (tipicamente 42min cada); mídia paga: 10 (tipicamente 28min cada); identidade e naming: 9 (tipicamente 38min cada); ação e campanha: 8 (tipicamente 46min cada); post de feed: 7 (tipicamente 54min cada); story e destaque: 6 (tipicamente 18min cada); redes sociais: 2 (tipicamente 5h51 cada); e-mail marketing: 2.
 
-  Canais citados nos trabalhos: Instagram (14), e-mail (8), mídia paga (7), YouTube (3), Facebook (2), TikTok (1).
+  "Sem formato no título" não é um tipo de peça: são 275 trabalhos cujo título nomeia o assunto e não o formato. Não conclua nada sobre formato a partir desse número.
 
-  Influenciadores que já trabalharam com a marca: Tato Drink (6x), Vivian Carvalho (5x), Gean Uai (4x), Nathassia Pécora (4x), Silmara Receitas (4x), Lucas Nutri (3x), Nathassia Pécorra (2x), Karol Stefanini.
+  Canais citados nos trabalhos: Instagram (7), TikTok (4), e-mail (3), mídia paga (1).
 
-  O trabalho se divide em 10 frentes. As maiores: Queens (374), Queensberry (6), QUEENSBERRY (5), Queens Conteúdo influ Silmara (1), Queens Conteúdo influ Nathassia Pécorra (1), Queens Conteúdo influ Vivian Carvalho (1), QUEENS (1), Queens Conteúdo influ Gean Uai (1), Queens Conteúdo influ Tato (1), Queens E-mail MKT 1 (1).
+  Influenciadores que já trabalharam com a marca: Rayanne (6x).
 
-  Assuntos que mais se repetem nos títulos: geleia (51), maca (29), bacon (28), supermercados (27), rena (25), tampas (23), anos (22), drink (14), colecionaveis (12), casa (11), bolos (10), frutas (10), parceria (10), adesivo (8), instagram (8), perfil (8), receita (8), ceratti (7), combinacoes (7), copa (7).
+  52 peças (8% do conteúdo) são de data comemorativa: FOTO | Iogurte Vitamina 1250g | Semana do Consumidor, FOTO | Iogurtes, Linha Infantil, Queijos | Dia do Consumidor, Dia Mundial do Café | 01/10, Dia Mundial da Alimentação | 16/10, LAYOUT | Dia das Crianças, Natal | 25/12, entre outras. Isso diz o quanto o calendário desta conta depende do almanaque, e é uma decisão de estratégia, não um acaso.
+
+  O trabalho se divide em 14 frentes. As maiores: Canto (745), CANTO DE MINAS (20), -Canto (2), Conexão Canto (2), Vídeo (2), BonQ (1), Canto - Planejamento Redes Sociais (1), Canto \ Redução Gramatura Leite Fermentado de 900g para 800g (1), Canto Lançamento Embalagem - 2 ingredientes 1.150g (1), Crachá (1), entre outras.
+
+  Assuntos que mais se repetem nos títulos: iogurte (61), queijo (58), linha (43), zero (34), ajuste (33), vertical (32), infantil (31), baixo (30), sodio (30), morango (29), requeijao (27), triplo (27), adequacao (24), digital (21), influenciadores (20), cada (17), cartao (17), queijos (17), seu (17), whey (17).
 
   Este retrato é do que foi produzido, não do que deu certo: o sistema de produção registra esforço e entrega, não resultado. Use como medida de capacidade e de vocabulário da conta, não como prova de que um formato funciona.
+
+  [atencao]  275 de 666 pecas nao dizem o
+             formato no titulo.
+
+             Isso PODE ser normal: numa conta cujo contrato e "redes
+             sociais", o titulo costuma nomear o assunto, e nao o
+             formato. Nesse caso nao ha nada a consertar.
+
+             Olhe os exemplos abaixo. Se ALGUM deles tiver o formato
+             escrito e mesmo assim caiu aqui, e regra faltando, e eu
+             conserto. Se nenhum tiver, e assim mesmo.
+
+               Canto | Dia Mundial do Café | 01/10
+               Canto | Mapa SuperMinas | 06/10
+               Canto | SuperAgos - LinkedIn | 10/10
+               Canto | Dia Mundial da Alimentação | 16/10
+               Canto | Rayane Campeã Olimpica | 20/11
+               Canto | Rayane - Training Camp | 04/12
+               Canto | Iogurtes Triplozero 1kg | 17/12
+               Canto | Natal | 25/12
+               Canto | Ano Novo | 01/01
+               Canto | Cada Canto do seu Dia ep3 | 16/01
+               Canto | Ajuste Iogurte Triplozero Pessego 480g
+               Canto | Dia da Gula | 26/01
 
   Retrato gravado. Ele ainda nao entra no prompt: isso e o passo seguinte,
   e so faz sentido depois de voce ler o texto acima e concordar com ele.
