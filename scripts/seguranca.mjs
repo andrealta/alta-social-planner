@@ -213,29 +213,38 @@ try {
   // junto, aparecesse ou nao na tela. A 0027 fechou as duas tabelas
   // para ele e pos duas vistas no lugar, com as colunas escritas nome
   // por nome. Esta secao confere que continua assim.
+  // A 0037 estendeu a mesma ideia as tres tabelas que sobravam:
+  // `brands` (a lista de concorrentes), `brand_scope` (a anotacao
+  // interna de cada linha) e `approvals` (a decisao da equipe).
+  const ESPERADAS = [
+    'pautas_do_cliente',
+    'conteudo_do_cliente',
+    'marcas_do_cliente',
+    'escopo_do_cliente',
+    'decisoes_do_cliente',
+  ]
+  const FECHADAS = ['content_ideas', 'idea_content', 'brands', 'brand_scope', 'approvals']
+
   const vistas = await sql`
     select table_name from information_schema.views
-    where table_schema = 'public'
-      and table_name in ('pautas_do_cliente', 'conteudo_do_cliente')
+    where table_schema = 'public' and table_name = any(${ESPERADAS})
   `
   diz(
-    vistas.length === 2,
-    'as vistas pautas_do_cliente e conteudo_do_cliente existem',
+    vistas.length === ESPERADAS.length,
+    `as ${ESPERADAS.length} vistas do cliente existem`,
     'Faltando: ' +
-      ['pautas_do_cliente', 'conteudo_do_cliente']
-        .filter((v) => !vistas.some((x) => x.table_name === v))
-        .join(', ') +
-      '. Rode o 04-migrar.cmd (migracao 0027).',
+      ESPERADAS.filter((v) => !vistas.some((x) => x.table_name === v)).join(', ') +
+      '. Rode o 04-migrar.cmd (migracoes 0027 e 0037).',
   )
 
   const colunasQueVazariam = await sql`
     select table_name, column_name from information_schema.columns
     where table_schema = 'public'
-      and table_name in ('pautas_do_cliente', 'conteudo_do_cliente')
+      and table_name = any(${ESPERADAS})
       and column_name in (
         'rationale', 'meta_justificativa', 'theme', 'objective', 'audience',
         'current_version', 'owner_id', 'art_direction', 'image_prompt',
-        'alt_text', 'caption_variants'
+        'alt_text', 'caption_variants', 'competitors', 'notes', 'version'
       )
   `
   diz(
@@ -250,13 +259,12 @@ try {
     select c.relname as tabela, p.polname,
            pg_get_expr(p.polqual, p.polrelid) as usando
     from pg_policy p join pg_class c on c.oid = p.polrelid
-    where c.relname in ('content_ideas', 'idea_content')
-      and p.polcmd = 'r'
+    where c.relname = any(${FECHADAS}) and p.polcmd in ('r', '*')
   `
   const paraCliente = aindaAbertas.filter((x) => /auth_role\(\) = 'client'/.test(x.usando ?? ''))
   diz(
     paraCliente.length === 0,
-    'content_ideas e idea_content nao tem politica de leitura para o cliente',
+    'nenhuma das cinco tabelas tem politica de leitura para o cliente',
     'Politica que reabre a tabela: ' +
       paraCliente.map((x) => x.tabela + '.' + x.polname).join(', '),
   )

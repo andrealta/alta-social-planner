@@ -39,8 +39,10 @@ export async function carregarMesDoCliente(slug: string, anoTexto: string, mesTe
     redirect(`/painel/marca/${slug}/calendario/${anoTexto}/${mesTexto}`)
   }
 
+  // Vista da 0037, não a tabela: `brands` guarda a lista de
+  // concorrentes que a agência monta e varre, e ela não é do cliente.
   const { data: marca } = await supabase
-    .from('brands')
+    .from('marcas_do_cliente')
     .select('id, name, color')
     .eq('slug', slug)
     .maybeSingle()
@@ -66,7 +68,9 @@ export async function carregarMesDoCliente(slug: string, anoTexto: string, mesTe
   ] = await Promise.all([
     // `pautas_do_cliente` e `conteudo_do_cliente` não são tabelas: são
     // as vistas da migração 0027, que listam nome por nome as colunas
-    // que pertencem ao cliente. As tabelas `content_ideas` e
+    // que pertencem ao cliente. A 0037 fez o mesmo com as três últimas
+    // tabelas que sobravam, e por isso todo `from` deste arquivo é de
+    // vista. As tabelas `content_ideas` e
     // `idea_content` estão fechadas para ele no banco, e é assim que
     // a justificativa da pauta, o prompt de imagem e a direção de arte
     // deixam de sair daqui mesmo que alguém peça pela API.
@@ -81,8 +85,10 @@ export async function carregarMesDoCliente(slug: string, anoTexto: string, mesTe
       .from('content_channels')
       .select('idea_id, platform, format, scheduled_date')
       .eq('brand_id', marca.id),
+    // Vista da 0037: `brand_scope` guarda `notes`, a anotação interna
+    // de cada linha do escopo.
     supabase
-      .from('brand_scope')
+      .from('escopo_do_cliente')
       .select('id, label, position')
       .eq('brand_id', marca.id)
       .order('position'),
@@ -96,8 +102,14 @@ export async function carregarMesDoCliente(slug: string, anoTexto: string, mesTe
       .eq('brand_id', marca.id)
       .eq('visibility', 'shared')
       .order('created_at', { ascending: false }),
+    // Vista da 0037, e aqui ela conserta um erro visível, não só um
+    // vazamento: esta consulta nunca filtrou por lado, então a decisão
+    // interna da equipe apareceria no bloco "Decisões" do cliente
+    // atribuída a "alguém da sua equipe". Hoje não há linha de equipe
+    // gravada, então nada chegou a aparecer; a vista garante que
+    // continue assim quando houver.
     supabase
-      .from('approvals')
+      .from('decisoes_do_cliente')
       .select('id, idea_id, decision, actor_id, created_at, seconds_to_decide')
       .eq('brand_id', marca.id)
       .order('created_at', { ascending: false }),

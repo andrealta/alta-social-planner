@@ -332,12 +332,53 @@ Duas armadilhas dessa migração, registradas porque custaram caro:
 
 - **RLS protege linha, não coluna.** "Pode mexer no investimento mas não
   no conteúdo" não se escreve em política: precisa de gatilho comparando
-  OLD e NEW, ou de tirar a coluna da tabela.
+  OLD e NEW, ou de tirar a coluna da tabela. A mesma frase explica todo
+  o caminho das vistas do cliente, logo abaixo.
 - **Políticas permissivas se somam.** Duas políticas `FOR ALL` esquecidas
   (`idea_content_staff_all`, `assets_staff_all`) davam escrita a qualquer
   pessoa da equipe e anulavam a separação inteira, em silêncio. Só
   apareceram porque um teste falhou. A 0028 termina com um bloco que
   **recusa a migração** se alguma política assim voltar.
+
+### O cliente lê vistas, nunca tabelas (migrações 0027 e 0037)
+
+É a consequência prática da frase acima. Enquanto o cliente lesse uma
+tabela direto, a política dizia QUAIS linhas ele via, e dentro da linha
+vinham TODAS as colunas, aparecessem ou não na tela. Bastava abrir o
+console do navegador com a sessão dele e pedir.
+
+A 0027 fechou `content_ideas` e `idea_content` e pôs `pautas_do_cliente`
+e `conteudo_do_cliente` no lugar. A 0037 fechou as três que sobravam:
+
+| Tabela | O que escondia | Vista |
+|---|---|---|
+| `brands` | `competitors`, a lista de concorrentes que a agência monta e varre | `marcas_do_cliente` |
+| `brand_scope` | `notes`, a anotação interna de cada linha do escopo | `escopo_do_cliente` |
+| `approvals` | as decisões de quem não é o cliente | `decisoes_do_cliente` |
+
+O ganho não é esconder três campos: é que **coluna nova nasce invisível
+para o cliente**. Para aparecer, alguém precisa escrever o nome dela
+dentro da vista. O padrão passou a ser fechado, e é isso que evita o
+mesmo buraco no próximo campo interno que alguém criar.
+
+Duas coisas que vale saber antes de mexer:
+
+- **Todo `from` dos arquivos em `src/app/cliente/` é de vista.** Se você
+  escrever `.from('brands')` ali, a consulta volta vazia e a página some,
+  porque a tabela não tem mais política de leitura para ele. Não é um bug
+  a contornar: é a trava funcionando.
+- **Em `approvals` não havia o que vazar ainda.** A única coisa que grava
+  nessa tabela é `decidir_pauta`, e ela grava sempre do lado do cliente;
+  a aprovação interna da equipe hoje só muda o status da pauta. A porta
+  estava aberta e ninguém tinha passado por ela. Fechar antes é barato,
+  e o dia em que a primeira decisão de equipe for gravada ela apareceria
+  no portal como "aprovada por alguém da sua equipe", que além de
+  vazamento é informação errada.
+
+O `10-seguranca.cmd` confere as cinco vistas, a ausência das colunas
+internas dentro delas e a ausência de política de leitura de cliente nas
+cinco tabelas. É a diferença entre provar que a regra **funciona** (os
+testes) e provar que ela **está lá** em produção.
 
 Até a 0013 esses três níveis eram só um rótulo gravado que nenhuma regra
 lia. Vale registrar o tipo de erro: um controle que parece existir e não
@@ -397,14 +438,15 @@ Rode `10-seguranca.cmd` depois de qualquer mudança no banco.
 
 ## Testes
 
-Em `asp/` (fora deste repositório, com quem escreveu) há **357 casos em
+Em `asp/` (fora deste repositório, com quem escreveu) há **376 casos em
 SQL** que rodam contra um PostgreSQL local recriado do zero: isolamento
 entre marcas, versionamento de pauta, ciclo completo com o cliente,
 permissões de pessoas, exclusão de planejamento e de pessoa, a varredura
 de concorrentes e a resposta à pergunta que mais importa nela (o cliente
 não vê o que pesquisamos sobre o mercado dele), as vistas que fecharam
-`content_ideas` ao cliente, o investimento em mídia, a cópia do Operand e
-o arquivamento de marca com o registro de quem mexeu.
+`content_ideas` ao cliente, o investimento em mídia, a cópia do Operand,
+o arquivamento de marca com o registro de quem mexeu e as três últimas
+colunas internas que o cliente alcançava.
 
 Mais **614 casos em TypeScript e JavaScript** sobre o que não toca o
 banco. Os maiores: o retrato de produção (184), o cliente da API do
@@ -413,7 +455,7 @@ concorrência (28), o bloco de produção no prompt (29), a marca nova (29 e
 23), a pesquisa na internet (26), o texto de apoio (25), a mídia (23) e a
 administração de marcas (17).
 
-Total: **971**.
+Total: **990**.
 
 Um padrão que vale imitar: quase todo teste novo destas últimas rodadas
 nasceu de um erro real, e o comentário acima dele diz qual foi. Teste que

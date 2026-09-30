@@ -89,7 +89,13 @@ export async function salvarFeedback(
   const a = (atencao ?? '').trim().slice(0, 3000)
   if (!d && !a) return { ok: false, erro: 'Escreva pelo menos um dos dois campos.' }
 
-  const { data: marca } = await supabase.from('brands').select('id').eq('slug', slug).maybeSingle()
+  // Vista da 0037. Aqui só se quer o id, mas ler pela tabela deixaria
+  // a tabela aberta ao cliente por causa de um `select id`.
+  const { data: marca } = await supabase
+    .from('marcas_do_cliente')
+    .select('id')
+    .eq('slug', slug)
+    .maybeSingle()
   const { data: plano } = marca
     ? await supabase
         .from('plans')

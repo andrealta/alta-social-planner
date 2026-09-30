@@ -39,8 +39,12 @@ export default async function PortalDoCliente() {
   // Quem é da Alta tem o painel interno; este portal é do cliente.
   if (perfil?.role === 'admin' || perfil?.role === 'staff') redirect('/painel')
 
+  // `marcas_do_cliente` e as outras duas vistas deste arquivo vêm da
+  // migração 0037. A tabela `brands` está fechada para o cliente: ela
+  // guarda a lista de concorrentes que a agência monta, e RLS protege
+  // linha, não coluna. A vista lista nome por nome o que é dele.
   const { data: marcas } = await supabase
-    .from('brands')
+    .from('marcas_do_cliente')
     .select('id, name, slug, color')
     .order('name')
 
@@ -54,11 +58,12 @@ export default async function PortalDoCliente() {
     // A vista da migração 0027, não a tabela: ver `dados.ts`.
     supabase.from('pautas_do_cliente').select('id, plan_id, title, status'),
     // Para o status geral: o que o cliente decidiu e o que escreveu ao
-    // pedir alteração. As políticas do banco só devolvem o da marca dele.
+    // pedir alteração. O filtro por lado saiu daqui e virou parte da
+    // vista: decisão da equipe não sai mais do banco para ele, e não
+    // depende de a tela lembrar de filtrar.
     supabase
-      .from('approvals')
-      .select('idea_id, decision, actor_kind, seconds_to_decide, comment_id')
-      .eq('actor_kind', 'client'),
+      .from('decisoes_do_cliente')
+      .select('idea_id, decision, actor_kind, seconds_to_decide, comment_id'),
     supabase.from('comments').select('id, body').eq('author_kind', 'client'),
     // As datas das publicações, para o bloco "Próximas publicações".
     supabase.from('content_channels').select('idea_id, format, scheduled_date'),
