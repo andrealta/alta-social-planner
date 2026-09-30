@@ -114,7 +114,18 @@ try {
   console.log('\n--- 4. As funcoes do sistema estao no lugar ---')
   const esperadas = [
     ['salvar_pauta', 'invoker'],
-    ['decidir_pauta', 'invoker'],
+    // `decidir_pauta` virou SECURITY DEFINER na 0027, de proposito. Ela
+    // lia a pauta com a permissao do proprio cliente, e a 0027 tirou a
+    // politica de leitura dele em `content_ideas`: como invoker, ela
+    // pararia de achar a pauta. As quatro conferencias que estavam na
+    // politica passaram para dentro dela (quem chama e cliente, a marca
+    // e dele, o mes foi liberado, a pauta esta mesmo esperando resposta).
+    //
+    // Esta linha ficou dizendo 'invoker' depois da 0027, e a conferencia
+    // acusou FALHA em toda rodada desde entao. Conferencia que acusa o
+    // que esta certo e pior que conferencia nenhuma: ensina a ignorar a
+    // lista, e o dia em que a falha for de verdade ninguem olha.
+    ['decidir_pauta', 'definer'],
     ['liberar_plano', 'invoker'],
     ['quem_sou', 'definer'],
     ['is_staff', 'definer'],

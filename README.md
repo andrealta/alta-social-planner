@@ -380,6 +380,14 @@ internas dentro delas e a ausência de política de leitura de cliente nas
 cinco tabelas. É a diferença entre provar que a regra **funciona** (os
 testes) e provar que ela **está lá** em produção.
 
+Uma correção que veio junto e que vale registrar: a seção 4 desse mesmo
+script acusava FALHA em `decidir_pauta` desde a 0027, porque a lista de
+funções esperadas continuou dizendo que ela deveria rodar como quem
+chama. A 0027 a tornou `SECURITY DEFINER` de propósito, e a lista nunca
+foi atualizada. **Conferência que acusa o que está certo é pior que
+conferência nenhuma**, porque ensina a passar o olho pela lista, e no dia
+em que a falha for de verdade ninguém olha.
+
 Até a 0013 esses três níveis eram só um rótulo gravado que nenhuma regra
 lia. Vale registrar o tipo de erro: um controle que parece existir e não
 existe é pior do que não ter controle nenhum, porque alguém confia
