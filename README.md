@@ -783,3 +783,61 @@ Na tela, arrastar uma pauta aprovada não move nada: o calendário desfaz
 o arrasto e abre uma caixa amarela pedindo o motivo, com o nome da peça
 escrito e a frase que importa — as outras peças do mês continuam
 aprovadas. Só essa volta a pedir resposta.
+
+### Pauta nova num mês que já existe (migração 0041)
+
+A 0040 abriu esta porta sem querer. O gatilho `sync_plan_approval`
+dispara no INSERT, então uma pauta nova num mês aprovado já derrubava a
+aprovação do mês. O que faltava era a tranca: até aqui, qualquer pessoa
+da equipe com permissão de planejamento inseria pauta em qualquer mês,
+aprovado ou não, e o cliente só descobriria abrindo o portal.
+
+`adicionar_pauta()` é agora o único caminho, e o gatilho
+`pauta_em_mes_aprovado_trg` recusa o insert direto num mês aprovado.
+Num mês ainda em andamento, acrescentar é trabalho normal: equipe com
+acesso de edição e permissão de conteúdo. Num mês aprovado, pede os
+mesmos dois degraus da reabertura — `pode_enviar_ao_cliente` e
+`dono_do_mes` — mais um motivo escrito, que vira comentário visível na
+conversa daquela pauta. A pauta nasce em revisão interna, o mês volta
+para a equipe, e o cliente decide de novo só sobre ela.
+
+Na tela, "Nova pauta" abre um formulário com título, conceito, linha,
+data e canal. O botão **Preencher com IA** manda uma linha de briefing
+e devolve o rascunho PARA O FORMULÁRIO: não grava nada. É de propósito.
+Acrescentar pauta a um mês aprovado obriga o cliente a decidir outra
+vez, e essa decisão não pode sair de um clique sem ninguém ter lido o
+que saiu. Quem assina a pauta é quem a leu.
+
+O prompt (`src/lib/pauta.ts`) recebe o mês inteiro, e recebe como
+RESTRIÇÃO, não como exemplo. Dar as pautas existentes como exemplo faria
+a IA escrever a décima sexta variação da mesma ideia, que é o que a
+equipe não precisa de ajuda para fazer. Ele diz: não repita, não imite o
+tom da lista, encaixe no que falta. E lista os dias do mês que ainda não
+têm publicação, senão a peça nova se empilha em cima de uma existente.
+
+**Dois defeitos antigos que apareceram no caminho.**
+
+O primeiro estava na conta de custo. A rota `/api/conteudo` grava
+`agent: 'content_refine'` quando a equipe pede alteração de legenda à
+IA, e esse valor **nunca existiu** no enum `ai_agent`. O insert falhava,
+o código ignora o erro da gravação do registro, e a chamada seguia
+normal. Resultado: todo refino de conteúdo rodou sem registro, e a
+página de custo vinha somando menos do que a agência gastou. O
+`lib/medidas.ts` já tinha até o rótulo em português dessa etapa,
+esperando linhas que nunca chegaram. A 0041 acrescenta o valor, e um
+teste passa a conferir que toda etapa que o código grava existe no enum
+— é esse teste que impede o próximo sumiço silencioso.
+
+O segundo a própria funcionalidade criava. A medida de Precisão responde
+"de cada cem pautas que a IA escreveu, quantas passaram sem ninguém
+reescrever". Pauta escrita à mão chega na versão 1 e sem versão
+arquivada, exatamente como uma pauta que a IA acertou de primeira: ela
+entraria na conta como acerto da IA e empurraria a medida para cima sem
+a IA ter feito nada. A coluna `content_ideas.origem` ('ia' ou 'equipe')
+separa as duas, e o denominador da Precisão passou a ser só as da IA. A
+coluna de pautas do mês continua contando todas.
+
+Uma observação que custou um teste: desde a 0028, o nível de uma pessoa
+da equipe numa marca vem das PERMISSÕES dela, não mais do
+`brand_members`. Quem não tem 'conteudo' nem 'cliente' é leitor em toda
+marca, por mais que a linha em `brand_members` diga outra coisa.

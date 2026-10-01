@@ -11,6 +11,7 @@
  */
 
 import { SECOES } from './base'
+import { PLATAFORMAS } from './canais'
 import { blocoDePesquisa } from './pesquisa'
 import { blocoDePlataformas, type NotaDePlataforma } from './plataformas'
 
@@ -370,7 +371,10 @@ export const OBJETIVOS_META = [
   'Vendas',
 ] as const
 
-export const PLATAFORMAS = ['instagram', 'linkedin', 'tiktok', 'youtube', 'facebook', 'pinterest']
+// A lista mora em `lib/canais.ts` desde a rodada 85: a tela de pauta
+// nova precisa dela, e um componente de navegador não pode importar
+// este arquivo inteiro só para ler seis palavras.
+export { PLATAFORMAS } from './canais'
 
 export type Achado = { gravidade: 'erro' | 'aviso'; texto: string }
 

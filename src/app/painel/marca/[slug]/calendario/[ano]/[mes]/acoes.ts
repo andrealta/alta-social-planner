@@ -154,6 +154,98 @@ export async function reabrirPauta(
 }
 
 /**
+ * Acrescenta uma pauta ao mês.
+ *
+ * Toda a regra mora no banco (`adicionar_pauta`, migração 0041): quem
+ * pode, em que mês, e com que motivo. Aqui só se traduz a recusa para
+ * uma frase que a pessoa entenda — e se faz a mesma pergunta antes da
+ * viagem, para não gastar ida e volta quando a resposta já é sabida.
+ *
+ * O mês aprovado volta a pedir resposta do cliente assim que a pauta
+ * entra: isso é o gatilho `sync_plan_approval` da 0040, não esta
+ * função. Por isso a tela devolve `precisaConfirmar` antes, e não um
+ * aviso depois.
+ */
+export async function criarPauta(
+  slug: string,
+  planoId: string,
+  campos: {
+    title: string
+    concept: string
+    description: string
+    editorial_line: string
+    cta: string
+    theme: string
+    objective: string
+    rationale: string
+    data: string
+    plataforma: string
+    formato: string
+  },
+  motivo: string,
+  ano: number,
+  mes: number,
+): Promise<Resultado & { ideaId?: string }> {
+  const ctx = await equipe()
+  if ('erro' in ctx) return { ok: false, erro: ctx.erro }
+
+  if (!campos.title.trim()) return { ok: false, erro: 'A pauta precisa de um título.' }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(campos.data)) return { ok: false, erro: 'Escolha a data da publicação.' }
+
+  // Mês aprovado exige motivo escrito, e a tela precisa saber disso
+  // ANTES de montar o formulário inteiro: perguntar depois de a pessoa
+  // ter escrito a pauta toda seria pedir duas vezes.
+  const { data: plano } = await ctx.supabase
+    .from('plans')
+    .select('status, approved_at')
+    .eq('id', planoId)
+    .maybeSingle()
+
+  if (!plano) return { ok: false, erro: 'Não achei este planejamento.' }
+  const aprovado = (plano.status as string) === 'approved' || plano.approved_at !== null
+  if (aprovado && !motivo.trim()) {
+    return { ok: false, precisaConfirmar: true }
+  }
+
+  const { data, error } = await ctx.supabase.rpc('adicionar_pauta', {
+    p_plan: planoId,
+    p_title: campos.title.trim(),
+    p_concept: campos.concept.trim() || null,
+    p_description: campos.description.trim() || null,
+    p_editorial_line: campos.editorial_line.trim() || null,
+    p_cta: campos.cta.trim() || null,
+    p_theme: campos.theme.trim() || null,
+    p_objective: campos.objective.trim() || null,
+    p_rationale: campos.rationale.trim() || null,
+    p_data: campos.data,
+    p_plataforma: campos.plataforma,
+    p_formato: campos.formato.trim() || 'Feed',
+    p_motivo: motivo.trim() || null,
+  })
+
+  if (error) {
+    const m = error.message
+    return {
+      ok: false,
+      erro: m.includes('criou este mes')
+        ? 'Para acrescentar pauta a um mês já aprovado, é preciso ser quem criou este mês ou a administração.'
+        : m.includes('mandar pauta ao cliente')
+          ? 'Só quem é responsável por esta marca pode acrescentar pauta a um mês já aprovado.'
+          : m.includes('permissao para mexer em pautas')
+            ? 'Você não tem permissão para mexer em pautas.'
+            : m.includes('acesso de leitura')
+              ? 'Você tem acesso de leitura nesta marca; escrever pauta é de quem edita.'
+              : m.includes('nao esta em')
+                ? 'A data escolhida não está neste mês.'
+                : 'Não consegui criar: ' + m,
+    }
+  }
+
+  revalidatePath(caminho(slug, ano, mes))
+  return { ok: true, ideaId: String(data) }
+}
+
+/**
  * Grava o texto da pauta.
  *
  * Chama a função `salvar_pauta` do banco em vez de fazer um update

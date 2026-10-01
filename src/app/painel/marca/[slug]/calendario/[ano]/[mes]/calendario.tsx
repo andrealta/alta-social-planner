@@ -1,9 +1,10 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { moverPauta, mudarStatus, aprovarTodas, enviarAoCliente } from './acoes'
 import { Painel } from './painel'
+import { NovaPauta } from './novapauta'
 import {
   DIAS_CURTOS,
   ESTADO,
@@ -40,6 +41,7 @@ export function Calendario({
   nivel,
   critica,
   podeMidia = false,
+  podeGerar = false,
   investimentoTotal = null,
   abrir = null,
   admin = false,
@@ -55,6 +57,8 @@ export function Calendario({
   critica: Critica | null
   /** Quem define objetivo de campanha e valor investido (0028). */
   podeMidia?: boolean
+  /** Quem pode rodar a IA. O rascunho de pauta custa dinheiro por clique. */
+  podeGerar?: boolean
   /** A verba de mídia do mês. Nulo: ninguém informou verba. */
   investimentoTotal?: number | null
   /** Pauta para abrir assim que a tela carrega (link da fila de trabalho). */
@@ -93,6 +97,25 @@ export function Calendario({
     motivo: string
   } | null>(null)
   const [segundosIA, setSegundosIA] = useState(0)
+  const [criando, setCriando] = useState(false)
+
+  /**
+   * `pautas` é estado local porque a tela edita na hora, sem ida ao
+   * servidor a cada tecla. O preço disso é que `useState(iniciais)`
+   * ignora a prop quando ela muda — e pauta NOVA nasce no servidor.
+   *
+   * Este efeito traz só o que o servidor passou a ter e a tela ainda
+   * não tem. Não substitui o que já está aqui de propósito: um
+   * `router.refresh()` no meio de uma edição aberta desfaria o que a
+   * pessoa está escrevendo.
+   */
+  useEffect(() => {
+    setPautas((atuais) => {
+      const tem = new Set(atuais.map((p) => p.id))
+      const novas = iniciais.filter((p) => !tem.has(p.id))
+      return novas.length === 0 ? atuais : [...atuais, ...novas]
+    })
+  }, [iniciais])
   const router = useRouter()
 
   const porDia = useMemo(() => {
@@ -323,6 +346,23 @@ export function Calendario({
   // da semana o mês começa.
   const semanas = semanasDoMes(ano, mes)
 
+  /**
+   * O mês está aprovado quando nenhuma pauta falta decidir. É a mesma
+   * conta que o gatilho `sync_plan_approval` faz no banco (0040), e é
+   * de propósito: se a tela usasse outra definição, ela avisaria uma
+   * coisa e o banco faria outra.
+   */
+  const mesAprovado = pautas.length > 0 && pautas.every((p) => p.status === 'client_approved')
+
+  // Primeiro dia do mês sem nenhuma publicação. Abrir o formulário num
+  // dia vazio poupa um clique e evita empilhar peça onde já há peça.
+  const diasOcupados = new Set(
+    pautas.map((p) => (p.data ? Number(p.data.slice(8, 10)) : 0)).filter((d) => d > 0),
+  )
+  const diasDoMes = new Date(ano, mes, 0).getDate()
+  const primeiroDiaLivre =
+    Array.from({ length: diasDoMes }, (_, i) => i + 1).find((d) => !diasOcupados.has(d)) ?? 1
+
   return (
     <div style={{ marginTop: 20 }}>
       <div
@@ -374,6 +414,11 @@ export function Calendario({
         {/* Uma ação forte por área. Aprovar em massa é frequente mas
             reversível; enviar ao cliente é a que sai da agência — essa
             leva o azul. */}
+        {podeEditar && !criando && (
+          <button onClick={() => setCriando(true)} disabled={pendente} style={botao(false, pendente)}>
+            Nova pauta
+          </button>
+        )}
         {podeEditar && (
           <button
             onClick={avaliar}
@@ -399,6 +444,20 @@ export function Calendario({
           </button>
         )}
       </div>
+
+      {criando && (
+        <NovaPauta
+          slug={slug}
+          planoId={planoId}
+          ano={ano}
+          mes={mes}
+          linhas={linhasUsadas.map(([nome]) => nome)}
+          mesAprovado={mesAprovado}
+          podeIA={podeGerar}
+          primeiroDiaLivre={primeiroDiaLivre}
+          aoFechar={() => setCriando(false)}
+        />
+      )}
 
       {!podeEditar && (
         <div

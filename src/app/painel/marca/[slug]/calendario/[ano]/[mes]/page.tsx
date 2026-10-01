@@ -380,6 +380,7 @@ export default async function CalendarioDoMes({
         nivel={nivel}
         critica={critica}
         podeMidia={permissoes.includes('midia')}
+        podeGerar={permissoes.includes('planejamento')}
         investimentoTotal={
           plano.investimento_total === null || plano.investimento_total === undefined
             ? null

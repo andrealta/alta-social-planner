@@ -7,7 +7,20 @@
  * decisão informada. Então a soma é uma função pura, e tem teste.
  */
 
-export type PautaMedida = { id: string; plan_id: string; status: string; current_version: number }
+export type PautaMedida = {
+  id: string
+  plan_id: string
+  status: string
+  current_version: number
+  /**
+   * 'ia' (saiu da geração do mês) ou 'equipe' (acrescentada depois, à
+   * mão). Só 'ia' conta na medida de Precisão: pauta escrita por uma
+   * pessoa chega na versão 1 e sem versão arquivada, exatamente como
+   * uma pauta que a IA acertou de primeira, e entraria na conta como
+   * acerto da IA.
+   */
+  origem: string
+}
 export type VersaoMedida = { idea_id: string; trigger: string }
 export type DecisaoMedida = {
   idea_id: string
@@ -17,9 +30,11 @@ export type DecisaoMedida = {
 }
 
 export type Conta = {
-  /** Quantas pautas o mês tem. */
+  /** Quantas pautas o mês tem, venham de onde vierem. */
   pautas: number
-  /** Nunca editadas: seguem na versão 1, sem nenhuma versão arquivada. */
+  /** Dessas, quantas a IA escreveu. É o denominador da Precisão. */
+  daIA: number
+  /** Da IA e nunca editadas: seguem na versão 1, sem versão arquivada. */
   intocadas: number
   /** Aprovadas internamente ou além. */
   aprovadas: number
@@ -37,6 +52,7 @@ export type Conta = {
 
 export const contaVazia = (): Conta => ({
   pautas: 0,
+  daIA: 0,
   intocadas: 0,
   aprovadas: 0,
   correcoesEquipe: 0,
@@ -74,7 +90,10 @@ export function somarPorPlano(dados: {
   for (const p of dados.pautas) {
     const c = pega(p.plan_id)
     c.pautas++
-    if (Number(p.current_version ?? 1) === 1) c.intocadas++
+    if (p.origem !== 'equipe') {
+      c.daIA++
+      if (Number(p.current_version ?? 1) === 1) c.intocadas++
+    }
     if (APROVADAS.has(p.status)) c.aprovadas++
   }
 
@@ -100,11 +119,26 @@ export function somarPorPlano(dados: {
   return conta
 }
 
-/** De cada cem pautas, quantas passaram sem ninguém reescrever. */
+/**
+ * De cada cem pautas QUE A IA ESCREVEU, quantas passaram sem ninguém
+ * reescrever.
+ *
+ * O denominador é `daIA`, não `pautas`. Desde que a equipe pode
+ * acrescentar pauta à mão (0041), somar as duas coisas responderia
+ * outra pergunta — e responderia errado, para cima: pauta escrita por
+ * uma pessoa nunca é reescrita logo depois, então entraria como
+ * acerto da IA e empurraria a medida para cima sem a IA ter feito
+ * nada.
+ */
 export function porcentoIntocadas(contas: Conta[]): { pct: number; intocadas: number; pautas: number } {
-  const pautas = contas.reduce((s, c) => s + c.pautas, 0)
+  const pautas = contas.reduce((s, c) => s + c.daIA, 0)
   const intocadas = contas.reduce((s, c) => s + c.intocadas, 0)
   return { pct: pautas ? Math.round((intocadas / pautas) * 100) : 0, intocadas, pautas }
+}
+
+/** Quantas pautas a equipe acrescentou à mão, nestes meses. */
+export function pautasDaEquipe(contas: Conta[]): number {
+  return contas.reduce((s, c) => s + (c.pautas - c.daIA), 0)
 }
 
 /** A média de segundos que o cliente leva para responder. Nulo sem decisões medidas. */

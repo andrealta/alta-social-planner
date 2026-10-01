@@ -11,6 +11,7 @@ import {
   segundosMedios,
   segundosMediosDe,
   porcentoIntocadas,
+  pautasDaEquipe,
   somarCusto,
   somarTudo,
   somarPorPlano,
@@ -77,7 +78,7 @@ export default async function Precisao() {
     ? await Promise.all([
         supabase
           .from('content_ideas')
-          .select('id, plan_id, status, current_version')
+          .select('id, plan_id, status, current_version, origem')
           .in('plan_id', idsPlano),
         supabase.from('content_versions').select('idea_id, trigger').limit(4000),
         supabase
@@ -94,6 +95,7 @@ export default async function Precisao() {
         plan_id: p.plan_id as string,
         status: (p.status as string) ?? '',
         current_version: Number(p.current_version ?? 1),
+        origem: (p.origem as string) ?? 'ia',
       }),
     ),
     versoes: (versoes ?? []).map(
@@ -219,6 +221,7 @@ export default async function Precisao() {
           const meses = porMarca.get(m.id as string) ?? []
           const tresUltimos = meses.slice(0, 3)
           const recente = porcentoIntocadas(tresUltimos.map((x) => x.conta))
+          const daEquipe = pautasDaEquipe(meses.map((x) => x.conta))
           const somaPautas = recente.pautas
           const pctRecente = recente.pct
           const cor = (m.color as string | null) ?? 'var(--accent)'
@@ -239,7 +242,15 @@ export default async function Precisao() {
                   : undefined,
               icone: 'alvo',
             },
-            { valor: String(soma((c) => c.pautas)), rotulo: 'pautas geradas', icone: 'conteudo' },
+            {
+              valor: String(soma((c) => c.pautas)),
+              rotulo: 'pautas no mês',
+              // Quando a equipe acrescentou peças à mão, o total deixa de
+              // ser "o que a IA gerou". Dizer quantas foram evita que
+              // alguém leia a Precisão contra o número errado.
+              nota: daEquipe > 0 ? `${daEquipe} ${daEquipe === 1 ? 'escrita' : 'escritas'} pela equipe` : undefined,
+              icone: 'conteudo',
+            },
             { valor: String(soma((c) => c.correcoesEquipe)), rotulo: 'reescritas pela equipe', icone: 'editado' },
             { valor: String(soma((c) => c.refinosIA)), rotulo: 'refinos de IA', icone: 'refino' },
             {
@@ -350,7 +361,7 @@ export default async function Precisao() {
                   <tbody>
                     {meses.map((x) => {
                       const c = x.conta
-                      const pct = c.pautas ? Math.round((c.intocadas / c.pautas) * 100) : 0
+                      const pct = c.daIA ? Math.round((c.intocadas / c.daIA) * 100) : 0
                       // A média só aparece com o mês 100% aprovado: antes
                       // disso ela mudaria a cada clique do cliente, e um
                       // número que ainda está andando engana mais do que
@@ -388,7 +399,7 @@ export default async function Precisao() {
                                 <div style={{ width: `${pct}%`, height: '100%', background: cor }} />
                               </div>
                               <b style={{ minWidth: 62, textAlign: 'right' }}>
-                                {c.intocadas}/{c.pautas} · {pct}%
+                                {c.intocadas}/{c.daIA} · {pct}%
                               </b>
                             </div>
                           </td>
@@ -560,6 +571,12 @@ export default async function Precisao() {
         </ul>
         <p style={{ marginTop: 6 }}>
           O objetivo é perceber se o processo está ficando mais inteligente mês após mês.
+        </p>
+        <p style={{ marginTop: 6 }}>
+          Pauta que a equipe acrescentou à mão não entra nesta conta. A pergunta aqui é quanto a
+          IA acerta de primeira, e peça escrita por uma pessoa chega inteira na versão 1 — ela
+          inflaria a medida sem a IA ter escrito uma linha. Ela continua contando na coluna de
+          pautas do mês.
         </p>
 
         <b style={{ color: 'var(--text)', display: 'block', marginTop: 16 }}>Sobre o custo</b>
