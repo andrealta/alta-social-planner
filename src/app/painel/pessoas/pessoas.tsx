@@ -36,24 +36,38 @@ const PAPEL: Record<string, { rotulo: string; explica: string }> = {
 }
 
 /**
- * O que cada nível PODE, desde a migração 0013.
+ * O que cada vínculo dá, NAQUELA marca.
  *
- * Antes disto os três eram só um rótulo: o banco gravava a escolha e
- * nenhuma regra a lia. Agora valem — e a explicação fica aqui do lado
- * para ninguém escolher no escuro.
+ * A história destes três rótulos vale ser lembrada, porque ela é o
+ * motivo de o texto aqui ser tão explícito. A 0013 fez os níveis
+ * valerem. A 0028 trocou o modelo e passou a derivar tudo das
+ * permissões globais: estes rótulos continuaram na tela, com estas
+ * explicações, e não decidiam mais nada — dava para marcar alguém como
+ * "só lê" numa marca e essa pessoa editar a marca normalmente. A tela
+ * prometia uma trava que não existia, que é o pior defeito que uma
+ * tela de permissão pode ter: ninguém confere uma trava que a tela
+ * afirma estar fechada.
+ *
+ * A 0042 fez as duas metades se somarem: a permissão diz O QUE a
+ * pessoa faz, o vínculo diz ONDE. Vale o menor dos dois.
+ *
+ * "Só lê" saiu da lista de propósito: para quem é da Alta, ele e "sem
+ * vínculo" são a mesma coisa, porque a equipe lê todas as marcas de
+ * qualquer jeito. Duas opções com o mesmo efeito só fazem a pessoa
+ * procurar a diferença.
  */
 const ACESSO: Record<string, { rotulo: string; explica: string }> = {
   owner: {
     rotulo: 'responsável',
-    explica: 'edita tudo e é quem envia o planejamento ao cliente',
+    explica: 'edita e é quem envia o planejamento ao cliente nesta marca',
   },
   editor: {
     rotulo: 'edita',
-    explica: 'cria, altera e aprova internamente; não envia ao cliente',
+    explica: 'cria, altera e aprova internamente nesta marca; não envia ao cliente',
   },
   viewer: {
     rotulo: 'só lê',
-    explica: 'abre e acompanha, não altera nada',
+    explica: 'o mesmo que não ter vínculo: acompanha e não altera',
   },
   client: {
     rotulo: 'avalia',
@@ -63,7 +77,31 @@ const ACESSO: Record<string, { rotulo: string; explica: string }> = {
 
 /** O acesso que faz sentido para cada papel. */
 function acessosDe(papel: string) {
-  return papel === 'client' ? ['client'] : ['owner', 'editor', 'viewer']
+  return papel === 'client' ? ['client'] : ['owner', 'editor']
+}
+
+/**
+ * O nível mais alto que as permissões desta pessoa permitem, em
+ * qualquer marca. Espelha `teto_de()` no banco (0042).
+ *
+ * A tela mostra isto para a pessoa que administra não escolher no
+ * escuro: marcar alguém como "responsável" numa marca sem lhe dar a
+ * permissão de enviar ao cliente não a torna responsável por nada, e
+ * sem este aviso o engano fica invisível até o dia do envio.
+ */
+function tetoDe(pessoa: Pessoa): string {
+  if (pessoa.papel === 'admin') return 'owner'
+  if (pessoa.permissoes.includes('cliente')) return 'owner'
+  if (pessoa.permissoes.includes('conteudo')) return 'editor'
+  return 'viewer'
+}
+
+const PESO: Record<string, number> = { owner: 3, editor: 2, viewer: 1 }
+
+/** O que vale de verdade: o menor entre o vínculo e o teto. */
+function nivelEfetivo(pessoa: Pessoa, acesso: string): string {
+  const teto = tetoDe(pessoa)
+  return (PESO[acesso] ?? 0) <= (PESO[teto] ?? 0) ? acesso : teto
 }
 
 export function Pessoas({
@@ -412,12 +450,20 @@ export function Pessoas({
                       onChange={(e) =>
                         setEscolhidas((a) => {
                           const novo = { ...a }
-                          // Para a equipe o vínculo virou um sim ou não:
-                          // ele diz quais marcas a pessoa acompanha, e não
-                          // mais o que ela pode fazer nelas. O valor
-                          // gravado deixou de ter leitura na tela.
-                          if (e.target.checked) novo[m.id] = papel === 'client' ? 'client' : 'editor'
-                          else delete novo[m.id]
+                          // Desde a 0042 o valor gravado volta a decidir:
+                          // 'editor' trabalha na marca, 'owner' responde
+                          // por ela diante do cliente. Quem tem a permissão
+                          // de enviar entra como responsável, que é o que
+                          // essa permissão quer dizer; quem não tem entra
+                          // como quem edita, e o seletor ao lado corrige.
+                          if (e.target.checked) {
+                            novo[m.id] =
+                              papel === 'client'
+                                ? 'client'
+                                : permissoesNovas.includes('cliente')
+                                  ? 'owner'
+                                  : 'editor'
+                          } else delete novo[m.id]
                           return novo
                         })
                       }
@@ -426,7 +472,27 @@ export function Pessoas({
                       {m.nome}
                     </label>
                     {marcada && papel === 'staff' && (
-                      <span style={{ fontSize: 12, color: 'var(--muted)' }}>acompanha</span>
+                      <select
+                        value={escolhidas[m.id]}
+                        aria-label={`O que ela faz em ${m.nome}`}
+                        onChange={(e) =>
+                          setEscolhidas((a) => ({ ...a, [m.id]: e.target.value }))
+                        }
+                        style={{
+                          fontFamily: 'inherit',
+                          fontSize: 12,
+                          border: 'none',
+                          background: 'transparent',
+                          color: 'var(--muted)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {acessosDe('staff').map((x) => (
+                          <option key={x} value={x}>
+                            {ACESSO[x].rotulo}
+                          </option>
+                        ))}
+                      </select>
                     )}
                   </div>
                 )
@@ -435,8 +501,9 @@ export function Pessoas({
 
             {papel === 'staff' && (
               <p style={{ color: 'var(--muted)', fontSize: 12.3, marginTop: 10, lineHeight: 1.6 }}>
-                Marcar aqui não abre nem fecha nada: quem é da Alta lê todas as marcas. O
-                vínculo diz quais ela acompanha de perto, e aparece na fila de trabalho dela.
+                Quem é da Alta lê todas as marcas, marcadas ou não. O que se marca aqui é onde
+                ela ALTERA. Sem nenhuma marcada, a pessoa entra, acompanha tudo e não muda
+                nada em lugar nenhum.
               </p>
             )}
           </div>
@@ -445,9 +512,10 @@ export function Pessoas({
             <div style={{ marginTop: 16 }}>
               <span style={rotulo}>O que ela pode alterar</span>
               <p style={{ color: 'var(--muted)', fontSize: 12.5, margin: '0 0 10px', lineHeight: 1.6 }}>
-                Vale na agência inteira, e não marca a marca. Sem nenhuma marcada, a pessoa
-                entra, acompanha tudo e não altera nada, que é um começo seguro: dá para
-                abrir depois, na lista abaixo.
+                A permissão diz O QUE ela faz; a marca, logo acima, diz ONDE. As duas precisam
+                existir: permissão sem marca não altera nada, e marca sem permissão também
+                não. Sem nenhuma marcada, a pessoa acompanha tudo e não altera nada, que é um
+                começo seguro.
               </p>
 
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 11 }}>
@@ -658,6 +726,7 @@ export function Pessoas({
                             <select
                               value={v?.acesso ?? ''}
                               onChange={(e) => mudarVinculo(p, m.id, e.target.value)}
+                              aria-label={`Vínculo de ${p.nome} com ${m.nome}`}
                               style={{
                                 fontFamily: 'inherit',
                                 fontSize: 11.5,
@@ -674,6 +743,17 @@ export function Pessoas({
                                 </option>
                               ))}
                             </select>
+                            {/* Vínculo que promete mais do que a permissão
+                                entrega. Sem este aviso o engano só aparece
+                                no dia em que a pessoa tenta enviar o mês. */}
+                            {v && p.papel === 'staff' && nivelEfetivo(p, v.acesso) !== v.acesso && (
+                              <span
+                                title={`A permissão desta pessoa só alcança "${ACESSO[tetoDe(p)].rotulo}".`}
+                                style={{ color: 'var(--laranja-tinta)', fontWeight: 700 }}
+                              >
+                                vale {ACESSO[nivelEfetivo(p, v.acesso)].rotulo}
+                              </span>
+                            )}
                           </span>
                         )
                       })}
@@ -688,8 +768,9 @@ export function Pessoas({
                   {p.papel === 'staff' && (
                     <>
                       <p style={{ color: 'var(--faint)', fontSize: 12, marginTop: 7, lineHeight: 1.5 }}>
-                        O vínculo acima diz quais marcas esta pessoa acompanha de perto. Ela lê
-                        todas de qualquer forma; o que ela pode ALTERAR está logo abaixo.
+                        O vínculo acima diz ONDE esta pessoa altera. Sem vínculo ela continua
+                        lendo a marca inteira e não muda nada nela. O QUE ela pode alterar, nas
+                        marcas em que tem vínculo, está logo abaixo.
                       </p>
                       <Permissoes pessoa={p} />
                     </>

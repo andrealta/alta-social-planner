@@ -12,7 +12,14 @@ export function Sair() {
   async function sair() {
     setSaindo(true)
     const supabase = clienteNavegador()
-    await supabase.auth.signOut()
+    // Escopo LOCAL: sai deste navegador, e só dele. O padrão do
+    // Supabase é global, que encerra a sessão da pessoa em todos os
+    // aparelhos em que ela entrou. Quem sai no computador da agência
+    // não espera cair do celular junto, e um cliente que sai do
+    // celular no meio da aprovação não pode perder a janela que deixou
+    // aberta no computador. A documentação do próprio pacote
+    // recomenda local para o botão de sair.
+    await supabase.auth.signOut({ scope: 'local' })
     router.push('/entrar')
     router.refresh()
   }

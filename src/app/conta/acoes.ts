@@ -5,6 +5,7 @@ import { clienteServidor } from '@/lib/supabase/server'
 import { ambienteSupabase } from '@/lib/supabase/env'
 import { revalidatePath } from 'next/cache'
 import { LIMITE_DA_FOTO, TIPOS_DE_FOTO } from '@/lib/avatar'
+import { recadoDoErroDeSenha } from '@/lib/senha'
 
 export type Resultado = { ok: boolean; erro?: string }
 
@@ -21,6 +22,27 @@ const MINIMO = 8
  * A conferência da senha atual usa um cliente separado, que não grava
  * cookie: um login "de teste" que não mexe na sessão aberta. Se a
  * senha estiver certa, a troca é feita na sessão de verdade.
+ *
+ * O DEFEITO QUE ESTAVA AQUI, porque ele volta se alguém "simplificar"
+ * esta função: o `signOut()` do Supabase usa escopo GLOBAL por padrão.
+ * Ele não encerra a sessão de teste, encerra TODAS as sessões daquela
+ * pessoa — inclusive a do navegador dela, que estava ali do lado
+ * esperando para trocar a senha. Confirmado na documentação dentro do
+ * próprio pacote: "By default, signOut() uses the global scope, which
+ * signs out the user on every device they are signed in on".
+ *
+ * O estrago aparecia na linha seguinte. Com o refresh token revogado,
+ * o `updateUser` tentava renovar a sessão do cookie, não conseguia,
+ * apagava a sessão e devolvia "Auth session missing!" — em inglês, na
+ * cara de quem acabou de receber uma senha temporária e está tentando
+ * trocá-la. E não era intermitente por acaso: o Supabase considera a
+ * sessão vencida alguns minutos ANTES da hora, então o erro só
+ * aparecia para quem já estava logado havia um tempo. Quem tinha
+ * acabado de entrar trocava a senha normalmente, que é o motivo de
+ * isto ter passado pelos testes de quem escreveu.
+ *
+ * `scope: 'local'` encerra só a sessão de teste, no servidor e aqui, e
+ * é o que sempre se quis.
  *
  * Nenhuma senha passa por log, banco ou tela. O Supabase guarda só o
  * resumo criptográfico dela.
@@ -47,23 +69,12 @@ export async function trocarSenha(atual: string, nova: string): Promise<Resultad
     password: atual,
   })
   if (errado) return { ok: false, erro: 'A senha atual não confere.' }
-  // O login de conferência não serve para mais nada.
-  await conferencia.auth.signOut().catch(() => {})
+  // O login de conferência não serve para mais nada. ESCOPO LOCAL: ver
+  // o comentário acima. Sem ele, esta linha desloga a pessoa.
+  await conferencia.auth.signOut({ scope: 'local' }).catch(() => {})
 
   const { error } = await supabase.auth.updateUser({ password: nova })
-  if (error) {
-    const m = error.message
-    return {
-      ok: false,
-      erro: /weak|short|characters/i.test(m)
-        ? 'O Supabase recusou a senha por ser fraca. Use letras, números e pelo menos 8 caracteres.'
-        : /same|different/i.test(m)
-          ? 'A senha nova é igual à atual.'
-          : /reauth/i.test(m)
-            ? 'O Supabase está pedindo confirmação extra para trocar senha. Saia, entre de novo e tente logo em seguida.'
-            : 'Não consegui trocar a senha: ' + m,
-    }
-  }
+  if (error) return { ok: false, erro: recadoDoErroDeSenha(error.message) }
 
   return { ok: true }
 }

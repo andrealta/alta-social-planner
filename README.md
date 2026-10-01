@@ -841,3 +841,102 @@ Uma observação que custou um teste: desde a 0028, o nível de uma pessoa
 da equipe numa marca vem das PERMISSÕES dela, não mais do
 `brand_members`. Quem não tem 'conteudo' nem 'cliente' é leitor em toda
 marca, por mais que a linha em `brand_members` diga outra coisa.
+
+### A permissão diz o quê, a marca diz onde (migração 0042)
+
+A 0028 trocou o modelo de acesso inteiro, de propósito e documentado:
+ler virou global para a equipe, e escrever passou a vir das permissões.
+O efeito colateral que ela não disse em voz alta é que
+`pode_editar_marca(b)` passou a **ignorar o parâmetro `b`**. Quem tinha
+a permissão de conteúdo editava todas as marcas, inclusive as que nunca
+tinha aberto. O vínculo com a marca, para a equipe, deixou de
+significar qualquer coisa.
+
+A tela de Pessoas continuou com o seletor por marca, e com a explicação
+de cada nível ao lado. Medido: alguém marcado como "só lê" numa marca
+editava aquela marca normalmente. Esse é o pior defeito que uma tela de
+permissão pode ter, porque ninguém vai conferir uma trava que a tela
+afirma estar fechada.
+
+A regra agora é uma frase: **a permissão diz O QUE a pessoa faz, o
+vínculo com a marca diz ONDE.** Vale o menor dos dois. Permissão sem
+vínculo não altera nada; vínculo sem permissão também não.
+
+**Ler continua global.** O argumento da 0028 segue de pé: numa agência,
+consultar o mês passado de outra conta é trabalho normal, e a trava que
+importa, que é o cliente não ver o que não é dele, não muda em nada.
+Quem não tem vínculo numa marca lê e não altera.
+
+**Nada estreita sozinho.** Ligar a regra e mais nada trancaria para
+fora, de uma vez, todo mundo que trabalha numa marca sem linha em
+`brand_members` — e a pessoa descobriria tentando salvar. Pior: desde a
+0028 a tela gravava `editor` em toda marca marcada, sem oferecer
+escolha, então quem tem a permissão de enviar ao cliente teria perdido
+o envio por causa de um valor que nunca foi decisão de ninguém. Por
+isso a migração coloca cada pessoa da equipe, em toda marca viva, no
+nível que as permissões dela já davam na prática. O dia seguinte é
+igual ao dia anterior. **Estreitar é decisão de gente, na tela de
+Pessoas** — que a partir de agora diz a verdade sobre o que faz.
+
+**Marca nova nasce com dono.** Sem isso, quem cadastra uma marca não
+consegue escrever nela: ela nasceria sem vínculo nenhum. Quem cria vira
+responsável; o resto da equipe o administrador acrescenta. É deliberado
+que a marca nova não saia liberada para a equipe inteira — era assim
+quando o vínculo não valia, e é justamente o que se está consertando.
+
+Duas consequências que vale registrar. A primeira: as mensagens que as
+rodadas 84 e 85 escreveram ("só quem é responsável por esta marca pode
+remarcar / acrescentar pauta") estavam erradas quando foram escritas e
+passaram a estar certas com esta migração. A segunda: "só lê" saiu da
+lista de vínculos da equipe, porque ele e "sem vínculo" passaram a ser
+a mesma coisa — a equipe lê tudo de qualquer jeito, e duas opções com o
+mesmo efeito só fazem a pessoa procurar a diferença.
+
+O arquivo órfão `src/app/painel/marca/[slug]/cor.tsx` foi apagado nesta
+rodada, junto com a `definirCor` que só ele chamava. A escolha de cor
+mora na tela de cadastro da marca desde a rodada 82. O `16-limpar.cmd`
+apaga os dois arquivos, porque o espelho só escreve, nunca apaga.
+
+### "Auth session missing!" ao trocar a senha (rodada 87)
+
+Um usuário com senha temporária tentou trocá-la e leu, em inglês, na
+primeira tela que usou no sistema: *Não consegui trocar a senha: Auth
+session missing!*
+
+A causa estava na própria conferência da senha atual. Para saber se a
+senha digitada confere, a função faz um login "de teste" num cliente
+separado, que não grava cookie, e em seguida encerrava esse login. O
+problema é que **`signOut()` do Supabase usa escopo GLOBAL por
+padrão**: ele não encerra a sessão de teste, encerra TODAS as sessões
+daquela pessoa, inclusive a do navegador dela, que estava ali do lado
+esperando para trocar a senha. Está escrito na documentação dentro do
+próprio pacote instalado: *"By default, signOut() uses the global
+scope, which signs out the user on every device they are signed in
+on"*.
+
+O estrago aparecia na linha seguinte. Com o refresh token revogado, o
+`updateUser` tentava renovar a sessão do cookie, não conseguia, apagava
+a sessão e devolvia `AuthSessionMissingError`, cuja mensagem é
+exatamente "Auth session missing!".
+
+Por que não apareceu antes: o Supabase considera a sessão vencida
+alguns minutos ANTES da hora (`EXPIRY_MARGIN_MS`), e só nesse caso o
+`getSession` tenta renovar. Quem tinha acabado de entrar trocava a
+senha normalmente; quem estava logado havia um tempo batia no erro. É o
+tipo de defeito que passa em qualquer teste feito logo depois de
+entrar.
+
+A correção é `{ scope: 'local' }`, que encerra só a sessão de teste.
+
+O mesmo padrão estava no botão **Sair**, com a mesma consequência e
+sem ninguém ter reclamado ainda: sair no computador da agência
+derrubava a sessão do celular junto, e um cliente que saísse do celular
+perderia a janela aberta no computador no meio de uma aprovação. Também
+virou `local`, que é o que a documentação do pacote recomenda para
+botão de sair.
+
+Junto, a tradução das mensagens de erro saiu da ação de servidor para
+`src/lib/senha.ts`, com teste. A regra é que nenhuma frase do Supabase
+chegue crua à tela sem algo que a pessoa possa fazer a respeito, e que
+erro desconhecido continue mostrando o texto original no fim — senão
+vira "não consegui" e ninguém descobre o porquê.
