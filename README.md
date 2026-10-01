@@ -940,3 +940,98 @@ Junto, a tradução das mensagens de erro saiu da ação de servidor para
 chegue crua à tela sem algo que a pessoa possa fazer a respeito, e que
 erro desconhecido continue mostrando o texto original no fim — senão
 vira "não consegui" e ninguém descobre o porquê.
+
+### O espelho aprende a apagar (rodada 88)
+
+A rodada 86 removeu a função `definirCor` e deixou no projeto o arquivo
+órfão que a chamava. O espelho sabe escrever e não sabia apagar, então
+a remoção virou um script avulso, `16-limpar.cmd`, que precisava ser
+rodado entre o `15-aplicar.cmd` e o `11-build.cmd`. Não foi rodado. A
+compilação quebrou, e quebrou de novo no Vercel.
+
+O defeito não foi o script não ter sido rodado. Foi eu ter feito a
+compilação depender de um passo que alguém precisa lembrar, e ainda ter
+numerado o arquivo como `16` quando já existia um `16-instagram.cmd`.
+Passo que depende de memória não é um passo, é uma armadilha com
+contagem regressiva.
+
+Agora uma rodada que precisa remover arquivos manda junto um
+`_espelho/_apagar.txt`: um caminho por linha, relativo à raiz, com
+barra normal, `#` para comentário. O `15-aplicar.cmd` grava o que tem
+de gravar e, no fim, apaga o que a lista pede. Sem passo extra.
+
+Três decisões que valem o registro:
+
+**A cópia espelhada sai junto, sem ser pedida.** Apagar só o arquivo do
+projeto deixaria a cópia em `_espelho/`, e o `voltar` seguinte o
+ressuscitaria. Seria a mesma armadilha com outra roupa.
+
+**Apagar é a última coisa que o script faz.** Se a gravação falhar no
+meio, o projeto ainda está inteiro.
+
+**A lista é fechada por padrão.** Ela roda sozinha na máquina de quem
+não lê código, então só alcança onde o espelho já escreve (`src`,
+`supabase`, `scripts`) mais arquivos soltos da raiz, que é onde moram
+os `.cmd` numerados. Recusa caminho absoluto, letra de disco, `..`,
+qualquer coisa começando com ponto (`.env.local`, `.git`), pasta que o
+espelho não toca, e diretório — apaga arquivo, nunca pasta. Recusa sai
+com erro na tela, para a janela ser olhada em vez de fechada.
+
+O teste (`asp/espelho/teste.mjs`, 35 conferências) monta um projeto de
+mentira numa pasta temporária e roda o script de verdade nele, com
+`.env.local` e `.git` presentes para provar que continuam lá. Testar só
+a função de caminho não serviria: o que falhou da outra vez não foi a
+conta, foi o passo que ninguém deu.
+
+A primeira coisa que a lista remove é o próprio `16-limpar.cmd`.
+
+### Precisão: por mês, em real, e o custo só para quem administra (rodada 89)
+
+Três mudanças pedidas e uma armadilha que quase passou.
+
+**Por mês ou por marca.** A mesma soma, dois agrupamentos, escolhidos
+numa barra no topo. Por mês responde "como foi outubro na agência
+inteira"; por marca responde "como esta conta vem andando". Por mês é o
+que abre.
+
+**Em real.** Cada chamada é convertida pela cotação do dia em que ela
+aconteceu, não pela de hoje. Converter tudo pelo dólar de hoje faria o
+passado andar: um mês fechado mostraria um valor diferente a cada
+semana, sem nada ter acontecido, que é o tipo de número que engana sem
+parecer errado numa tela de métrica. A cotação de cada dia fica
+guardada em `cotacao_dolar`, e a primeira cotação de um dia é a que
+vale para sempre.
+
+Sobre a cotação entram o spread do banco (1%) e o IOF (3,5%, conferido
+na web em outubro de 2026), porque o que interessa é o que chega na
+fatura, não a cotação pura. Os dois moram em `src/lib/cambio.ts`, cada
+um num número só: a tabela guarda fato do dia, não política de cartão.
+Se o spread da Alta for outro, é uma linha.
+
+A busca da cotação é defensiva de propósito. O parser aceita o formato
+da awesomeapi e o do Banco Central, recusa qualquer número fora da
+faixa plausível para dólar/real, e devolve nulo quando não entende —
+e aí a tela mostra dólar e diz que faltou cotação. Cotação chutada numa
+tela de custo é pior que cotação faltando, porque ninguém desconfia de
+um número que já está lá. O banco confere de novo, por último.
+
+**O custo é da administração.** A equipe continua vendo precisão,
+reescritas e pedidos do cliente, que é o que ajuda a melhorar a base
+das marcas; o bloco de custo e o total só aparecem para quem
+administra. A separação é de banco, não de tela: `ai_runs` só devolve
+ao não-administrador as chamadas que ele mesmo disparou.
+
+**A armadilha.** Fechar a leitura de `ai_runs` só para a administração
+teria quebrado a gravação de custo inteira, em silêncio. As rotas de IA
+registram a chamada com `insert(...).select('id')`, que no Postgres é
+um `INSERT ... RETURNING` — e RETURNING passa pela política de LEITURA.
+A equipe não conseguiria ler o id de volta, o código segue sem ele (ele
+ignora esse erro), e nenhuma chamada da equipe teria custo e status
+gravados depois. A conta de custo iria a zero sem ninguém perceber.
+Daí a coluna `criado_por`: a pessoa enxerga as próprias chamadas, o
+RETURNING funciona, e o total da agência continua sendo só de quem
+administra. O teste que prova isso é o item 2 de `teste_cotacao.sql`,
+e ele existe exatamente porque este é o jeito mais silencioso de uma
+tela de dinheiro quebrar.
+
+Saiu o texto que explicava por que os valores apareciam em dólar.

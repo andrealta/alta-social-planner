@@ -20,6 +20,18 @@
  *
  * Nada de `_espelho/` entra no Git.
  *
+ * APAGAR. O espelho sabia escrever e não sabia apagar, e isso custou
+ * um deploy: uma rodada removeu uma função, o arquivo órfão que a
+ * chamava continuou no projeto porque só um script avulso o apagava, o
+ * script não foi rodado e a compilação quebrou em produção. Agora uma
+ * rodada que precisa remover arquivos manda junto um `_espelho/
+ * _apagar.txt`, um caminho por linha, e o `voltar` cuida disso no
+ * mesmo passo. Sem passo extra para ninguém lembrar.
+ *
+ * Ele apaga também a cópia espelhada do arquivo, sempre, sem precisar
+ * ser pedido. Senão o arquivo ressuscitaria no `voltar` seguinte — que
+ * é exatamente a armadilha que este mecanismo existe para fechar.
+ *
  * Uso:
  *   node scripts/espelho.mjs            copia do projeto para _espelho
  *   node scripts/espelho.mjs voltar     devolve _espelho para o projeto
@@ -34,7 +46,7 @@ import {
   rmSync,
   statSync,
 } from 'node:fs'
-import { join, dirname, relative, sep } from 'node:path'
+import { join, dirname, relative, sep, isAbsolute, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createHash } from 'node:crypto'
 
@@ -47,6 +59,12 @@ const PASTAS = ['src', 'supabase', 'scripts']
 const SOLTOS = ['middleware.ts', 'next.config.ts', 'package.json', 'tsconfig.json', 'vercel.json']
 const EXTENSOES = ['.ts', '.tsx', '.css', '.sql', '.mjs', '.json', '.md']
 const IGNORAR = ['node_modules', '.next', '.git', '_espelho', 'out', 'build']
+
+/** O arquivo que lista o que apagar. Fica fora das extensões copiadas. */
+const LISTA_APAGAR = '_apagar.txt'
+
+/** O que um arquivo solto na raiz pode ser, para poder ser apagado. */
+const EXTENSOES_RAIZ = [...EXTENSOES, '.cmd', '.txt']
 
 const resumo = (b) => createHash('sha256').update(b).digest('hex').slice(0, 12)
 const achatar = (rel) => rel.split(sep).join('__')
@@ -69,6 +87,40 @@ function destinoPermitido(rel) {
   if (PASTAS.includes(primeiro)) return true
   if (rel.split(sep).length === 1 && SOLTOS.includes(rel)) return true
   return false
+}
+
+/**
+ * Pode apagar este caminho?
+ *
+ * Lista de apagar é uma arma carregada: ela roda sem ninguém olhar, na
+ * máquina de quem não lê código. Então a regra é fechada por padrão e
+ * só abre onde o espelho já escreve, mais os arquivos soltos da raiz
+ * (os `.cmd` numerados, que às vezes nascem para uma vez só).
+ *
+ * Fora: caminho absoluto, `..`, qualquer coisa começando com ponto
+ * (`.env`, `.git`), e pasta — apaga arquivo, nunca diretório.
+ */
+function destinoApagavel(rel) {
+  if (typeof rel !== 'string') return { ok: false, porque: 'não é texto' }
+  const limpo = rel.trim().split('/').join(sep)
+  if (!limpo) return { ok: false, porque: 'linha vazia' }
+  if (isAbsolute(limpo)) return { ok: false, porque: 'caminho absoluto' }
+  if (/^[A-Za-z]:/.test(limpo)) return { ok: false, porque: 'caminho com letra de disco' }
+
+  const partes = normalize(limpo).split(sep).filter(Boolean)
+  if (partes.some((p) => p === '..')) return { ok: false, porque: 'sobe de pasta' }
+  if (partes.some((p) => p.startsWith('.'))) return { ok: false, porque: 'arquivo ou pasta oculta' }
+  if (partes.some((p) => IGNORAR.includes(p))) return { ok: false, porque: 'pasta que o espelho não toca' }
+
+  if (partes.length === 1) {
+    return EXTENSOES_RAIZ.some((e) => partes[0].endsWith(e))
+      ? { ok: true, rel: partes.join(sep) }
+      : { ok: false, porque: 'arquivo solto na raiz com extensão inesperada' }
+  }
+  if (!PASTAS.includes(partes[0])) {
+    return { ok: false, porque: 'fora das pastas do espelho' }
+  }
+  return { ok: true, rel: partes.join(sep) }
 }
 
 const linha = '--------------------------------------------------------'
@@ -170,9 +222,71 @@ if (modo === 'voltar') {
     console.log(`            ${atual ? 'atualizado' : 'NOVO'} · ${resumo(novo)} · ${novo.length} bytes`)
   }
 
+  // ----------------------------------------------------------
+  // E o que esta rodada pede para apagar
+  // ----------------------------------------------------------
+  //
+  // Depois de gravar, nunca antes: se a gravação falhar no meio, o
+  // projeto ainda está inteiro. Apagar é a última coisa.
+  const listaApagar = join(pastaEspelho, LISTA_APAGAR)
+  let apagados = 0
+
+  if (existsSync(listaApagar)) {
+    const linhas = readFileSync(listaApagar, 'utf8')
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith('#'))
+
+    if (linhas.length > 0) {
+      console.log('')
+      console.log('  Esta rodada pede para apagar:')
+    }
+
+    for (const bruta of linhas) {
+      const juizo = destinoApagavel(bruta)
+      if (!juizo.ok) {
+        console.log(`  RECUSADO  ${bruta}`)
+        console.log(`            (${juizo.porque} — nada foi apagado)`)
+        recusados++
+        continue
+      }
+
+      const alvo = join(raiz, juizo.rel)
+      // A cópia espelhada sai junto, sempre. Sem isto o arquivo
+      // ressuscita no proximo `voltar`.
+      const copia = join(pastaEspelho, achatar(juizo.rel))
+      let mexeu = false
+
+      for (const c of [alvo, copia]) {
+        if (!existsSync(c)) continue
+        if (statSync(c).isDirectory()) {
+          console.log(`  RECUSADO  ${juizo.rel}`)
+          console.log('            (e uma pasta — o espelho so apaga arquivo)')
+          recusados++
+          continue
+        }
+        rmSync(c, { force: true })
+        mexeu = true
+      }
+
+      if (mexeu) {
+        apagados++
+        console.log(`  APAGADO   ${juizo.rel}`)
+      } else {
+        console.log(`  ja nao existia  ${juizo.rel}`)
+      }
+    }
+
+    // A lista vale para esta rodada e acaba aqui. Deixá-la no lugar
+    // faria o `voltar` seguinte repetir ordens velhas sobre arquivos
+    // que podem ter voltado a existir por outro motivo.
+    rmSync(listaApagar, { force: true })
+  }
+
   console.log('')
   console.log(linha)
   console.log(`  ${mudados} arquivo(s) alterado(s), ${iguais} sem mudanca` +
+    (apagados ? `, ${apagados} apagado(s)` : '') +
     (recusados ? `, ${recusados} recusado(s)` : '') +
     (falhas ? `, ${falhas} FALHA(S)` : ''))
   console.log(linha)

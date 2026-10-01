@@ -207,26 +207,47 @@ export type CorridaMedida = {
    * mês ("2026-11"). Nulo para tudo o mais. Ver migração 0019.
    */
   planoExcluido?: string | null
+  /**
+   * O dia em que a chamada aconteceu, em São Paulo ('2026-10-01'). É
+   * por ele que se escolhe a cotação do dólar: cada chamada vale o
+   * câmbio do dia em que foi paga, não o de hoje.
+   */
+  dia?: string
+  /** O mês do planejamento a que ela pertence ('2026-10'), quando tem. */
+  mes?: string | null
 }
+
+/** Converte um gasto em dólar para real, pela cotação do dia dele. */
+export type EmReais = (usd: number, dia: string | undefined) => number
 
 export type Custo = {
   chamadas: number
   falhas: number
   usd: number
-  porEtapa: Record<string, { chamadas: number; usd: number }>
+  /**
+   * O mesmo gasto em reais, cada chamada convertida pela cotação do
+   * dia dela. Zero quando não houve cotação para converter — e nesse
+   * caso a tela mostra dólar, não um real inventado.
+   */
+  brl: number
+  /** Chamadas que não acharam cotação nenhuma. A tela avisa quando há. */
+  semCotacao: number
+  porEtapa: Record<string, { chamadas: number; usd: number; brl: number }>
   /**
    * A parte do custo que veio de meses excluídos. Já está DENTRO de
    * `usd` e `chamadas` — isto é só o recorte, para a tela poder dizer.
    */
-  excluido: { chamadas: number; usd: number; meses: string[] }
+  excluido: { chamadas: number; usd: number; brl: number; meses: string[] }
 }
 
 export const custoVazio = (): Custo => ({
   chamadas: 0,
   falhas: 0,
   usd: 0,
+  brl: 0,
+  semCotacao: 0,
   porEtapa: {},
-  excluido: { chamadas: 0, usd: 0, meses: [] },
+  excluido: { chamadas: 0, usd: 0, brl: 0, meses: [] },
 })
 
 /** Como cada etapa se chama na tela. O banco fala em inglês. */
@@ -248,35 +269,63 @@ export const ETAPA: Record<string, string> = {
  * gasto em erro é token cobrado. Esconder isso faria a tela mentir
  * justamente no caso em que o número importa.
  */
-export function somarCusto(corridas: CorridaMedida[]): Map<string, Custo> {
-  const porMarca = new Map<string, Custo>()
+export function somarCusto(corridas: CorridaMedida[], emReais?: EmReais): Map<string, Custo> {
+  return agrupar(corridas, (c) => c.brand_id, emReais)
+}
+
+/**
+ * O mesmo custo, somado por mês em vez de por marca.
+ *
+ * Chamada que não pertence a mês nenhum — leitura de documento,
+ * memória da marca — cai na chave vazia. Ela existe e foi paga; somar
+ * só o que tem mês daria um total menor que a fatura.
+ */
+export function somarCustoPorMes(
+  corridas: CorridaMedida[],
+  emReais?: EmReais,
+): Map<string, Custo> {
+  return agrupar(corridas, (c) => c.mes ?? '', emReais)
+}
+
+function agrupar(
+  corridas: CorridaMedida[],
+  chave: (c: CorridaMedida) => string,
+  emReais?: EmReais,
+): Map<string, Custo> {
+  const mapa = new Map<string, Custo>()
 
   for (const c of corridas) {
-    const atual = porMarca.get(c.brand_id) ?? custoVazio()
+    const k = chave(c)
+    const atual = mapa.get(k) ?? custoVazio()
     const usd = Number(c.cost_usd ?? 0)
+    const brl = emReais ? emReais(usd, c.dia) : 0
+    if (emReais && usd > 0 && brl === 0) atual.semCotacao++
 
     atual.chamadas++
     atual.usd += usd
+    atual.brl += brl
     if (c.status === 'failed') atual.falhas++
 
-    const etapa = atual.porEtapa[c.agent] ?? { chamadas: 0, usd: 0 }
+    const etapa = atual.porEtapa[c.agent] ?? { chamadas: 0, usd: 0, brl: 0 }
     etapa.chamadas++
     etapa.usd += usd
+    etapa.brl += brl
     atual.porEtapa[c.agent] = etapa
 
     // Mês excluído continua custando: a geração aconteceu e foi paga.
     if (c.planoExcluido) {
       atual.excluido.chamadas++
       atual.excluido.usd += usd
+      atual.excluido.brl += brl
       if (!atual.excluido.meses.includes(c.planoExcluido)) {
         atual.excluido.meses.push(c.planoExcluido)
       }
     }
 
-    porMarca.set(c.brand_id, atual)
+    mapa.set(k, atual)
   }
 
-  return porMarca
+  return mapa
 }
 
 /**
@@ -290,6 +339,12 @@ export function usdPorPautaAprovada(custo: Custo, aprovadas: number): number | n
   return custo.usd / aprovadas
 }
 
+/** O mesmo, em reais. Nulo também quando não houve cotação. */
+export function brlPorPautaAprovada(custo: Custo, aprovadas: number): number | null {
+  if (aprovadas <= 0 || custo.brl <= 0) return null
+  return custo.brl / aprovadas
+}
+
 /** Soma o custo de todas as marcas numa conta só, para o rodapé da página. */
 export function somarTudo(porMarca: Map<string, Custo>): Custo {
   const t = custoVazio()
@@ -297,13 +352,17 @@ export function somarTudo(porMarca: Map<string, Custo>): Custo {
     t.chamadas += c.chamadas
     t.falhas += c.falhas
     t.usd += c.usd
+    t.brl += c.brl
+    t.semCotacao += c.semCotacao
     t.excluido.chamadas += c.excluido.chamadas
     t.excluido.usd += c.excluido.usd
+    t.excluido.brl += c.excluido.brl
     t.excluido.meses.push(...c.excluido.meses)
     for (const [k, e] of Object.entries(c.porEtapa)) {
-      const x = t.porEtapa[k] ?? { chamadas: 0, usd: 0 }
+      const x = t.porEtapa[k] ?? { chamadas: 0, usd: 0, brl: 0 }
       x.chamadas += e.chamadas
       x.usd += e.usd
+      x.brl += e.brl
       t.porEtapa[k] = x
     }
   }
