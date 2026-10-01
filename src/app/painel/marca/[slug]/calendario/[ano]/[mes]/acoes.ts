@@ -3,7 +3,19 @@
 import { revalidatePath } from 'next/cache'
 import { clienteServidor } from '@/lib/supabase/server'
 
-export type Resultado = { ok: boolean; erro?: string; versao?: number }
+export type Resultado = {
+  ok: boolean
+  erro?: string
+  versao?: number
+  /**
+   * A ação não foi feita porque mexe num mês que o cliente já aprovou,
+   * e isso precisa de uma decisão consciente. A tela pergunta e chama
+   * de novo com o motivo.
+   */
+  precisaConfirmar?: boolean
+  /** Como a pauta ficou depois da reabertura, para a tela acompanhar. */
+  status?: string
+}
 
 /**
  * Transições que a equipe interna pode fazer. Espelha o gatilho do
@@ -50,11 +62,42 @@ export async function moverPauta(
   data: string,
   ano: number,
   mes: number,
+  motivo?: string,
 ): Promise<Resultado> {
   const ctx = await equipe()
   if ('erro' in ctx) return { ok: false, erro: ctx.erro }
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return { ok: false, erro: 'Data inválida.' }
+
+  // Peça que o cliente já aprovou não se remarca em silêncio. Ele
+  // aprovou aquela peça naquele dia, e a data faz parte do que ele
+  // aprovou. Sem motivo escrito, a ação para aqui e a tela pergunta.
+  const { data: pauta } = await ctx.supabase
+    .from('content_ideas')
+    .select('status')
+    .eq('id', ideaId)
+    .maybeSingle()
+
+  const aprovada = (pauta?.status as string) === 'client_approved'
+  if (aprovada && !String(motivo ?? '').trim()) {
+    return { ok: false, precisaConfirmar: true }
+  }
+
+  if (aprovada) {
+    const { error: erroReabrir } = await ctx.supabase.rpc('reabrir_pauta', {
+      p_idea: ideaId,
+      p_motivo: String(motivo).trim(),
+      p_tipo: 'data',
+    })
+    if (erroReabrir) {
+      return {
+        ok: false,
+        erro: erroReabrir.message.includes('mandar pauta ao cliente')
+          ? 'Só quem é responsável por esta marca pode remarcar uma peça já aprovada.'
+          : 'Não consegui reabrir: ' + erroReabrir.message,
+      }
+    }
+  }
 
   const { error } = await ctx.supabase
     .from('content_channels')
@@ -64,7 +107,50 @@ export async function moverPauta(
   if (error) return { ok: false, erro: error.message }
 
   revalidatePath(caminho(slug, ano, mes))
-  return { ok: true }
+  return { ok: true, status: aprovada ? 'sent_to_client' : undefined }
+}
+
+/**
+ * Devolve ao cliente uma peça que ele já aprovou, para a equipe poder
+ * alterá-la.
+ *
+ * Separada do `moverPauta` porque a regra é outra: mexer no texto de
+ * uma peça aprovada é desfazer um acordo, e só quem criou o mês ou a
+ * administração pode. Remarcar a data, não.
+ */
+export async function reabrirPauta(
+  slug: string,
+  ideaId: string,
+  motivo: string,
+  ano: number,
+  mes: number,
+): Promise<Resultado> {
+  const ctx = await equipe()
+  if ('erro' in ctx) return { ok: false, erro: ctx.erro }
+
+  if (!motivo.trim()) {
+    return { ok: false, erro: 'Diga por que está reabrindo. O cliente vai ler.' }
+  }
+
+  const { error } = await ctx.supabase.rpc('reabrir_pauta', {
+    p_idea: ideaId,
+    p_motivo: motivo.trim(),
+    p_tipo: 'conteudo',
+  })
+
+  if (error) {
+    return {
+      ok: false,
+      erro: error.message.includes('criou este mes')
+        ? 'Para alterar uma peça já aprovada, é preciso ser quem criou este mês ou a administração.'
+        : error.message.includes('mandar pauta ao cliente')
+          ? 'Só quem é responsável por esta marca pode devolver uma peça ao cliente.'
+          : 'Não consegui reabrir: ' + error.message,
+    }
+  }
+
+  revalidatePath(caminho(slug, ano, mes))
+  return { ok: true, status: 'sent_to_client' }
 }
 
 /**

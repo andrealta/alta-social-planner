@@ -1,10 +1,23 @@
 
-  30/09/2026, 06:40:03
+  01/10/2026, 06:40:02
 
-  Queensberry: 392 job(s), 3 sairam da lista, 0h orcadas e 1424h31 apontadas
-  Queensberry: FALHOU. porLinha is not defined
-  Hero: FALHOU. porLinha is not defined
+  Habiarte: padrao "Habiarte" reune 29 cadastro(s) ativo(s).
+  Canto de Minas: 775 job(s) de 1 cadastro(s), 6 sairam da lista, 1h45 orcadas e 2347h30 apontadas
+      14 linhas diferentes de titulo
+  Habiarte: 690 job(s) de 29 cadastro(s), 3 sairam da lista, 22h37 orcadas e 991h46 apontadas
+      80 linhas diferentes de titulo
+  Hero: 146 job(s) de 1 cadastro(s), 6 sairam da lista, 0h orcadas e 489h46 apontadas
+      linhas que entraram: Hero (127), Hero Geleias (19)
+  NovaTero: 152 job(s) de 1 cadastro(s), 1 sairam da lista, 3h07 orcadas e 316h44 apontadas
+      linhas que entraram: NovaTero (80), NovaTero - Redes Sociais (49), Novatero (8), Planejamento (5), NOVATERO (4), Planejamento - NovaTero (2), NovaTero - Relatório 2025 (1), Naming - Nova Linha de Fungos Micorrízicos (1), NovaTero - Instagram GIFs (1), NovaTero - Relatórios 2025 (1)
+  Queensberry: 390 job(s) de 1 cadastro(s), 2 sairam da lista, 0h orcadas e 1420h47 apontadas
+      linhas que entraram: Queens (373), QUEENSBERRY (5), Queensberry (5), Queens Conteúdo influ Silmara (1), Queens Conteúdo influ Nathassia Pécorra (1), Queens Conteúdo influ Gean Uai (1), Queens Conteúdo influ Vivian Carvalho (1), Queens Conteúdo influ Tato (1), QUEENS (1), Queens E-mail MKT 1 (1)
+    Ficaram de fora: 4672 com mais de um ano.
+    37 job(s) de linha sem marca, nao gravados: Hero Brasil (34), Simulações de investimentos (1), teste (1), teste wobbler (1)
 
-  Hero: retrato refeito com 152 job(s).
-  Queensberry: retrato refeito com 392 job(s).
+  Canto de Minas: retrato refeito com 775 job(s).
+  Habiarte: retrato refeito com 690 job(s).
+  Hero: retrato refeito com 146 job(s).
+  NovaTero: retrato refeito com 152 job(s).
+  Queensberry: retrato refeito com 390 job(s).
 

@@ -10,6 +10,7 @@ import {
   ICONE_PECA,
   SITUACOES,
   botao,
+  caixaTexto,
   cartao,
   corDaLinha,
   pilula,
@@ -76,6 +77,21 @@ export function Calendario({
   const [aviso, setAviso] = useState<{ tipo: 'ok' | 'erro'; texto: string } | null>(null)
   const [pendente, comecar] = useTransition()
   const [avaliando, setAvaliando] = useState(false)
+  /**
+   * Uma remarcação esperando confirmação.
+   *
+   * Arrastar uma peça que o cliente já aprovou não é o mesmo que
+   * arrastar qualquer outra: ele aprovou aquela peça naquele dia, e a
+   * data faz parte do que ele aprovou. A tela desfaz o arrasto, guarda
+   * o que foi pedido e pergunta o motivo, que vai para a conversa com
+   * ele.
+   */
+  const [remarcando, setRemarcando] = useState<{
+    id: string
+    titulo: string
+    data: string
+    motivo: string
+  } | null>(null)
   const [segundosIA, setSegundosIA] = useState(0)
   const router = useRouter()
 
@@ -128,10 +144,37 @@ export function Calendario({
 
     comecar(async () => {
       const r = await moverPauta(slug, id, data, ano, mes)
+      if (r.precisaConfirmar) {
+        // Desfaz na tela e pergunta. A peça só sai do lugar depois de
+        // a pessoa dizer por quê.
+        setPautas(antes)
+        setRemarcando({ id, titulo: pauta.title, data, motivo: '' })
+        return
+      }
       if (!r.ok) {
         setPautas(antes)
         setAviso({ tipo: 'erro', texto: r.erro ?? 'Não consegui mover.' })
       }
+    })
+  }
+
+  function confirmarRemarcacao() {
+    const pedido = remarcando
+    if (!pedido || !pedido.motivo.trim()) return
+    comecar(async () => {
+      const r = await moverPauta(slug, pedido.id, pedido.data, ano, mes, pedido.motivo)
+      if (!r.ok) {
+        setAviso({ tipo: 'erro', texto: r.erro ?? 'Não consegui mover.' })
+        setRemarcando(null)
+        return
+      }
+      atualizar(pedido.id, { data: pedido.data, status: r.status ?? 'sent_to_client' })
+      setRemarcando(null)
+      setAviso({
+        tipo: 'ok',
+        texto:
+          'Remarcada. Esta peça voltou para o cliente aprovar de novo, com o motivo que você escreveu. As outras do mês não foram tocadas.',
+      })
     })
   }
 
@@ -465,6 +508,58 @@ export function Calendario({
           </b>{' '}
           Abra cada uma para ler o pedido, ajuste, aprove de novo e envie outra vez. Só
           volta ao cliente o que você reenviar.
+        </div>
+      )}
+
+      {remarcando && (
+        <div
+          role="alertdialog"
+          aria-label="Confirmar a remarcação"
+          style={{
+            marginBottom: 14,
+            padding: '16px 18px',
+            borderRadius: 'var(--r)',
+            background: 'var(--amarelo-wash)',
+            borderLeft: '3px solid var(--warn)',
+            fontSize: 13.5,
+            lineHeight: 1.6,
+          }}
+        >
+          <div style={{ maxWidth: 760 }}>
+          <b>Esta peça já foi aprovada pelo cliente.</b> Mudar a data dela desfaz essa
+          aprovação: <b>{remarcando.titulo}</b> volta a pedir resposta dele, e só ela. As
+          outras peças do mês continuam aprovadas.
+          <div style={{ marginTop: 12 }}>
+            <label
+              htmlFor="motivo-remarcacao"
+              style={{ display: 'block', fontWeight: 700, fontSize: 13, marginBottom: 5 }}
+            >
+              Por que está remarcando? O cliente vai ler.
+            </label>
+            <input
+              id="motivo-remarcacao"
+              value={remarcando.motivo}
+              onChange={(e) =>
+                setRemarcando((r) => (r ? { ...r, motivo: e.target.value } : r))
+              }
+              placeholder="A data caía num feriado e passamos para a semana seguinte."
+              autoFocus
+              style={{ ...caixaTexto, background: 'var(--surface)', maxWidth: 620 }}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: 9, marginTop: 14 }}>
+            <button
+              style={botao(true, !remarcando.motivo.trim() || pendente)}
+              disabled={!remarcando.motivo.trim() || pendente}
+              onClick={confirmarRemarcacao}
+            >
+              {pendente ? 'Remarcando…' : 'Remarcar e avisar o cliente'}
+            </button>
+            <button style={botao(false)} onClick={() => setRemarcando(null)}>
+              cancelar
+            </button>
+          </div>
+          </div>
         </div>
       )}
 

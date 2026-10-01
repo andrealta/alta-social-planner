@@ -743,3 +743,43 @@ como regra.
 O **status geral** da tela inicial do cliente (`lib/status.ts`) é só
 conta sobre o que o banco já tem. As "alterações mais pedidas" saem de
 um classificador por palavra-chave, transparente e sem custo — não de IA.
+
+### Reabrir o que o cliente já aprovou (migração 0040)
+
+Mês aprovado não é mês congelado. A agência remarca uma data, o cliente
+pede uma pauta a mais, a vida acontece. O que não pode é a mudança passar
+por baixo do cliente: ele aprovou aquilo e tem de ser perguntado de novo.
+
+A regra é de banco, não de tela. `reabrir_pauta(pauta, motivo, tipo)`
+é o único caminho para uma peça sair de `client_approved`. Ela exige:
+
+- **motivo escrito**, que vira um comentário visível para o cliente, na
+  conversa daquela pauta. Ele não descobre a mudança pelo calendário;
+- **`pode_enviar_ao_cliente`** na marca, para os dois tipos (data e
+  conteúdo), porque reabrir é literalmente colocar a peça na frente dele;
+- **`dono_do_mes`** — administrador ou quem criou o planejamento — a
+  mais, quando o que muda é conteúdo.
+
+O `content_ideas_guard` continua recusando o `UPDATE` direto. A única
+brecha é o sinalizador de transação `app.reabrindo`, que só a função
+liga. Quem tentar pela mão leva a exceção com o nome da função no texto.
+
+**Dois erros que os testes acharam e vale não repetir.** O primeiro:
+`sync_plan_approval` zerava `approved_at` mas deixava `plans.status` em
+`approved`. O mês ficava com cara de aprovado e data de aprovação vazia,
+e metade do sistema lê um campo, metade lê o outro. Agora o status volta
+para `internal_review` ou `sent_to_client` conforme o que sobrou em pé.
+O segundo: o gatilho só ouvia `insert` e `update of status`. Quem
+reabrisse o mês com uma pauta nova e depois apagasse essa pauta deixava
+o mês reaberto para sempre, sem nada pendente. Hoje ouve `delete` também
+e usa `coalesce(new.plan_id, old.plan_id)`.
+
+**A autorização que eu tinha errado.** A primeira versão deixava
+qualquer pessoa da equipe remarcar data, e o gatilho de 0013 recusou. O
+gatilho estava certo: remarcar reabre, reabrir manda ao cliente, e mandar
+ao cliente tem dono. A regra mudou, o gatilho ficou.
+
+Na tela, arrastar uma pauta aprovada não move nada: o calendário desfaz
+o arrasto e abre uma caixa amarela pedindo o motivo, com o nome da peça
+escrito e a frase que importa — as outras peças do mês continuam
+aprovadas. Só essa volta a pedir resposta.
