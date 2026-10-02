@@ -1035,3 +1035,138 @@ e ele existe exatamente porque este é o jeito mais silencioso de uma
 tela de dinheiro quebrar.
 
 Saiu o texto que explicava por que os valores apareciam em dólar.
+
+### A cotação que não chegou (rodada 90)
+
+A rodada 89 entregou o custo em real e, no primeiro uso, o custo
+continuou em dólar. A migração tinha entrado e a tabela existia: o que
+não aconteceu foi a busca da cotação. Eu não tinha como saber o motivo,
+porque o ambiente onde escrevo o código não alcança APIs de câmbio, e
+eu tinha avisado disso ao entregar.
+
+Duas correções, uma de arquitetura e uma de diagnóstico.
+
+**Três fontes em vez de uma.** Uma fonte só é ponto único de falha numa
+tela que a agência olha para decidir preço. A página agora tenta
+awesomeapi, depois frankfurter, depois o PTAX do Banco Central, e fica
+com a primeira que responder um número plausível.
+
+**O motivo aparece na tela.** Quando nenhuma responde, a página diz
+qual falhou e como: HTTP 403, formato não reconhecido, o banco recusou.
+Antes ela só mostrava dólar, o que é o comportamento certo e não ajuda
+ninguém a consertar. Erro que não se vê não se conserta.
+
+**Um script que roda onde há rede** (`25-cotacao.cmd`). Ele testa as
+três fontes a partir da máquina da Alta e mostra, para cada uma, o
+endereço chamado, o código HTTP, o começo da resposta crua e o que foi
+lido dela. Registra a cotação de hoje e preenche os dias passados que
+têm chamada de IA e ainda não têm cotação.
+
+**E a tela passou a admitir a aproximação.** `cotacaoDoDia` sempre
+soube dizer se usou a cotação do próprio dia ou a do dia mais próximo,
+e a página ignorava esse aviso. Agora ela conta quantas chamadas foram
+convertidas por cotação de outro dia e diz. Valor aproximado passando
+por exato é exatamente o defeito que esta página existe para não
+cometer.
+
+### Mais de uma pessoa mexendo no sistema (rodada 91)
+
+Preparando o terreno para alguém além do André trabalhar aqui,
+apareceu um risco que já existia hoje, com uma pessoa só.
+
+**O `06-carregar.cmd` apontado para produção apaga a base das marcas.**
+Ele grava `brand_knowledge` com `on conflict do update`, então rodar
+com o `carga.json` antigo substitui a base de conhecimento construída
+de cada cliente pelos dados de exemplo do MVP. Não há cópia guardada e
+não há desfazer. Enquanto uma pessoa só mexia, ela sabia disso de cor.
+Com duas, e uma aprendendo, vira questão de tempo: o jeito mais fácil
+de alguém começar é copiar o `.env.local` de quem já trabalha, e nesse
+instante o computador novo está apontado para produção sem ninguém ter
+decidido isso.
+
+A proteção é uma linha no `.env.local`:
+
+```
+AMBIENTE=producao        ou        AMBIENTE=desenvolvimento
+```
+
+Os scripts que escrevem passam a dizer, antes de agir, em que banco vão
+mexer. O `06-carregar.cmd` pede confirmação digitada quando o banco é
+de produção — a palavra inteira, e não "s/n", porque a mão aperta "s"
+sem ler e o ponto de uma confirmação é obrigar a leitura. O
+`04-migrar.cmd` só avisa, sem travar: migração em produção é operação
+normal, e atrito onde não há risco ensina a ignorar o aviso que
+importa.
+
+**Falha aberto, de propósito.** Sem a linha `AMBIENTE`, nada para de
+funcionar: o script avisa que o ambiente não foi declarado e trata como
+produção, que é a suposição mais cuidadosa. Fazer falhar fechado
+quebraria a rotina de quem já trabalha no dia em que esta mudança
+chegasse, e trava que quebra o trabalho de todo dia é trava que alguém
+desliga. Erro de digitação (`AMBIENTE=dsenvolvimento`) também não abre
+a porta: só as palavras reconhecidas valem, o resto é tratado como
+produção.
+
+O `26-ambiente.cmd` responde "em que banco este computador está
+mexendo" sem alterar nada, e lista quais chaves o `.env.local` tem
+preenchidas — pelo TAMANHO, nunca pelo conteúdo, porque essa tela pode
+acabar num print mandado no grupo da agência. O teste que mais importa
+em `asp/ambiente/` é justamente esse: a `DATABASE_URL` tem a senha do
+banco na mesma linha do apelido do projeto, e o aviso mostra o apelido
+sem nunca mostrar a senha.
+
+O `COMECE-AQUI.md` é o documento de chegada de quem nunca mexeu:
+instalação, o que é cada peça, o ciclo de trabalho, as travas que
+existem e por quê, o que não fazer, e o que mandar quando der errado.
+O `README.md` continua sendo a referência profunda; o COMECE-AQUI é a
+rampa.
+
+### O espelho deixa de ser fotografia e passa a ser mudança (rodada 92)
+
+Preparando o sistema para duas pessoas em computadores diferentes,
+apareceu o defeito mais perigoso que esta arquitetura tinha. Ele é
+silencioso, e é nosso: não é do Git nem do Supabase.
+
+O `14-espelho.cmd` copia o projeto INTEIRO para `_espelho/`. O espelho
+é, portanto, uma fotografia de um instante. Até aqui o `15-aplicar.cmd`
+devolvia ao projeto todo arquivo cujo conteúdo estivesse diferente. Com
+duas pessoas:
+
+> Segunda, a Marina roda o `14`. O espelho dela é a foto de segunda.
+> Terça, o André publica uma melhoria. Quarta, a Marina dá `git pull`,
+> recebe a terça do André, pede uma coisa ao Claude, que escreve dois
+> arquivos no espelho dela, e roda o `15`. O `15` devolve tudo o que
+> está diferente, inclusive a terça do André, que na foto de segunda
+> ainda é a versão velha. A melhoria dele é desfeita, a compilação
+> passa (o código é coerente, só é mais velho) e ninguém percebe.
+
+O mesmo atingia quem trabalha sozinho: fotografar, editar um arquivo no
+VS Code e aplicar revertia a edição.
+
+**A correção.** O `enviar` grava em `_origem.txt` o resumo
+criptográfico de cada arquivo, mais o commit e o ramo de onde a
+fotografia saiu. O `voltar` recalcula os resumos e devolve ao projeto
+**só os arquivos que mudaram dentro do espelho** — que são exatamente
+os que o Claude escreveu. O resto é fotografia e nem chega a ser
+comparado com o projeto: não interessa se mudou lá, porque não é esta
+rodada que tem o que dizer sobre ele.
+
+O espelho deixou de ser "restaure tudo" e virou "aplique estas
+mudanças", que é o que ele sempre deveria ter sido.
+
+Duas consequências de propósito. Arquivo apagado do projeto à mão não
+volta mais sozinho: o espelho nunca foi backup, quem guarda versão é o
+Git. E espelho feito por uma versão anterior do script, sem
+`_origem.txt`, volta ao comportamento antigo avisando na tela o que
+isso significa, em vez de parar de funcionar.
+
+Além disso o `voltar` compara o commit da fotografia com o commit
+atual. Se o projeto andou no meio, ele avisa: nada do que chegou é
+desfeito, mas os arquivos que o Claude escreveu foram pensados olhando
+a versão antiga, e isso merece conferência antes de publicar.
+
+**O teste tem dentes.** Rodado contra a versão anterior do script, a
+conferência "a melhoria do André sobreviveu" FALHA, e o arquivo volta a
+ser "versão de segunda". Teste de regressão que passaria antes da
+correção não vale nada; este reproduz o defeito. São 53 conferências em
+`asp/espelho/`, montando projeto de mentira com Git de verdade.

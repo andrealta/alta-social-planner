@@ -7,6 +7,7 @@ import { reais } from '@/lib/midia'
 import {
   lerCotacao,
   cotacaoDoDia,
+  FONTES_DE_COTACAO,
   emReais,
   diaEmSaoPaulo,
   fatorCartao,
@@ -86,30 +87,50 @@ type MesDaMarca = {
 async function garantirCotacaoDeHoje(
   supabase: SupabaseClient,
   cotacoes: Cotacao[],
-): Promise<Cotacao[]> {
+): Promise<{ cotacoes: Cotacao[]; falha: string | null }> {
   const hoje = diaEmSaoPaulo(new Date())
-  if (!hoje || cotacoes.some((c) => c.dia === hoje)) return cotacoes
+  if (!hoje || cotacoes.some((c) => c.dia === hoje)) return { cotacoes, falha: null }
 
-  try {
-    const r = await fetch('https://economia.awesomeapi.com.br/last/USD-BRL', {
-      cache: 'no-store',
-      signal: AbortSignal.timeout(6000),
-    })
-    if (!r.ok) return cotacoes
-    const valor = lerCotacao(await r.json())
-    if (valor === null) return cotacoes
+  const tropecos: string[] = []
 
-    const { data } = await supabase.rpc('registrar_cotacao', {
-      p_dia: hoje,
-      p_valor: valor,
-      p_fonte: 'awesomeapi',
-    })
-    const guardado = Number(data ?? valor)
-    return [...cotacoes, { dia: hoje, valor: Number.isFinite(guardado) ? guardado : valor }]
-  } catch {
-    // Página de métrica não cai porque uma API de câmbio piscou.
-    return cotacoes
+  for (const fonte of FONTES_DE_COTACAO) {
+    try {
+      const r = await fetch(fonte.url(), {
+        headers: { accept: 'application/json' },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(6000),
+      })
+      if (!r.ok) {
+        tropecos.push(`${fonte.nome} respondeu HTTP ${r.status}`)
+        continue
+      }
+      const valor = lerCotacao(await r.json())
+      if (valor === null) {
+        tropecos.push(`${fonte.nome} respondeu num formato que não reconheci`)
+        continue
+      }
+
+      const { data, error } = await supabase.rpc('registrar_cotacao', {
+        p_dia: hoje,
+        p_valor: valor,
+        p_fonte: fonte.nome,
+      })
+      if (error) {
+        tropecos.push(`${fonte.nome} trouxe ${valor}, mas o banco recusou: ${error.message}`)
+        continue
+      }
+      const guardado = Number(data ?? valor)
+      return {
+        cotacoes: [...cotacoes, { dia: hoje, valor: Number.isFinite(guardado) ? guardado : valor }],
+        falha: null,
+      }
+    } catch (e) {
+      // Página de métrica não cai porque uma API de câmbio piscou.
+      tropecos.push(`${fonte.nome}: ${e instanceof Error ? e.message : 'não respondeu'}`)
+    }
   }
+
+  return { cotacoes, falha: tropecos.join(' · ') || 'nenhuma fonte respondeu' }
 }
 
 export default async function Precisao({
@@ -163,15 +184,30 @@ export default async function Precisao({
     dia: String(c.dia),
     valor: Number(c.valor),
   }))
+  let falhaDoCambio: string | null = null
   if (admin && (corridas ?? []).length > 0) {
-    cotacoes = await garantirCotacaoDeHoje(supabase, cotacoes)
+    const r = await garantirCotacaoDeHoje(supabase, cotacoes)
+    cotacoes = r.cotacoes
+    falhaDoCambio = r.falha
   }
+
+  /**
+   * Quantas chamadas foram convertidas pela cotação de OUTRO dia.
+   *
+   * Converter pelo dia mais próximo é honesto e é melhor que não
+   * converter, mas a tela precisa dizer que fez isso — senão um valor
+   * aproximado passa por exato, que é o defeito que esta página toda
+   * existe para não cometer.
+   */
+  let aproximadas = 0
 
   /** Converte pela cotação do dia da chamada, com o acréscimo do cartão. */
   const converter = (usd: number, dia: string | undefined): number => {
     if (!dia) return 0
     const c = cotacaoDoDia(cotacoes, dia)
-    return c ? emReais(usd, c.valor) : 0
+    if (!c) return 0
+    if (!c.exata && usd > 0) aproximadas++
+    return emReais(usd, c.valor)
   }
   const temReal = cotacoes.length > 0
 
@@ -842,11 +878,30 @@ export default async function Precisao({
                 cotação, que é o que chega na fatura do cartão.
                 {custoTotal.semCotacao > 0 &&
                   ` ${custoTotal.semCotacao} chamada(s) ficaram sem cotação do dia e entram só no total em dólar.`}
+                {aproximadas > 0 && (
+                  <>
+                    {' '}
+                    <b style={{ color: 'var(--text)' }}>
+                      {aproximadas} chamada(s) foram convertidas pela cotação de outro dia
+                    </b>
+                    , o mais próximo com cotação guardada. Rodar o <code>25-cotacao.cmd</code>{' '}
+                    preenche os dias que faltam.
+                  </>
+                )}
               </>
             ) : (
               <>
-                Ainda não há cotação guardada, então os valores aparecem em dólar. A primeira
-                cotação é buscada automaticamente no próximo acesso a esta página.
+                Ainda não há cotação guardada, então os valores aparecem em dólar.
+                {falhaDoCambio ? (
+                  <>
+                    {' '}
+                    Tentei buscar agora e não consegui: <b style={{ color: 'var(--text)' }}>{falhaDoCambio}</b>.
+                    O <code>25-cotacao.cmd</code> testa as mesmas fontes a partir da sua máquina e
+                    mostra a resposta crua de cada uma.
+                  </>
+                ) : (
+                  ' A primeira cotação é buscada automaticamente no próximo acesso a esta página.'
+                )}
               </>
             )}
           </div>

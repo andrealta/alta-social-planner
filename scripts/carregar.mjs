@@ -13,6 +13,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import postgres from 'postgres'
+import { confirmarEmProducao } from './ambiente.mjs'
 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -46,6 +47,26 @@ console.log('============================================')
 console.log(' Carga das marcas')
 console.log(' ' + new Date().toLocaleString('pt-BR'))
 console.log('============================================\n')
+
+// ------------------------------------------------------------------
+// A pergunta antes de agir
+// ------------------------------------------------------------------
+//
+// Este script grava brand_knowledge com `on conflict do update`. Rodar
+// apontando para producao com um carga.json desatualizado SUBSTITUI a
+// base de conhecimento construida de cada cliente pelos dados de
+// exemplo. Nao ha desfazer: a base anterior nao fica guardada em lugar
+// nenhum.
+//
+// Enquanto so uma pessoa mexia no sistema, ela sabia disso de cor. Com
+// mais gente, e uma delas aprendendo, a pergunta digitada e barata e o
+// engano e caro.
+const marcas = (carga.marcas ?? []).map((m) => m.nome ?? m.name ?? m.slug).filter(Boolean)
+const acao =
+  `gravar ${marcas.length} marca(s) do carga.json, SUBSTITUINDO a base de conhecimento delas` +
+  (marcas.length ? `\n   Marcas: ${marcas.join(', ')}` : '')
+
+if (!(await confirmarEmProducao(env, acao))) process.exit(1)
 
 const sql = postgres(url, {
   max: 1,

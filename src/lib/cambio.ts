@@ -108,6 +108,45 @@ export function lerCotacao(bruto: unknown): number | null {
   return null
 }
 
+/**
+ * De onde a cotação vem, em ordem.
+ *
+ * Três, e não uma, porque a primeira já falhou uma vez em produção e
+ * a página ficou mostrando dólar sem ninguém saber por quê. Uma fonte
+ * só é um ponto único de falha numa tela que a agência olha para
+ * decidir preço.
+ *
+ * `lerCotacao` entende os três formatos, então a página não precisa
+ * saber qual respondeu. O `scripts/cotacao.mjs` faz a mesma coisa com
+ * leitura campo a campo e muito mais conversa na tela: lá o objetivo é
+ * diagnosticar, aqui é só conseguir o número.
+ */
+export const FONTES_DE_COTACAO: { nome: string; url: () => string }[] = [
+  {
+    nome: 'awesomeapi',
+    url: () => 'https://economia.awesomeapi.com.br/last/USD-BRL',
+  },
+  {
+    nome: 'frankfurter',
+    url: () => 'https://api.frankfurter.app/latest?from=USD&to=BRL',
+  },
+  {
+    // O PTAX só sai em dia útil e no meio da tarde. Pedindo os últimos
+    // dez dias, pega o último que existir.
+    nome: 'ptax',
+    url: () => {
+      const f = (x: Date) =>
+        `${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}-${x.getFullYear()}`
+      const de = new Date(Date.now() - 10 * 86400000)
+      return (
+        'https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/' +
+        `CotacaoDolarPeriodo(dataInicial=@di,dataFinalCotacao=@df)?@di='${f(de)}'` +
+        `&@df='${f(new Date())}'&$format=json`
+      )
+    },
+  },
+]
+
 export type Cotacao = { dia: string; valor: number }
 
 /**

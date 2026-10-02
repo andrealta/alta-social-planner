@@ -19,6 +19,7 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import postgres from 'postgres'
+import { avisar } from './ambiente.mjs'
 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -76,6 +77,10 @@ if (url.includes('[YOUR-PASSWORD]') || url.includes('SUA-SENHA')) {
 }
 
 console.log('Servidor: ' + servidorDe(url))
+
+// Em qual banco. Migracao e operacao normal em producao, entao aqui o
+// aviso informa e nao trava — ver scripts/ambiente.mjs.
+avisar(env, 'aplicar migracoes')
 console.log('')
 
 const sql = postgres(url, {
